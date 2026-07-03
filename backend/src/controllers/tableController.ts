@@ -294,8 +294,10 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
         CASE
           WHEN EXISTS (
             SELECT 1
-            FROM [PurchaseOrderDetail]
-            WHERE [PurchaseOrderDetail].[ItemID] = [Item].[ItemID]
+            FROM [PurchaseOrderDetail] AS [pod]
+            INNER JOIN [PurchaseOrder] AS [po]
+              ON [po].[PurchaseOrderID] = [pod].[PurchaseOrderID]
+            WHERE [pod].[ItemID] = [Item].[ItemID]
           ) THEN CAST(1 AS bit)
           ELSE CAST(0 AS bit)
         END AS [HasPurchaseOrder],

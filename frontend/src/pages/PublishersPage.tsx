@@ -8,6 +8,9 @@ import { tableAPI } from '../services/api';
 
 interface Publisher {
   [key: string]: any;
+  PublisherID?: number;
+  PublisherName?: string;
+  PublisherURL?: string | null;
 }
 
 type SortDirection = 'asc' | 'desc' | null;
@@ -141,6 +144,7 @@ export default function PublishersPage() {
                     {getSortIcon()}
                   </div>
                 </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold">Publisher URL</th>
                 <th className="px-6 py-3 text-right text-sm font-semibold">Actions</th>
               </tr>
             </thead>
@@ -148,6 +152,21 @@ export default function PublishersPage() {
               {Array.isArray(getSortedRecords()) && getSortedRecords().map((record: Publisher) => (
                 <tr key={record.PublisherID} className="hover:bg-gray-50">
                   <td className="px-6 py-4">{record.PublisherName}</td>
+                  <td className="px-6 py-4">
+                    {record.PublisherURL ? (
+                      <a
+                        href={record.PublisherURL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 hover:text-blue-700 underline break-all"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {record.PublisherURL}
+                      </a>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 text-right space-x-2">
                     <button
                       onClick={() => setEditingId(String(record.PublisherID))}
