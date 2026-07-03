@@ -1,31 +1,81 @@
-import { useState } from 'react';
-import { Menu, X, Settings } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Menu, X, BookOpen } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { appAPI } from '../services/api';
+import { FRONTEND_BUILD_TIME_ISO } from '../generated/buildInfo';
 
 interface SidebarItem {
   id: string;
   label: string;
   path: string;
-  icon?: React.ReactNode;
 }
 
-const MAINTENANCE_ITEMS: SidebarItem[] = [
-  { id: 'collection', label: 'Collections', path: '/admin/collections' },
-  { id: 'category', label: 'Categories', path: '/admin/categories' },
-  { id: 'categorysubtype', label: 'Category Subtypes', path: '/admin/category-subtypes' },
+const SETUP_ITEMS: SidebarItem[] = [
   { id: 'publisher', label: 'Publishers', path: '/admin/publishers' },
-  { id: 'publishercollection', label: 'Publisher Collections', path: '/admin/publisher-collections' },
-  { id: 'inventory', label: 'Inventory Lookup', path: '/admin/inventory' },
+  { id: 'collection', label: 'Collections', path: '/admin/collections' },
+  { id: 'publishercollection', label: 'Publisher/Collections', path: '/admin/publisher-collections' },
+  { id: 'category', label: 'Categories', path: '/admin/categories' },
+  { id: 'subtype', label: 'Sub Categories', path: '/admin/subtypes' },
+  { id: 'categorysubtype', label: 'Category/Sub Categories', path: '/admin/category-subtypes' },
   { id: 'status', label: 'Status', path: '/admin/status' },
-  { id: 'store', label: 'Stores', path: '/admin/stores' },
-  { id: 'subtype', label: 'Subtypes', path: '/admin/subtypes' },
 ];
+
+const INVENTORY_ITEMS: SidebarItem[] = [
+  { id: 'inventory', label: 'Item Master', path: '/admin/inventory' },
+  { id: 'ordermaster', label: 'Order Master', path: '/admin/order-master' },
+  { id: 'store', label: 'Stores', path: '/admin/stores' },
+];
+
+type NavTab = 'setup' | 'inventory';
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(true);
   const location = useLocation();
 
+  const { data: buildInfoResponse } = useQuery({
+    queryKey: ['buildInfo'],
+    queryFn: async () => {
+      const response = await appAPI.getBuildInfo();
+      return response.data;
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  const initialTab: NavTab =
+    INVENTORY_ITEMS.some((item) => item.path === location.pathname) ? 'inventory' : 'setup';
+  const [activeTab, setActiveTab] = useState<NavTab>(initialTab);
+
+  useEffect(() => {
+    if (INVENTORY_ITEMS.some((item) => item.path === location.pathname)) {
+      setActiveTab('inventory');
+      return;
+    }
+
+    if (SETUP_ITEMS.some((item) => item.path === location.pathname)) {
+      setActiveTab('setup');
+    }
+  }, [location.pathname]);
+
   const isActive = (path: string) => location.pathname === path;
+  const visibleItems = activeTab === 'setup' ? SETUP_ITEMS : INVENTORY_ITEMS;
+
+  const formatBuildDateTime = (value?: string) => {
+    if (!value || value === 'unknown') {
+      return 'Unknown';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+
+    return parsed.toLocaleString();
+  };
+
+  const backendBuildLabel = formatBuildDateTime(buildInfoResponse?.backendBuildTimeIso);
+  const frontendBuildLabel = formatBuildDateTime(FRONTEND_BUILD_TIME_ISO);
 
   return (
     <>
@@ -43,19 +93,56 @@ export default function Sidebar() {
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-8">
-            <Settings className="w-8 h-8 text-blue-400" />
-            <h2 className="text-xl font-bold">Admin</h2>
+        <div className="p-6 h-full flex flex-col">
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-2">
+              <BookOpen className="w-8 h-8 text-blue-400" />
+              <h2 className="text-xl font-bold">Arcane Repository</h2>
+            </div>
+            <p className="text-sm text-gray-400">Collection Manager</p>
           </div>
 
-          <nav className="space-y-2">
+          <nav className="space-y-2 flex-1">
             <div className="mb-6">
-              <h3 className="text-xs uppercase text-gray-400 font-semibold mb-3 px-3">
-                Maintenance
-              </h3>
+              <Link
+                to="/"
+                onClick={() => setIsOpen(false)}
+                className={`block px-4 py-2 rounded-lg transition mb-3 ${
+                  isActive('/')
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-800'
+                }`}
+              >
+                Home
+              </Link>
+
+              <div className="grid grid-cols-2 gap-2 bg-gray-800 rounded-lg p-1 mb-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('setup')}
+                  className={`px-3 py-2 text-sm rounded-md transition ${
+                    activeTab === 'setup'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  Setup
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('inventory')}
+                  className={`px-3 py-2 text-sm rounded-md transition ${
+                    activeTab === 'inventory'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  Inventory
+                </button>
+              </div>
+
               <div className="space-y-1">
-                {MAINTENANCE_ITEMS.map((item) => (
+                {visibleItems.map((item) => (
                   <Link
                     key={item.id}
                     to={item.path}
@@ -71,17 +158,18 @@ export default function Sidebar() {
                 ))}
               </div>
             </div>
-
-            <div className="border-t border-gray-700 pt-4">
-              <Link
-                to="/"
-                onClick={() => setIsOpen(false)}
-                className="block px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-800 transition"
-              >
-                ← Back to Catalog
-              </Link>
-            </div>
           </nav>
+
+          <div className="mt-auto border-t border-gray-700 pt-4 text-xs text-gray-400 space-y-3">
+            <div>
+              <div className="font-semibold text-gray-300">Backend Build:</div>
+              <div>{backendBuildLabel}</div>
+            </div>
+            <div>
+              <div className="font-semibold text-gray-300">Frontend Build:</div>
+              <div>{frontendBuildLabel}</div>
+            </div>
+          </div>
         </div>
       </aside>
 

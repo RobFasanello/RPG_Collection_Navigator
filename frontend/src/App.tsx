@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import TableBrowser from './components/TableBrowser';
+import HomePage from './pages/HomePage';
 import CollectionsPage from './pages/CollectionsPage';
 import CategoriesPage from './pages/CategoriesPage';
 import SubTypesPage from './pages/SubTypesPage';
@@ -10,6 +10,7 @@ import StoresPage from './pages/StoresPage';
 import CategorySubTypesPage from './pages/CategorySubTypesPage';
 import PublisherCollectionsPage from './pages/PublisherCollectionsPage';
 import InventoryLookupPage from './pages/InventoryLookupPage';
+import OrderMasterPage from './pages/OrderMasterPage';
 import './index.css';
 
 const queryClient = new QueryClient();
@@ -19,7 +20,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <Router>
         <Routes>
-          <Route path="/" element={<TableBrowser />} />
+          <Route path="/" element={<HomePage />} />
           <Route path="/admin/collections" element={<CollectionsPage />} />
           <Route path="/admin/categories" element={<CategoriesPage />} />
           <Route path="/admin/subtypes" element={<SubTypesPage />} />
@@ -29,6 +30,7 @@ function App() {
           <Route path="/admin/category-subtypes" element={<CategorySubTypesPage />} />
           <Route path="/admin/publisher-collections" element={<PublisherCollectionsPage />} />
           <Route path="/admin/inventory" element={<InventoryLookupPage />} />
+          <Route path="/admin/order-master" element={<OrderMasterPage />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>

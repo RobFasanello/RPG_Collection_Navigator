@@ -93,11 +93,11 @@ export default function CollectionsPage() {
           </Button>
         </div>
 
-        {isAdding || editingId ? (
+        {isAdding || editingId !== null ? (
           <div className="mb-8 bg-white p-6 rounded-lg shadow">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">
-                {editingId ? 'Edit Collection' : 'New Collection'}
+                {editingId !== null ? 'Edit Collection' : 'New Collection'}
               </h2>
               <button
                 onClick={() => {
@@ -111,7 +111,11 @@ export default function CollectionsPage() {
             </div>
             <RecordForm
               tableName={tableName}
-              recordId={editingId || undefined}
+              recordId={editingId ?? undefined}
+              onClose={() => {
+                setIsAdding(false);
+                setEditingId(null);
+              }}
               onSuccess={() => {
                 setIsAdding(false);
                 setEditingId(null);

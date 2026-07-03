@@ -1,5 +1,7 @@
 @echo off
+setlocal
 REM RPG Collection Manager - Quick Start Script
+set "SCRIPT_DIR=%~dp0"
 
 echo.
 echo ========================================
@@ -22,7 +24,11 @@ echo.
 
 REM Setup Backend
 echo Setting up Backend...
-cd backend
+pushd "%SCRIPT_DIR%backend" || (
+    echo ERROR: Could not access backend folder at "%SCRIPT_DIR%backend"
+    pause
+    exit /b 1
+)
 if not exist node_modules (
     echo Installing backend dependencies...
     call npm install
@@ -42,12 +48,16 @@ if not exist .env (
     echo.
 )
 
-cd ..
+popd
 
 REM Setup Frontend
 echo.
 echo Setting up Frontend...
-cd frontend
+pushd "%SCRIPT_DIR%frontend" || (
+    echo ERROR: Could not access frontend folder at "%SCRIPT_DIR%frontend"
+    pause
+    exit /b 1
+)
 if not exist node_modules (
     echo Installing frontend dependencies...
     call npm install
@@ -55,7 +65,7 @@ if not exist node_modules (
     echo Frontend dependencies already installed
 )
 
-cd ..
+popd
 
 echo.
 echo ========================================
@@ -75,3 +85,4 @@ echo.
 echo Then open your browser to: http://localhost:5173
 echo.
 pause
+endlocal

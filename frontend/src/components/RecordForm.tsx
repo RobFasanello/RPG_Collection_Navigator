@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { tablesAPI } from '../services/api';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -12,20 +12,107 @@ interface RecordFormProps {
   onSuccess?: () => void;
 }
 
+const isTruthyFlag = (value: unknown): boolean => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return normalized === '1' || normalized === 'true' || normalized === 'yes';
+  }
+  return false;
+};
+
 export default function RecordForm({
   tableName,
-  schema = [],
+  schema,
   recordId,
   onClose,
   onSuccess,
 }: RecordFormProps) {
+  const [schemaState, setSchemaState] = useState<any[]>(schema ?? []);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(false);
   const [error, setError] = useState('');
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  useEffect(() => {
+    if (schema !== undefined) {
+      setSchemaState(schema);
+    }
+  }, [schema]);
+
+  useEffect(() => {
+    if (schemaState.length > 0) {
+      return;
+    }
+
+    let cancelled = false;
+    const loadSchema = async () => {
+      setFetching(true);
+      try {
+        const response = await tablesAPI.getTableSchema(tableName);
+        if (!cancelled) {
+          setSchemaState(response.data);
+        }
+      } catch (err) {
+        console.error('Error loading schema for record form:', err);
+      } finally {
+        if (!cancelled) {
+          setFetching(false);
+        }
+      }
+    };
+
+    loadSchema();
+    return () => {
+      cancelled = true;
+    };
+  }, [schemaState.length, tableName]);
+
+  useEffect(() => {
+    if (recordId === null || recordId === undefined) {
+      setFormData({});
+      return;
+    }
+
+    let cancelled = false;
+    const loadRecord = async () => {
+      setFetching(true);
+      try {
+        const response = await tablesAPI.getRecord(tableName, recordId);
+        if (!cancelled) {
+          const record = response.data ?? {};
+          const filteredRecord = Object.entries(record).reduce(
+            (acc, [key, value]) => {
+              const column = schemaState.find((col) => col.COLUMN_NAME === key);
+              if (isTruthyFlag(column?.IS_IDENTITY) || isTruthyFlag(column?.IS_COMPUTED)) {
+                return acc;
+              }
+              acc[key] = value;
+              return acc;
+            },
+            {} as Record<string, any>
+          );
+          setFormData(filteredRecord);
+        }
+      } catch (err) {
+        console.error('Error loading record for edit:', err);
+      } finally {
+        if (!cancelled) {
+          setFetching(false);
+        }
+      }
+    };
+
+    loadRecord();
+    return () => {
+      cancelled = true;
+    };
+  }, [tableName, recordId, schemaState]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -33,10 +120,19 @@ export default function RecordForm({
     setError('');
 
     try {
-      if (recordId) {
-        await tablesAPI.updateRecord(tableName, recordId, formData);
+      const payload = Object.entries(formData).reduce((acc, [key, value]) => {
+        const column = schemaState.find((col) => col.COLUMN_NAME === key);
+        if (isTruthyFlag(column?.IS_IDENTITY) || isTruthyFlag(column?.IS_COMPUTED)) {
+          return acc;
+        }
+        acc[key] = value;
+        return acc;
+      }, {} as Record<string, any>);
+
+      if (recordId !== null && recordId !== undefined) {
+        await tablesAPI.updateRecord(tableName, recordId, payload);
       } else {
-        await tablesAPI.createRecord(tableName, formData);
+        await tablesAPI.createRecord(tableName, payload);
       }
       if (onSuccess) {
         onSuccess();
@@ -55,7 +151,7 @@ export default function RecordForm({
       <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold">
-            {recordId ? 'Edit Record' : 'Create New Record'}
+            {recordId !== null && recordId !== undefined ? 'Edit Record' : 'Create New Record'}
           </h3>
           <button
             onClick={onClose}
@@ -71,10 +167,12 @@ export default function RecordForm({
           </div>
         )}
 
+        {fetching && <p className="text-gray-500">Loading record...</p>}
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          {schema?.map((col: any) => {
+          {schemaState?.map((col: any) => {
             // Skip identity and computed columns
-            if (col.IS_IDENTITY || col.IS_COMPUTED) {
+            if (isTruthyFlag(col.IS_IDENTITY) || isTruthyFlag(col.IS_COMPUTED)) {
               return null;
             }
 
@@ -104,7 +202,7 @@ export default function RecordForm({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || fetching}>
               {loading ? 'Saving...' : 'Save Record'}
             </Button>
           </div>

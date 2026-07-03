@@ -1,9 +1,13 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type MouseEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link2 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import ComboMultiSelect from '../components/ui/ComboMultiSelect';
+import { Dialog } from '../components/ui/Dialog';
+import LinkedOrderDetailModal, { type LinkedPurchaseOrder } from '../components/order/LinkedOrderDetailModal';
 import { tablesAPI } from '../services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
 
@@ -16,6 +20,7 @@ interface InventoryItem {
   CollectionID: number;
   CategoryID: number;
   SubTypeID: number;
+  HasPurchaseOrder?: boolean;
   PublisherName: string;
   CollectionName: string;
   CategoryName: string;
@@ -23,11 +28,13 @@ interface InventoryItem {
 }
 
 export default function InventoryLookupPage() {
+  const [urlSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<string>('ItemName');
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('ASC');
   const [filterValues, setFilterValues] = useState({
     itemName: '',
+    productID: '',
     // publisherName is now an array of selected publisher names
     publisherName: [] as string[],
     collectionName: [] as string[],
@@ -46,6 +53,26 @@ export default function InventoryLookupPage() {
     SubTypeID: '',
   });
   const [editError, setEditError] = useState('');
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const [addValues, setAddValues] = useState({
+    ItemName: '',
+    ProductID: '',
+    ReleaseDate: '',
+    PublisherID: '',
+    CollectionID: '',
+    CategoryID: '',
+    SubTypeID: '',
+  });
+  const [addError, setAddError] = useState('');
+  const [isRelatedOrdersModalOpen, setIsRelatedOrdersModalOpen] = useState(false);
+  const [selectedItemForRelatedOrders, setSelectedItemForRelatedOrders] = useState<InventoryItem | null>(null);
+  const [relatedOrdersLoading, setRelatedOrdersLoading] = useState(false);
+  const [relatedOrdersError, setRelatedOrdersError] = useState('');
+  const [relatedOrders, setRelatedOrders] = useState<LinkedPurchaseOrder[]>([]);
+  const [isOrderDetailModalOpen, setIsOrderDetailModalOpen] = useState(false);
+  const [selectedLinkedOrder, setSelectedLinkedOrder] = useState<LinkedPurchaseOrder | null>(null);
+  const [detailTargetItemId, setDetailTargetItemId] = useState<number | null>(null);
+  const [fallbackHasPurchaseOrder, setFallbackHasPurchaseOrder] = useState<Record<number, boolean>>({});
 
   const queryClient = useQueryClient();
 
@@ -54,48 +81,130 @@ export default function InventoryLookupPage() {
     [searchParams, page, sortBy, sortOrder]
   );
 
+  useEffect(() => {
+    const publisher = (urlSearchParams.get('publisher') || '').trim();
+    const collection = (urlSearchParams.get('collection') || '').trim();
+    const item = (urlSearchParams.get('item') || '').trim();
+
+    if (!publisher && !collection && !item) {
+      return;
+    }
+
+    const nextFilters = {
+      itemName: item,
+      productID: '',
+      publisherName: publisher ? [publisher] : [],
+      collectionName: collection ? [collection] : [],
+      categoryName: [] as string[],
+      subTypeName: [] as string[],
+    };
+
+    setFilterValues(nextFilters);
+    setSearchParams(nextFilters);
+    setPage(1);
+  }, [urlSearchParams]);
+
+  const parseDateParts = (value?: string | Date | null) => {
+    if (!value) {
+      return null;
+    }
+
+    if (value instanceof Date) {
+      if (Number.isNaN(value.getTime())) {
+        return null;
+      }
+      return {
+        year: value.getUTCFullYear(),
+        month: value.getUTCMonth() + 1,
+        day: value.getUTCDate(),
+      };
+    }
+
+    const raw = String(value).trim();
+    if (!raw) {
+      return null;
+    }
+
+    const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) {
+      return {
+        year: Number(iso[1]),
+        month: Number(iso[2]),
+        day: Number(iso[3]),
+      };
+    }
+
+    const mdy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (mdy) {
+      return {
+        year: Number(mdy[3]),
+        month: Number(mdy[1]),
+        day: Number(mdy[2]),
+      };
+    }
+
+    return null;
+  };
+
   const formatReleaseDate = (date?: string) => {
-    if (!date) {
-      return '-';
+    const parts = parseDateParts(date);
+    if (!parts) {
+      return date || '-';
     }
 
-    const parsed = new Date(date);
-    if (Number.isNaN(parsed.getTime())) {
-      return date;
-    }
-
-    const day = String(parsed.getDate()).padStart(2, '0');
-    const month = String(parsed.getMonth() + 1).padStart(2, '0');
-    const year = parsed.getFullYear();
-    return `${month}/${day}/${year}`;
+    return `${String(parts.month).padStart(2, '0')}/${String(parts.day).padStart(2, '0')}/${parts.year}`;
   };
 
   const formatReleaseDateForModal = (date?: string) => {
-    if (!date) {
-      return '';
+    const parts = parseDateParts(date);
+    if (!parts) {
+      return date || '';
     }
 
-    const parsed = new Date(date);
-    if (Number.isNaN(parsed.getTime())) {
-      return date;
-    }
-
-    const day = String(parsed.getDate()).padStart(2, '0');
-    const month = String(parsed.getMonth() + 1).padStart(2, '0');
-    const year = parsed.getFullYear();
-    return `${month}/${day}/${year}`;
+    return `${String(parts.month).padStart(2, '0')}/${String(parts.day).padStart(2, '0')}/${parts.year}`;
   };
 
   const normalizeReleaseDateForSave = (date: string) => {
-    const parsed = new Date(date);
-    if (Number.isNaN(parsed.getTime())) {
-      return date;
+    const raw = date.trim();
+    if (!raw) {
+      return raw;
     }
 
-    const day = String(parsed.getDate()).padStart(2, '0');
-    const month = String(parsed.getMonth() + 1).padStart(2, '0');
-    const year = parsed.getFullYear();
-    return `${year}-${month}-${day}`;
+    // Accept MM/DD/YYYY input from edit modal.
+    const mdy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (mdy) {
+      const month = Number(mdy[1]);
+      const day = Number(mdy[2]);
+      const year = Number(mdy[3]);
+      const candidate = new Date(year, month - 1, day);
+      if (
+        candidate.getFullYear() === year &&
+        candidate.getMonth() === month - 1 &&
+        candidate.getDate() === day
+      ) {
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+      return raw;
+    }
+
+    // Accept YYYY-MM-DD input from date picker.
+    const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) {
+      const year = Number(iso[1]);
+      const month = Number(iso[2]);
+      const day = Number(iso[3]);
+      const candidate = new Date(year, month - 1, day);
+      if (
+        candidate.getFullYear() === year &&
+        candidate.getMonth() === month - 1 &&
+        candidate.getDate() === day
+      ) {
+        return raw;
+      }
+      return raw;
+    }
+
+    return raw;
   };
 
   // Load publisher options for the multi-select
@@ -103,32 +212,391 @@ export default function InventoryLookupPage() {
     const resp = await tablesAPI.getTableData('Publisher', 1, 100);
     return resp.data;
   });
-  const publisherOptions = (publisherResp?.data || []).map((p: any) => ({ value: p.PublisherName, label: p.PublisherName }));
-  const publisherSelectOptions = (publisherResp?.data || []).map((p: any) => ({ value: p.PublisherID, label: p.PublisherName }));
 
   // Load collection options for the multi-select
   const { data: collectionResp } = useQuery(['collections'], async () => {
     const resp = await tablesAPI.getTableData('Collection', 1, 500);
     return resp.data;
   });
-  const collectionOptions = (collectionResp?.data || []).map((c: any) => ({ value: c.CollectionName, label: c.CollectionName }));
-  const collectionSelectOptions = (collectionResp?.data || []).map((c: any) => ({ value: c.CollectionID, label: c.CollectionName }));
+
+  // Load publisher-collection relationships for dependent filter options
+  const { data: publisherCollectionResp } = useQuery(['publisherCollections'], async () => {
+    const resp = await tablesAPI.getTableData('PublisherCollection', 1, 5000);
+    return resp.data;
+  });
+
+  const publishersData = publisherResp?.data || [];
+  const collectionsData = collectionResp?.data || [];
+  const publisherCollectionLinks = publisherCollectionResp?.data || [];
+
+  const publisherIdByName = useMemo(() => {
+    return publishersData.reduce((map: Record<string, number>, item: any) => {
+      if (item?.PublisherName != null && item?.PublisherID != null) {
+        map[item.PublisherName] = item.PublisherID;
+      }
+      return map;
+    }, {});
+  }, [publishersData]);
+
+  const collectionIdByName = useMemo(() => {
+    return collectionsData.reduce((map: Record<string, number>, item: any) => {
+      if (item?.CollectionName != null && item?.CollectionID != null) {
+        map[item.CollectionName] = item.CollectionID;
+      }
+      return map;
+    }, {});
+  }, [collectionsData]);
+
+  const selectedPublisherIds = useMemo(() => {
+    return (filterValues.publisherName || [])
+      .map((name) => publisherIdByName[name])
+      .filter((id): id is number => typeof id === 'number');
+  }, [filterValues.publisherName, publisherIdByName]);
+
+  const selectedCollectionIds = useMemo(() => {
+    return (filterValues.collectionName || [])
+      .map((name) => collectionIdByName[name])
+      .filter((id): id is number => typeof id === 'number');
+  }, [filterValues.collectionName, collectionIdByName]);
+
+  const allowedCollectionIds = useMemo(() => {
+    if (selectedPublisherIds.length === 0) {
+      return null;
+    }
+
+    const selectedSet = new Set(selectedPublisherIds);
+    const linkedCollections = new Set<number>();
+    for (const link of publisherCollectionLinks) {
+      if (selectedSet.has(link.PublisherID)) {
+        linkedCollections.add(link.CollectionID);
+      }
+    }
+
+    return linkedCollections;
+  }, [selectedPublisherIds, publisherCollectionLinks]);
+
+  const allowedPublisherIds = useMemo(() => {
+    if (selectedCollectionIds.length === 0) {
+      return null;
+    }
+
+    const selectedSet = new Set(selectedCollectionIds);
+    const linkedPublishers = new Set<number>();
+    for (const link of publisherCollectionLinks) {
+      if (selectedSet.has(link.CollectionID)) {
+        linkedPublishers.add(link.PublisherID);
+      }
+    }
+
+    return linkedPublishers;
+  }, [selectedCollectionIds, publisherCollectionLinks]);
+
+  const publisherOptions = useMemo(() => {
+    return publishersData
+      .filter((p: any) => !allowedPublisherIds || allowedPublisherIds.has(p.PublisherID))
+      .map((p: any) => ({ value: p.PublisherName, label: p.PublisherName }));
+  }, [publishersData, allowedPublisherIds]);
+
+  const collectionOptions = useMemo(() => {
+    return collectionsData
+      .filter((c: any) => !allowedCollectionIds || allowedCollectionIds.has(c.CollectionID))
+      .map((c: any) => ({ value: c.CollectionName, label: c.CollectionName }));
+  }, [collectionsData, allowedCollectionIds]);
+
+  const publisherSelectOptions = publishersData.map((p: any) => ({ value: p.PublisherID, label: p.PublisherName }));
+  const collectionSelectOptions = collectionsData.map((c: any) => ({ value: c.CollectionID, label: c.CollectionName }));
+
+  useEffect(() => {
+    if (!allowedCollectionIds) {
+      return;
+    }
+
+    setFilterValues((current) => {
+      const nextCollectionNames = current.collectionName.filter((name) => {
+        const id = collectionIdByName[name];
+        return typeof id === 'number' && allowedCollectionIds.has(id);
+      });
+
+      if (nextCollectionNames.length === current.collectionName.length) {
+        return current;
+      }
+
+      return {
+        ...current,
+        collectionName: nextCollectionNames,
+      };
+    });
+  }, [allowedCollectionIds, collectionIdByName]);
+
+  useEffect(() => {
+    if (!allowedPublisherIds) {
+      return;
+    }
+
+    setFilterValues((current) => {
+      const nextPublisherNames = current.publisherName.filter((name) => {
+        const id = publisherIdByName[name];
+        return typeof id === 'number' && allowedPublisherIds.has(id);
+      });
+
+      if (nextPublisherNames.length === current.publisherName.length) {
+        return current;
+      }
+
+      return {
+        ...current,
+        publisherName: nextPublisherNames,
+      };
+    });
+  }, [allowedPublisherIds, publisherIdByName]);
 
   // Load category options for the multi-select
   const { data: categoryResp } = useQuery(['categories'], async () => {
     const resp = await tablesAPI.getTableData('Category', 1, 500);
     return resp.data;
   });
-  const categoryOptions = (categoryResp?.data || []).map((c: any) => ({ value: c.CategoryName, label: c.CategoryName }));
-  const categorySelectOptions = (categoryResp?.data || []).map((c: any) => ({ value: c.CategoryID, label: c.CategoryName }));
 
   // Load subtype options for the multi-select
   const { data: subTypeResp } = useQuery(['subtypes'], async () => {
     const resp = await tablesAPI.getTableData('SubType', 1, 500);
     return resp.data;
   });
-  const subTypeOptions = (subTypeResp?.data || []).map((s: any) => ({ value: s.SubTypeName, label: s.SubTypeName }));
-  const subTypeSelectOptions = (subTypeResp?.data || []).map((s: any) => ({ value: s.SubTypeID, label: s.SubTypeName }));
+
+  // Load category-subtype relationships for dependent filter options
+  const { data: categorySubTypeResp } = useQuery(['categorySubTypes'], async () => {
+    const resp = await tablesAPI.getTableData('CategorySubType', 1, 5000);
+    return resp.data;
+  });
+
+  const categoriesData = categoryResp?.data || [];
+  const subTypesData = subTypeResp?.data || [];
+  const categorySubTypeLinks = categorySubTypeResp?.data || [];
+
+  const categoryIdByName = useMemo(() => {
+    return categoriesData.reduce((map: Record<string, number>, item: any) => {
+      if (item?.CategoryName != null && item?.CategoryID != null) {
+        map[item.CategoryName] = item.CategoryID;
+      }
+      return map;
+    }, {});
+  }, [categoriesData]);
+
+  const subTypeIdByName = useMemo(() => {
+    return subTypesData.reduce((map: Record<string, number>, item: any) => {
+      if (item?.SubTypeName != null && item?.SubTypeID != null) {
+        map[item.SubTypeName] = item.SubTypeID;
+      }
+      return map;
+    }, {});
+  }, [subTypesData]);
+
+  const selectedCategoryIds = useMemo(() => {
+    return (filterValues.categoryName || [])
+      .map((name) => categoryIdByName[name])
+      .filter((id): id is number => typeof id === 'number');
+  }, [filterValues.categoryName, categoryIdByName]);
+
+  const selectedSubTypeIds = useMemo(() => {
+    return (filterValues.subTypeName || [])
+      .map((name) => subTypeIdByName[name])
+      .filter((id): id is number => typeof id === 'number');
+  }, [filterValues.subTypeName, subTypeIdByName]);
+
+  const allowedSubTypeIds = useMemo(() => {
+    if (selectedCategoryIds.length === 0) {
+      return null;
+    }
+
+    const selectedSet = new Set(selectedCategoryIds);
+    const linkedSubTypes = new Set<number>();
+    for (const link of categorySubTypeLinks) {
+      if (selectedSet.has(link.CategoryID)) {
+        linkedSubTypes.add(link.SubTypeID);
+      }
+    }
+
+    return linkedSubTypes;
+  }, [selectedCategoryIds, categorySubTypeLinks]);
+
+  const allowedCategoryIds = useMemo(() => {
+    if (selectedSubTypeIds.length === 0) {
+      return null;
+    }
+
+    const selectedSet = new Set(selectedSubTypeIds);
+    const linkedCategories = new Set<number>();
+    for (const link of categorySubTypeLinks) {
+      if (selectedSet.has(link.SubTypeID)) {
+        linkedCategories.add(link.CategoryID);
+      }
+    }
+
+    return linkedCategories;
+  }, [selectedSubTypeIds, categorySubTypeLinks]);
+
+  const categoryOptions = useMemo(() => {
+    return categoriesData
+      .filter((c: any) => !allowedCategoryIds || allowedCategoryIds.has(c.CategoryID))
+      .map((c: any) => ({ value: c.CategoryName, label: c.CategoryName }));
+  }, [categoriesData, allowedCategoryIds]);
+
+  const subTypeOptions = useMemo(() => {
+    return subTypesData
+      .filter((s: any) => !allowedSubTypeIds || allowedSubTypeIds.has(s.SubTypeID))
+      .map((s: any) => ({ value: s.SubTypeName, label: s.SubTypeName }));
+  }, [subTypesData, allowedSubTypeIds]);
+
+  const categorySelectOptions = categoriesData.map((c: any) => ({ value: c.CategoryID, label: c.CategoryName }));
+  const subTypeSelectOptions = subTypesData.map((s: any) => ({ value: s.SubTypeID, label: s.SubTypeName }));
+
+  const allowedAddSubTypeIds = useMemo(() => {
+    const categoryId = parseInt(addValues.CategoryID, 10);
+    if (!Number.isInteger(categoryId)) {
+      return null;
+    }
+
+    const ids = new Set<number>();
+    for (const link of categorySubTypeLinks) {
+      if (link.CategoryID === categoryId) {
+        ids.add(link.SubTypeID);
+      }
+    }
+
+    return ids;
+  }, [addValues.CategoryID, categorySubTypeLinks]);
+
+  const allowedAddCollectionIds = useMemo(() => {
+    const publisherId = parseInt(addValues.PublisherID, 10);
+    if (!Number.isInteger(publisherId)) {
+      return null;
+    }
+
+    const ids = new Set<number>();
+    for (const link of publisherCollectionLinks) {
+      if (link.PublisherID === publisherId) {
+        ids.add(link.CollectionID);
+      }
+    }
+
+    return ids;
+  }, [addValues.PublisherID, publisherCollectionLinks]);
+
+  const allowedEditSubTypeIds = useMemo(() => {
+    const categoryId = parseInt(editValues.CategoryID, 10);
+    if (!Number.isInteger(categoryId)) {
+      return null;
+    }
+
+    const ids = new Set<number>();
+    for (const link of categorySubTypeLinks) {
+      if (link.CategoryID === categoryId) {
+        ids.add(link.SubTypeID);
+      }
+    }
+
+    return ids;
+  }, [editValues.CategoryID, categorySubTypeLinks]);
+
+  const addSubTypeSelectOptions = useMemo(() => {
+    return subTypeSelectOptions.filter((option: { value: string | number; label: string }) =>
+      !allowedAddSubTypeIds || allowedAddSubTypeIds.has(Number(option.value))
+    );
+  }, [subTypeSelectOptions, allowedAddSubTypeIds]);
+
+  const addCollectionSelectOptions = useMemo(() => {
+    return collectionSelectOptions.filter((option: { value: string | number; label: string }) =>
+      !allowedAddCollectionIds || allowedAddCollectionIds.has(Number(option.value))
+    );
+  }, [collectionSelectOptions, allowedAddCollectionIds]);
+
+  const editSubTypeSelectOptions = useMemo(() => {
+    return subTypeSelectOptions.filter((option: { value: string | number; label: string }) =>
+      !allowedEditSubTypeIds || allowedEditSubTypeIds.has(Number(option.value))
+    );
+  }, [subTypeSelectOptions, allowedEditSubTypeIds]);
+
+  useEffect(() => {
+    if (!allowedSubTypeIds) {
+      return;
+    }
+
+    setFilterValues((current) => {
+      const nextSubTypeNames = current.subTypeName.filter((name) => {
+        const id = subTypeIdByName[name];
+        return typeof id === 'number' && allowedSubTypeIds.has(id);
+      });
+
+      if (nextSubTypeNames.length === current.subTypeName.length) {
+        return current;
+      }
+
+      return {
+        ...current,
+        subTypeName: nextSubTypeNames,
+      };
+    });
+  }, [allowedSubTypeIds, subTypeIdByName]);
+
+  useEffect(() => {
+    if (!allowedCategoryIds) {
+      return;
+    }
+
+    setFilterValues((current) => {
+      const nextCategoryNames = current.categoryName.filter((name) => {
+        const id = categoryIdByName[name];
+        return typeof id === 'number' && allowedCategoryIds.has(id);
+      });
+
+      if (nextCategoryNames.length === current.categoryName.length) {
+        return current;
+      }
+
+      return {
+        ...current,
+        categoryName: nextCategoryNames,
+      };
+    });
+  }, [allowedCategoryIds, categoryIdByName]);
+
+  useEffect(() => {
+    if (!allowedAddSubTypeIds || !addValues.SubTypeID) {
+      return;
+    }
+
+    const subTypeId = parseInt(addValues.SubTypeID, 10);
+    if (!Number.isInteger(subTypeId) || allowedAddSubTypeIds.has(subTypeId)) {
+      return;
+    }
+
+    setAddValues((current) => ({ ...current, SubTypeID: '' }));
+  }, [allowedAddSubTypeIds, addValues.SubTypeID]);
+
+  useEffect(() => {
+    if (!allowedAddCollectionIds || !addValues.CollectionID) {
+      return;
+    }
+
+    const collectionId = parseInt(addValues.CollectionID, 10);
+    if (!Number.isInteger(collectionId) || allowedAddCollectionIds.has(collectionId)) {
+      return;
+    }
+
+    setAddValues((current) => ({ ...current, CollectionID: '' }));
+  }, [allowedAddCollectionIds, addValues.CollectionID]);
+
+  useEffect(() => {
+    if (!allowedEditSubTypeIds || !editValues.SubTypeID) {
+      return;
+    }
+
+    const subTypeId = parseInt(editValues.SubTypeID, 10);
+    if (!Number.isInteger(subTypeId) || allowedEditSubTypeIds.has(subTypeId)) {
+      return;
+    }
+
+    setEditValues((current) => ({ ...current, SubTypeID: '' }));
+  }, [allowedEditSubTypeIds, editValues.SubTypeID]);
 
   const { data, isLoading, error } = useQuery<
     {
@@ -142,8 +610,32 @@ export default function InventoryLookupPage() {
   >({
     queryKey,
     queryFn: async () => {
+      const cleanedParams = Object.entries(searchParams).reduce((acc, [key, value]) => {
+        if (Array.isArray(value)) {
+          const nonEmptyValues = value.filter((entry) => typeof entry === 'string' && entry.trim().length > 0);
+          if (nonEmptyValues.length > 0) {
+            acc[key] = nonEmptyValues;
+          }
+          return acc;
+        }
+
+        if (typeof value === 'string') {
+          const trimmed = value.trim();
+          if (trimmed.length > 0) {
+            acc[key] = trimmed;
+          }
+          return acc;
+        }
+
+        if (value !== null && value !== undefined) {
+          acc[key] = value;
+        }
+
+        return acc;
+      }, {} as Record<string, any>);
+
       const response = await tablesAPI.getInventoryItems({
-        ...searchParams,
+        ...cleanedParams,
         page,
         pageSize: 50,
         sortBy,
@@ -203,6 +695,7 @@ export default function InventoryLookupPage() {
   const clearFilters = () => {
     setFilterValues({
       itemName: '',
+      productID: '',
       publisherName: [],
       collectionName: [],
       categoryName: [],
@@ -210,6 +703,7 @@ export default function InventoryLookupPage() {
     });
     setSearchParams({
       itemName: '',
+      productID: '',
       publisherName: [],
       collectionName: [],
       categoryName: [],
@@ -232,6 +726,88 @@ export default function InventoryLookupPage() {
     setEditError('');
   };
 
+  const handleOpenRelatedOrders = async (item: InventoryItem, event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setSelectedItemForRelatedOrders(item);
+    setRelatedOrders([]);
+    setRelatedOrdersError('');
+    setRelatedOrdersLoading(true);
+    setIsRelatedOrdersModalOpen(true);
+
+    try {
+      const response = await tablesAPI.getPurchaseOrdersByItem(item.ItemID);
+      setRelatedOrders(response.data?.data || []);
+    } catch (error: any) {
+      setRelatedOrdersError(error.response?.data?.error || error.message || 'Failed to load related purchase orders');
+    } finally {
+      setRelatedOrdersLoading(false);
+    }
+  };
+
+  const handleOpenLinkedOrder = (order: LinkedPurchaseOrder) => {
+    setDetailTargetItemId(selectedItemForRelatedOrders?.ItemID ?? null);
+    setSelectedLinkedOrder(order);
+    setIsRelatedOrdersModalOpen(false);
+    setIsOrderDetailModalOpen(true);
+  };
+
+  useEffect(() => {
+    const currentItems: InventoryItem[] = Array.isArray(data?.data) ? data.data : [];
+    const itemsMissingFlag = currentItems.filter((item) => typeof item.HasPurchaseOrder === 'undefined');
+
+    if (!itemsMissingFlag.length) {
+      return;
+    }
+
+    const itemIdsToCheck = itemsMissingFlag
+      .map((item) => item.ItemID)
+      .filter((itemId) => typeof fallbackHasPurchaseOrder[itemId] === 'undefined');
+
+    if (!itemIdsToCheck.length) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const fetchFallbackAvailability = async () => {
+      const results = await Promise.allSettled(
+        itemIdsToCheck.map(async (itemId) => {
+          const response = await tablesAPI.getPurchaseOrdersByItem(itemId);
+          const hasPurchaseOrder = Array.isArray(response.data?.data) && response.data.data.length > 0;
+          return { itemId, hasPurchaseOrder };
+        })
+      );
+
+      if (isCancelled) {
+        return;
+      }
+
+      setFallbackHasPurchaseOrder((current) => {
+        const next = { ...current };
+        results.forEach((result) => {
+          if (result.status === 'fulfilled') {
+            next[result.value.itemId] = result.value.hasPurchaseOrder;
+          }
+        });
+        return next;
+      });
+    };
+
+    fetchFallbackAvailability();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [data?.data, fallbackHasPurchaseOrder]);
+
+  const handleCloseRelatedOrdersModal = () => {
+    setIsRelatedOrdersModalOpen(false);
+    setRelatedOrdersLoading(false);
+    setRelatedOrdersError('');
+    setRelatedOrders([]);
+    setSelectedItemForRelatedOrders(null);
+  };
+
   const closeEditModal = () => {
     setEditingItem(null);
     setEditValues({
@@ -246,6 +822,34 @@ export default function InventoryLookupPage() {
     setEditError('');
   };
 
+  const openAddModal = () => {
+    setIsAddingItem(true);
+    setAddValues({
+      ItemName: '',
+      ProductID: '',
+      ReleaseDate: '',
+      PublisherID: '',
+      CollectionID: '',
+      CategoryID: '',
+      SubTypeID: '',
+    });
+    setAddError('');
+  };
+
+  const closeAddModal = () => {
+    setIsAddingItem(false);
+    setAddValues({
+      ItemName: '',
+      ProductID: '',
+      ReleaseDate: '',
+      PublisherID: '',
+      CollectionID: '',
+      CategoryID: '',
+      SubTypeID: '',
+    });
+    setAddError('');
+  };
+
   const editMutation = useMutation({
     mutationFn: async (payload: Record<string, any>) => {
       if (!editingItem) {
@@ -258,7 +862,36 @@ export default function InventoryLookupPage() {
       closeEditModal();
     },
     onError: (error: any) => {
-      setEditError(error.response?.data?.error || 'Failed to save inventory item');
+      setEditError(error.response?.data?.error || 'Failed to save item');
+    },
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async (payload: Record<string, any>) => {
+      return tablesAPI.createRecord('Item', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      closeAddModal();
+    },
+    onError: (error: any) => {
+      setAddError(error.response?.data?.error || 'Failed to create item');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingItem) {
+        throw new Error('No item selected');
+      }
+      return tablesAPI.deleteRecord('Item', editingItem.ItemID);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      closeEditModal();
+    },
+    onError: (error: any) => {
+      setEditError(error.response?.data?.error || 'Failed to delete item');
     },
   });
 
@@ -285,13 +918,77 @@ export default function InventoryLookupPage() {
     });
   };
 
+  const handleAddChange = (field: string, value: string) => {
+    setAddValues((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleAddSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setAddError('');
+
+    if (
+      !addValues.ItemName.trim() ||
+      !addValues.PublisherID ||
+      !addValues.CollectionID ||
+      !addValues.CategoryID ||
+      !addValues.SubTypeID
+    ) {
+      setAddError('Item, Publisher, Collection, Category, and Sub Category are required.');
+      return;
+    }
+
+    addMutation.mutate({
+      ItemName: addValues.ItemName.trim(),
+      ProductID: addValues.ProductID || null,
+      ReleaseDate: addValues.ReleaseDate ? normalizeReleaseDateForSave(addValues.ReleaseDate) : null,
+      PublisherID: parseInt(addValues.PublisherID, 10),
+      CollectionID: parseInt(addValues.CollectionID, 10),
+      CategoryID: parseInt(addValues.CategoryID, 10),
+      SubTypeID: parseInt(addValues.SubTypeID, 10),
+    });
+  };
+
+  const handleDeleteItem = () => {
+    if (!editingItem) {
+      return;
+    }
+
+    const confirmed = confirm(`Delete item "${editingItem.ItemName}"? This cannot be undone.`);
+    if (!confirmed) {
+      return;
+    }
+
+    setEditError('');
+    deleteMutation.mutate();
+  };
+
   return (
-    <AdminLayout title="Inventory Lookup">
+    <AdminLayout title="Item Master" subtitle="Manage your collection items">
       <div className="max-w-7xl mx-auto space-y-6">
         <section className="bg-white shadow rounded-lg p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 flex-1">
-              <label className="space-y-2">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
+              <label className="space-y-2 min-w-0">
+                <span className="text-sm font-medium text-gray-700">Publisher</span>
+                <ComboMultiSelect
+                  options={publisherOptions}
+                  selected={filterValues.publisherName}
+                  onChange={handlePublisherChange}
+                  placeholder="Publisher"
+                  className="w-full"
+                />
+              </label>
+              <label className="space-y-2 min-w-0">
+                <span className="text-sm font-medium text-gray-700">Collection</span>
+                <ComboMultiSelect
+                  options={collectionOptions}
+                  selected={filterValues.collectionName}
+                  onChange={handleCollectionChange}
+                  placeholder="Collection"
+                  className="w-full"
+                />
+              </label>
+              <label className="space-y-2 min-w-0">
                 <span className="text-sm font-medium text-gray-700">Item</span>
                 <Input
                   value={filterValues.itemName}
@@ -299,22 +996,12 @@ export default function InventoryLookupPage() {
                   placeholder="Item name"
                 />
               </label>
-              <label className="space-y-2">
-                <span className="text-sm font-medium text-gray-700">Publisher</span>
-                <ComboMultiSelect
-                  options={publisherOptions}
-                  selected={filterValues.publisherName}
-                  onChange={handlePublisherChange}
-                  placeholder="Publisher"
-                />
-              </label>
-              <label className="space-y-2">
-                <span className="text-sm font-medium text-gray-700">Collection</span>
-                <ComboMultiSelect
-                  options={collectionOptions}
-                  selected={filterValues.collectionName}
-                  onChange={handleCollectionChange}
-                  placeholder="Collection"
+              <label className="space-y-2 min-w-0">
+                <span className="text-sm font-medium text-gray-700">Product ID</span>
+                <Input
+                  value={filterValues.productID}
+                  onChange={(event) => handleFilterChange('productID', event.target.value)}
+                  placeholder="Product ID"
                 />
               </label>
               <label className="space-y-2">
@@ -324,20 +1011,25 @@ export default function InventoryLookupPage() {
                   selected={filterValues.categoryName}
                   onChange={handleCategoryChange}
                   placeholder="Category"
+                  className="w-full"
                 />
               </label>
-              <label className="space-y-2">
+              <label className="space-y-2 min-w-0">
                 <span className="text-sm font-medium text-gray-700">SubType</span>
                 <ComboMultiSelect
                   options={subTypeOptions}
                   selected={filterValues.subTypeName}
                   onChange={handleSubTypeChange}
                   placeholder="SubType"
+                  className="w-full"
                 />
               </label>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex justify-end gap-3">
+              <Button className="bg-green-600 hover:bg-green-700" onClick={openAddModal}>
+                Add Item
+              </Button>
               <Button onClick={applyFilters}>Apply Filters</Button>
               <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters}>
                 Clear
@@ -347,7 +1039,7 @@ export default function InventoryLookupPage() {
         </section>
 
         <section className="bg-white shadow rounded-lg p-6">
-          {isLoading && <p className="text-gray-500">Loading inventory...</p>}
+          {isLoading && <p className="text-gray-500">Loading items...</p>}
           {error && <p className="text-red-600">Error loading inventory.</p>}
 
           {!isLoading && !error && (
@@ -357,11 +1049,6 @@ export default function InventoryLookupPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>
-                        <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-blue-600">
-                          Item <SortIndicator column="ItemName" />
-                        </button>
-                      </TableHead>
-                      <TableHead>
                         <button onClick={() => handleSort('PublisherName')} className="flex items-center hover:text-blue-600">
                           Publisher <SortIndicator column="PublisherName" />
                         </button>
@@ -369,6 +1056,11 @@ export default function InventoryLookupPage() {
                       <TableHead>
                         <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-blue-600">
                           Collection <SortIndicator column="CollectionName" />
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-blue-600">
+                          Item <SortIndicator column="ItemName" />
                         </button>
                       </TableHead>
                       <TableHead>
@@ -391,6 +1083,7 @@ export default function InventoryLookupPage() {
                           Release Date <SortIndicator column="ReleaseDate" />
                         </button>
                       </TableHead>
+                      <TableHead className="w-px whitespace-nowrap px-2 text-center">PO Link</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -401,18 +1094,33 @@ export default function InventoryLookupPage() {
                           className="cursor-pointer hover:bg-gray-50"
                           onClick={() => openEditModal(item)}
                         >
-                          <TableCell>{item.ItemName}</TableCell>
                           <TableCell>{item.PublisherName}</TableCell>
                           <TableCell>{item.CollectionName}</TableCell>
+                          <TableCell>{item.ItemName}</TableCell>
                           <TableCell>{item.CategoryName}</TableCell>
                           <TableCell>{item.SubTypeName}</TableCell>
                           <TableCell>{item.ProductID || '-'}</TableCell>
                           <TableCell>{formatReleaseDate(item.ReleaseDate)}</TableCell>
+                          <TableCell className="w-px whitespace-nowrap px-2 text-center" onClick={(event) => event.stopPropagation()}>
+                            {(typeof item.HasPurchaseOrder === 'boolean'
+                              ? item.HasPurchaseOrder
+                              : fallbackHasPurchaseOrder[item.ItemID]) ? (
+                              <button
+                                type="button"
+                                className="inline-flex items-center justify-center text-blue-600 hover:text-blue-700"
+                                onClick={(event) => handleOpenRelatedOrders(item, event)}
+                                title="Open related purchase orders"
+                                aria-label={`Open related purchase orders for ${item.ItemName}`}
+                              >
+                                <Link2 className="w-5 h-5" />
+                              </button>
+                            ) : null}
+                          </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-10 text-gray-500">
+                        <TableCell colSpan={8} className="text-center py-10 text-gray-500">
                           No matching items found.
                         </TableCell>
                       </TableRow>
@@ -451,7 +1159,7 @@ export default function InventoryLookupPage() {
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6">
             <div className="flex items-center justify-between mb-5">
               <div>
-                <h2 className="text-xl font-semibold">Edit Inventory Item</h2>
+                <h2 className="text-xl font-semibold">Edit Item Detail</h2>
                 <p className="text-sm text-gray-500">Update item values and save changes.</p>
               </div>
               <button
@@ -503,7 +1211,7 @@ export default function InventoryLookupPage() {
                     className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                   >
                     <option value="">Select publisher</option>
-                    {publisherSelectOptions.map((option) => (
+                    {publisherSelectOptions.map((option: { value: string | number; label: string }) => (
                       <option key={option.value} value={String(option.value)}>
                         {option.label}
                       </option>
@@ -518,7 +1226,7 @@ export default function InventoryLookupPage() {
                     className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                   >
                     <option value="">Select collection</option>
-                    {collectionSelectOptions.map((option) => (
+                    {collectionSelectOptions.map((option: { value: string | number; label: string }) => (
                       <option key={option.value} value={String(option.value)}>
                         {option.label}
                       </option>
@@ -533,7 +1241,7 @@ export default function InventoryLookupPage() {
                     className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                   >
                     <option value="">Select category</option>
-                    {categorySelectOptions.map((option) => (
+                    {categorySelectOptions.map((option: { value: string | number; label: string }) => (
                       <option key={option.value} value={String(option.value)}>
                         {option.label}
                       </option>
@@ -548,7 +1256,150 @@ export default function InventoryLookupPage() {
                     className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                   >
                     <option value="">Select subtype</option>
-                    {subTypeSelectOptions.map((option) => (
+                    {editSubTypeSelectOptions.map((option: { value: string | number; label: string }) => (
+                      <option key={option.value} value={String(option.value)}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  className="bg-red-600 hover:bg-red-700 sm:mr-auto"
+                  onClick={handleDeleteItem}
+                  disabled={editMutation.isLoading || deleteMutation.isLoading}
+                >
+                  {deleteMutation.isLoading ? 'Deleting...' : 'Delete Item'}
+                </Button>
+                <Button
+                  type="button"
+                  className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                  onClick={closeEditModal}
+                  disabled={editMutation.isLoading || deleteMutation.isLoading}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={editMutation.isLoading || deleteMutation.isLoading}>
+                  {editMutation.isLoading ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {isAddingItem ? (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-xl font-semibold">Add Item</h2>
+                <p className="text-sm text-gray-500">Create a new item record.</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeAddModal}
+                className="text-gray-400 hover:text-gray-700"
+              >
+                Close
+              </button>
+            </div>
+
+            {addError ? (
+              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+                {addError}
+              </div>
+            ) : null}
+
+            <form onSubmit={handleAddSubmit} className="space-y-5">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Item</label>
+                  <Input
+                    value={addValues.ItemName}
+                    onChange={(e) => handleAddChange('ItemName', e.target.value)}
+                    placeholder="Item name"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Product ID</label>
+                  <Input
+                    value={addValues.ProductID}
+                    onChange={(e) => handleAddChange('ProductID', e.target.value)}
+                    placeholder="Product ID"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Release Date</label>
+                  <Input
+                    type="date"
+                    value={addValues.ReleaseDate}
+                    onChange={(e) => handleAddChange('ReleaseDate', e.target.value)}
+                    placeholder="Release date"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Publisher Name</label>
+                  <select
+                    value={addValues.PublisherID}
+                    onChange={(e) => handleAddChange('PublisherID', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Select publisher</option>
+                    {publisherSelectOptions.map((option: { value: string | number; label: string }) => (
+                      <option key={option.value} value={String(option.value)}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Collection Name</label>
+                  <select
+                    value={addValues.CollectionID}
+                    onChange={(e) => handleAddChange('CollectionID', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Select collection</option>
+                    {addCollectionSelectOptions.map((option: { value: string | number; label: string }) => (
+                      <option key={option.value} value={String(option.value)}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category Name</label>
+                  <select
+                    value={addValues.CategoryID}
+                    onChange={(e) => handleAddChange('CategoryID', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Select category</option>
+                    {categorySelectOptions.map((option: { value: string | number; label: string }) => (
+                      <option key={option.value} value={String(option.value)}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sub Category Name</label>
+                  <select
+                    value={addValues.SubTypeID}
+                    onChange={(e) => handleAddChange('SubTypeID', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Select sub category</option>
+                    {addSubTypeSelectOptions.map((option: { value: string | number; label: string }) => (
                       <option key={option.value} value={String(option.value)}>
                         {option.label}
                       </option>
@@ -561,18 +1412,96 @@ export default function InventoryLookupPage() {
                 <Button
                   type="button"
                   className="bg-gray-200 text-gray-800 hover:bg-gray-300"
-                  onClick={closeEditModal}
+                  onClick={closeAddModal}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={editMutation.isLoading}>
-                  {editMutation.isLoading ? 'Saving...' : 'Save Changes'}
+                <Button type="submit" disabled={addMutation.isLoading}>
+                  {addMutation.isLoading ? 'Saving...' : 'Add Item'}
                 </Button>
               </div>
             </form>
           </div>
         </div>
       ) : null}
+
+      <Dialog
+        open={isRelatedOrdersModalOpen}
+        onOpenChange={setIsRelatedOrdersModalOpen}
+        title={
+          selectedItemForRelatedOrders
+            ? `Related Purchase Orders: ${selectedItemForRelatedOrders.ItemName}`
+            : 'Related Purchase Orders'
+        }
+        onClose={handleCloseRelatedOrdersModal}
+      >
+        <div className="space-y-4">
+          {relatedOrdersLoading ? <p className="text-gray-500">Loading related purchase orders...</p> : null}
+
+          {!relatedOrdersLoading && relatedOrdersError ? (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+              {relatedOrdersError}
+            </div>
+          ) : null}
+
+          {!relatedOrdersLoading && !relatedOrdersError && !relatedOrders.length ? (
+            <p className="text-gray-500">No purchase orders found for this item.</p>
+          ) : null}
+
+          {!relatedOrdersLoading && !relatedOrdersError && relatedOrders.length ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Purchase Date</TableHead>
+                    <TableHead>Invoice Number</TableHead>
+                    <TableHead>Store</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Total Amount</TableHead>
+                    <TableHead className="text-right">Open</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {relatedOrders.map((order) => (
+                    <TableRow key={order.PurchaseOrderID}>
+                      <TableCell>{formatReleaseDate(order.PurchaseDate)}</TableCell>
+                      <TableCell>{order.InvoiceNumber}</TableCell>
+                      <TableCell>{order.StoreName}</TableCell>
+                      <TableCell>{order.StatusName || '-'}</TableCell>
+                      <TableCell className="text-right">${(order.TotalAmount || 0).toFixed(2)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          className="bg-blue-600 hover:bg-blue-700"
+                          onClick={() => handleOpenLinkedOrder(order)}
+                        >
+                          Open
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : null}
+
+          <div className="flex justify-end">
+            <Button className="bg-gray-600 hover:bg-gray-700" onClick={handleCloseRelatedOrdersModal}>
+              Close
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      <LinkedOrderDetailModal
+        open={isOrderDetailModalOpen}
+        onOpenChange={setIsOrderDetailModalOpen}
+        order={selectedLinkedOrder}
+        targetItemId={detailTargetItemId}
+        onClose={() => {
+          setSelectedLinkedOrder(null);
+          setDetailTargetItemId(null);
+        }}
+      />
     </AdminLayout>
   );
 }

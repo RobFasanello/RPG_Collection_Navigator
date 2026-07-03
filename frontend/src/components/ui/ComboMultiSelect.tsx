@@ -48,11 +48,11 @@ const ComboMultiSelect: React.FC<Props> = ({ options, selected, onChange, placeh
   const selectedLabels = options.filter((o) => selected.includes(o.value)).map((o) => o.label);
 
   return (
-    <div className={className ?? 'inline-block'} ref={ref}>
+    <div className={`${className ?? 'inline-block'} relative`} ref={ref}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex min-w-[10rem] max-w-full text-left border rounded-md p-2 items-center justify-between"
+        className={`${className === 'w-full' ? 'flex w-full' : 'inline-flex min-w-[10rem] max-w-full'} text-left border rounded-md p-2 items-center justify-between`}
       >
         <div className="truncate">
           {selectedLabels.length === 0 ? (
@@ -69,7 +69,7 @@ const ComboMultiSelect: React.FC<Props> = ({ options, selected, onChange, placeh
       </button>
 
       {open && (
-        <div className="mt-1 z-50 bg-white border rounded-md shadow-lg min-w-full absolute max-h-64 overflow-auto">
+        <div className="mt-1 z-50 bg-white border rounded-md shadow-lg w-full left-0 absolute max-h-64 overflow-auto">
           <div className="p-2">
             <input
               className="w-full border rounded-md p-2 mb-2"

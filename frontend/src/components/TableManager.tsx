@@ -16,6 +16,7 @@ export default function TableManager({ tableName, onBack }: TableManagerProps) {
   const [pageSize] = useState(50);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const pageSize_val = pageSize;
 
   const { data: schema } = useQuery<any, Error>({
@@ -36,8 +37,15 @@ export default function TableManager({ tableName, onBack }: TableManagerProps) {
 
   const handleDelete = async (id: number) => {
     if (confirm('Are you sure you want to delete this record?')) {
-      await tablesAPI.deleteRecord(tableName, id);
-      refetch();
+      try {
+        setErrorMessage(null);
+        await tablesAPI.deleteRecord(tableName, id);
+        refetch();
+      } catch (error: any) {
+        const errorMsg = error.response?.data?.error || error.message || 'Failed to delete record';
+        setErrorMessage(errorMsg);
+        setTimeout(() => setErrorMessage(null), 5000);
+      }
     }
   };
 
@@ -69,6 +77,12 @@ export default function TableManager({ tableName, onBack }: TableManagerProps) {
           New Record
         </Button>
       </div>
+
+      {errorMessage && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-red-800">{errorMessage}</p>
+        </div>
+      )}
 
       {showForm && (
         <RecordForm

@@ -5,6 +5,52 @@ function getPrimaryKeyColumn(tableName: string): string {
   return `${tableName}ID`;
 }
 
+// Check if a store has any purchase orders (referential integrity check)
+async function checkStoreHasPurchaseOrders(storeId: number): Promise<boolean> {
+  try {
+    const pool = await getPool();
+    const request = pool.request();
+    const result = await request
+      .input('storeId', sql.Int, storeId)
+      .query('SELECT COUNT(*) as count FROM PurchaseOrder WHERE StoreID = @storeId');
+    return result.recordset[0].count > 0;
+  } catch (error) {
+    console.error('Error checking store references:', error);
+    throw error;
+  }
+}
+
+// Check if a PurchaseOrder with the same (StoreID, InvoiceNumber) already exists
+async function checkPurchaseOrderUniqueConstraint(
+  storeId: number,
+  invoiceNumber: string,
+  excludePurchaseOrderId: number
+): Promise<{ exists: boolean; storeName?: string }> {
+  try {
+    const pool = await getPool();
+    const result = await pool.request()
+      .input('storeId', sql.Int, storeId)
+      .input('invoiceNumber', sql.NVarChar, invoiceNumber)
+      .input('excludeId', sql.Int, excludePurchaseOrderId)
+      .query(`
+        SELECT TOP 1 [Store].[StoreName]
+        FROM [PurchaseOrder]
+        INNER JOIN [Store] ON [Store].[StoreID] = [PurchaseOrder].[StoreID]
+        WHERE [PurchaseOrder].[StoreID] = @storeId
+          AND [PurchaseOrder].[InvoiceNumber] = @invoiceNumber
+          AND [PurchaseOrder].[PurchaseOrderID] != @excludeId
+      `);
+    
+    if (result.recordset.length > 0) {
+      return { exists: true, storeName: result.recordset[0].StoreName };
+    }
+    return { exists: false };
+  } catch (error) {
+    console.error('Error checking purchase order unique constraint:', error);
+    throw error;
+  }
+}
+
 // Get all table names from the database
 export async function getAllTables(req: Request, res: Response): Promise<void> {
   try {
@@ -124,11 +170,29 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
     const column = validColumns.includes(sortBy) ? sortBy : 'ItemName';
 
     const filters: string[] = [];
-    const request = (await getPool()).request();
+    const pool = await getPool();
+    const request = pool.request();
+
+    const sortColumn = column;
+
+    const sortSource =
+      sortColumn === 'PublisherName'
+        ? 'Publisher'
+        : sortColumn === 'CollectionName'
+          ? 'Collection'
+          : sortColumn === 'CategoryName'
+            ? 'Category'
+            : sortColumn === 'SubTypeName'
+              ? 'SubType'
+              : 'Item';
 
     if (req.query.itemName) {
       request.input('itemName', sql.NVarChar(255), `%${req.query.itemName}%`);
       filters.push('[Item].[ItemName] LIKE @itemName');
+    }
+    if (req.query.productID) {
+      request.input('productID', sql.NVarChar(255), `%${req.query.productID}%`);
+      filters.push('[Item].[ProductID] LIKE @productID');
     }
     if (req.query.publisherName) {
       // Support single value or multiple values (array) for publisherName
@@ -202,7 +266,6 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
         filters.push('[SubType].[SubTypeName] LIKE @subTypeName');
       }
     }
-
     const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
 
     const countQuery = `
@@ -228,6 +291,14 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
         [Item].[CollectionID],
         [Item].[CategoryID],
         [Item].[SubTypeID],
+        CASE
+          WHEN EXISTS (
+            SELECT 1
+            FROM [PurchaseOrderDetail]
+            WHERE [PurchaseOrderDetail].[ItemID] = [Item].[ItemID]
+          ) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+        END AS [HasPurchaseOrder],
         [Publisher].[PublisherName],
         [Collection].[CollectionName],
         [Category].[CategoryName],
@@ -238,7 +309,7 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
       INNER JOIN [Category] ON [Category].[CategoryID] = [Item].[CategoryID]
       INNER JOIN [SubType] ON [SubType].[SubTypeID] = [Item].[SubTypeID]
       ${whereClause}
-      ORDER BY [${column === 'PublisherName' ? 'Publisher' : column === 'CollectionName' ? 'Collection' : column === 'CategoryName' ? 'Category' : column === 'SubTypeName' ? 'SubType' : 'Item'}].[${column}] ${sortOrder}
+      ORDER BY [${sortSource}].[${sortColumn}] ${sortOrder}
       OFFSET @offset ROWS
       FETCH NEXT @pageSize ROWS ONLY
     `;
@@ -261,12 +332,387 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
   }
 }
 
+// Lightweight item list for dropdown/lookup — returns all items, no pagination
+export async function getItemsForLookup(req: Request, res: Response): Promise<void> {
+  try {
+    const pool = await getPool();
+    const result = await pool.request().query(`
+      SELECT [Item].[ItemID], [Item].[ItemName], [Item].[ProductID]
+      FROM [Item]
+      ORDER BY [Item].[ItemName] ASC
+    `);
+    res.json({ data: result.recordset });
+  } catch (error) {
+    console.error('Error fetching items for lookup:', error);
+    res.status(500).json({ error: 'Failed to fetch items' });
+  }
+}
+
+// Get purchase orders with filtering and sorting
+export async function getPurchaseOrders(req: Request, res: Response): Promise<void> {
+  try {
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const pageSize = Math.min(100, parseInt(req.query.pageSize as string) || 50);
+    const offset = (page - 1) * pageSize;
+    const sortBy = (req.query.sortBy as string) || 'PurchasedDate';
+    const sortOrder = (req.query.sortOrder as string)?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+
+    const validColumns = ['StoreName', 'InvoiceNumber', 'PurchasedDate', 'StatusName', 'ItemCount', 'TotalAmount'];
+    const column = validColumns.includes(sortBy) ? sortBy : 'PurchasedDate';
+
+    const filters: string[] = [];
+    const pool = await getPool();
+    const request = pool.request();
+
+    // Map sort column to correct table/alias
+    let sortClause = `[PurchaseOrder].[${column}]`;
+    if (column === 'StoreName') {
+      sortClause = `[Store].[StoreName]`;
+    } else if (column === 'StatusName') {
+      sortClause = `[Status].[StatusName]`;
+    } else if (column === 'ItemCount' || column === 'TotalAmount') {
+      sortClause = `${column}`;
+    }
+
+    // Filter by store names (multi-select, OR logic)
+    if (req.query.storeNames) {
+      if (Array.isArray(req.query.storeNames)) {
+        const names = req.query.storeNames as string[];
+        const clauses: string[] = [];
+        names.forEach((name, idx) => {
+          const param = `storeName_${idx}`;
+          request.input(param, sql.NVarChar(255), name);
+          clauses.push(`[Store].[StoreName] = @${param}`);
+        });
+        if (clauses.length) {
+          filters.push(`(${clauses.join(' OR ')})`);
+        }
+      } else {
+        request.input('storeName', sql.NVarChar(255), `%${req.query.storeNames}%`);
+        filters.push('[Store].[StoreName] LIKE @storeName');
+      }
+    }
+
+    // Filter by invoice number (substring match)
+    if (req.query.invoiceNumber) {
+      request.input('invoiceNumber', sql.NVarChar(255), `%${req.query.invoiceNumber}%`);
+      filters.push('[PurchaseOrder].[InvoiceNumber] LIKE @invoiceNumber');
+    }
+
+    // Filter by purchase date range
+    if (req.query.purchaseDateStart) {
+      request.input('purchaseDateStart', sql.Date, req.query.purchaseDateStart);
+      filters.push('[PurchaseOrder].[PurchasedDate] >= @purchaseDateStart');
+    }
+    if (req.query.purchaseDateEnd) {
+      request.input('purchaseDateEnd', sql.Date, req.query.purchaseDateEnd);
+      filters.push('[PurchaseOrder].[PurchasedDate] <= @purchaseDateEnd');
+    }
+
+    const rawStatusFilter = req.query.statusNames ?? req.query.statusName;
+    if (rawStatusFilter) {
+      if (Array.isArray(rawStatusFilter)) {
+        const names = rawStatusFilter as string[];
+        const clauses: string[] = [];
+        names.forEach((name, idx) => {
+          const param = `statusName_${idx}`;
+          request.input(param, sql.NVarChar(255), name);
+          clauses.push(`[Status].[StatusName] = @${param}`);
+        });
+        if (clauses.length) {
+          filters.push(`(${clauses.join(' OR ')})`);
+        }
+      } else {
+        request.input('statusName', sql.NVarChar(255), `%${rawStatusFilter}%`);
+        filters.push('[Status].[StatusName] LIKE @statusName');
+      }
+    }
+
+    const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM [PurchaseOrder]
+      INNER JOIN [Store] ON [Store].[StoreID] = [PurchaseOrder].[StoreID]
+      LEFT JOIN [Status] ON [Status].[StatusID] = [PurchaseOrder].[StatusID]
+      ${whereClause}
+    `;
+
+    const countResult = await request.query(countQuery);
+    const total = countResult.recordset[0].total;
+
+    const dataQuery = `
+      SELECT
+        [PurchaseOrder].[PurchaseOrderID],
+        [PurchaseOrder].[InvoiceNumber],
+        [PurchaseOrder].[PurchasedDate] AS PurchaseDate,
+        [PurchaseOrder].[StatusID],
+        [Status].[StatusName],
+        [Store].[StoreName],
+        COUNT(DISTINCT [PurchaseOrderDetail].[PurchaseOrderDetailID]) as ItemCount,
+        SUM([PurchaseOrderDetail].[Quantity] * [PurchaseOrderDetail].[Price]) as TotalAmount
+      FROM [PurchaseOrder]
+      INNER JOIN [Store] ON [Store].[StoreID] = [PurchaseOrder].[StoreID]
+      LEFT JOIN [Status] ON [Status].[StatusID] = [PurchaseOrder].[StatusID]
+      LEFT JOIN [PurchaseOrderDetail] ON [PurchaseOrderDetail].[PurchaseOrderID] = [PurchaseOrder].[PurchaseOrderID]
+      ${whereClause}
+      GROUP BY [PurchaseOrder].[PurchaseOrderID], [PurchaseOrder].[InvoiceNumber], [PurchaseOrder].[PurchasedDate], [PurchaseOrder].[StatusID], [Status].[StatusName], [Store].[StoreName]
+      ORDER BY ${sortClause} ${sortOrder}
+      OFFSET @offset ROWS
+      FETCH NEXT @pageSize ROWS ONLY
+    `;
+
+    request.input('offset', sql.Int, offset);
+    request.input('pageSize', sql.Int, pageSize);
+
+    const result = await request.query(dataQuery);
+
+    res.json({
+      data: result.recordset,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    });
+  } catch (error) {
+    console.error('Error fetching purchase orders:', error);
+    res.status(500).json({ error: 'Failed to fetch purchase orders' });
+  }
+}
+
+// Get purchase order details for a specific purchase order
+export async function getPurchaseOrderDetailsByPurchaseOrder(req: Request, res: Response): Promise<void> {
+  try {
+    const { purchaseOrderId } = req.query;
+
+    if (!purchaseOrderId) {
+      res.status(400).json({ error: 'purchaseOrderId is required' });
+      return;
+    }
+
+    const pool = await getPool();
+    const request = pool.request();
+
+    const query = `
+      SELECT
+        [PurchaseOrderDetail].[PurchaseOrderDetailID],
+        [PurchaseOrderDetail].[ItemID],
+        [Item].[ItemName],
+        [Item].[ProductID],
+        [PurchaseOrderDetail].[Quantity],
+        [PurchaseOrderDetail].[Price],
+        ([PurchaseOrderDetail].[Quantity] * [PurchaseOrderDetail].[Price]) as LineTotal,
+        [PurchaseOrder].[StatusID],
+        [Status].[StatusName]
+      FROM [PurchaseOrderDetail]
+      LEFT JOIN [Item] ON [Item].[ItemID] = [PurchaseOrderDetail].[ItemID]
+      INNER JOIN [PurchaseOrder] ON [PurchaseOrder].[PurchaseOrderID] = [PurchaseOrderDetail].[PurchaseOrderID]
+      LEFT JOIN [Status] ON [Status].[StatusID] = [PurchaseOrder].[StatusID]
+      WHERE [PurchaseOrderDetail].[PurchaseOrderID] = @purchaseOrderId
+      ORDER BY COALESCE([Item].[ItemName], '')
+    `;
+
+    request.input('purchaseOrderId', sql.Int, parseInt(purchaseOrderId as string));
+
+    const result = await request.query(query);
+
+    res.json({
+      data: result.recordset,
+      total: result.recordset.length,
+    });
+  } catch (error) {
+    console.error('Error fetching purchase order details:', error);
+    res.status(500).json({ error: 'Failed to fetch purchase order details' });
+  }
+}
+
+// Get purchase orders that contain a specific item
+export async function getPurchaseOrdersByItem(req: Request, res: Response): Promise<void> {
+  try {
+    const { itemId } = req.query;
+
+    if (!itemId) {
+      res.status(400).json({ error: 'itemId is required' });
+      return;
+    }
+
+    const parsedItemId = parseInt(itemId as string, 10);
+    if (!Number.isInteger(parsedItemId) || parsedItemId <= 0) {
+      res.status(400).json({ error: 'itemId must be a positive integer' });
+      return;
+    }
+
+    const pool = await getPool();
+    const request = pool.request();
+
+    const query = `
+      SELECT
+        [PurchaseOrder].[PurchaseOrderID],
+        [PurchaseOrder].[InvoiceNumber],
+        [PurchaseOrder].[PurchasedDate] AS PurchaseDate,
+        [PurchaseOrder].[StatusID],
+        [Status].[StatusName],
+        [Store].[StoreName],
+        MIN([MatchedDetail].[PurchaseOrderDetailID]) AS PurchaseOrderDetailID,
+        COUNT(DISTINCT [AllDetails].[PurchaseOrderDetailID]) AS ItemCount,
+        ISNULL(SUM([AllDetails].[Quantity] * [AllDetails].[Price]), 0) AS TotalAmount
+      FROM [PurchaseOrder]
+      INNER JOIN [Store] ON [Store].[StoreID] = [PurchaseOrder].[StoreID]
+      LEFT JOIN [Status] ON [Status].[StatusID] = [PurchaseOrder].[StatusID]
+      INNER JOIN [PurchaseOrderDetail] AS [MatchedDetail]
+        ON [MatchedDetail].[PurchaseOrderID] = [PurchaseOrder].[PurchaseOrderID]
+       AND [MatchedDetail].[ItemID] = @itemId
+      LEFT JOIN [PurchaseOrderDetail] AS [AllDetails]
+        ON [AllDetails].[PurchaseOrderID] = [PurchaseOrder].[PurchaseOrderID]
+      GROUP BY
+        [PurchaseOrder].[PurchaseOrderID],
+        [PurchaseOrder].[InvoiceNumber],
+        [PurchaseOrder].[PurchasedDate],
+        [PurchaseOrder].[StatusID],
+        [Status].[StatusName],
+        [Store].[StoreName]
+      ORDER BY [PurchaseOrder].[PurchasedDate] DESC, [PurchaseOrder].[PurchaseOrderID] DESC
+    `;
+
+    request.input('itemId', sql.Int, parsedItemId);
+
+    const result = await request.query(query);
+
+    res.json({
+      data: result.recordset,
+      total: result.recordset.length,
+    });
+  } catch (error) {
+    console.error('Error fetching purchase orders by item:', error);
+    res.status(500).json({ error: 'Failed to fetch purchase orders for item' });
+  }
+}
+
+// Dashboard overview metrics and top-10 lists
+export async function getDashboardOverview(req: Request, res: Response): Promise<void> {
+  try {
+    const topN = Math.max(1, Math.min(50, parseInt(req.query.top as string, 10) || 10));
+    const pool = await getPool();
+
+    const totalsQuery = `
+      SELECT
+        (SELECT COUNT(*) FROM [Publisher]) AS PublishersTotal,
+        (SELECT COUNT(*) FROM [Collection]) AS CollectionsTotal,
+        (SELECT COUNT(*) FROM [Item]) AS ItemsTotal,
+        (SELECT COUNT(*) FROM [PurchaseOrder]) AS OrdersTotal
+    `;
+
+    const topPublishersQuery = `
+      SELECT TOP (@topN)
+        [Publisher].[PublisherName],
+        COUNT(*) AS [ItemCount]
+      FROM [Item]
+      INNER JOIN [Publisher] ON [Publisher].[PublisherID] = [Item].[PublisherID]
+      GROUP BY [Publisher].[PublisherName]
+      ORDER BY [ItemCount] DESC, [Publisher].[PublisherName] ASC
+    `;
+
+    const topCollectionsQuery = `
+      SELECT TOP (@topN)
+        [Collection].[CollectionName],
+        COUNT(*) AS [ItemCount]
+      FROM [Item]
+      INNER JOIN [Collection] ON [Collection].[CollectionID] = [Item].[CollectionID]
+      GROUP BY [Collection].[CollectionName]
+      ORDER BY [ItemCount] DESC, [Collection].[CollectionName] ASC
+    `;
+
+    const topItemsByPriceQuery = `
+      SELECT TOP (@topN)
+        [Item].[ItemID],
+        [Item].[ItemName],
+        [Item].[ProductID],
+        MAX([PurchaseOrderDetail].[Price]) AS [MaxPrice]
+      FROM [PurchaseOrderDetail]
+      INNER JOIN [Item] ON [Item].[ItemID] = [PurchaseOrderDetail].[ItemID]
+      GROUP BY [Item].[ItemID], [Item].[ItemName], [Item].[ProductID]
+      ORDER BY [MaxPrice] DESC, [Item].[ItemName] ASC
+    `;
+
+    const topOrdersByAmountQuery = `
+      SELECT TOP (@topN)
+        [PurchaseOrder].[PurchaseOrderID],
+        [PurchaseOrder].[InvoiceNumber],
+        [Store].[StoreName],
+        [PurchaseOrder].[PurchasedDate] AS [PurchaseDate],
+        ISNULL(SUM([PurchaseOrderDetail].[Quantity] * [PurchaseOrderDetail].[Price]), 0) AS [TotalAmount]
+      FROM [PurchaseOrder]
+      INNER JOIN [Store] ON [Store].[StoreID] = [PurchaseOrder].[StoreID]
+      LEFT JOIN [PurchaseOrderDetail] ON [PurchaseOrderDetail].[PurchaseOrderID] = [PurchaseOrder].[PurchaseOrderID]
+      GROUP BY
+        [PurchaseOrder].[PurchaseOrderID],
+        [PurchaseOrder].[InvoiceNumber],
+        [Store].[StoreName],
+        [PurchaseOrder].[PurchasedDate]
+      ORDER BY [TotalAmount] DESC, [PurchaseOrder].[PurchaseOrderID] DESC
+    `;
+
+    const totalsResult = await pool.request().query(totalsQuery);
+
+    const topPublishersResult = await pool
+      .request()
+      .input('topN', sql.Int, topN)
+      .query(topPublishersQuery);
+
+    const topCollectionsResult = await pool
+      .request()
+      .input('topN', sql.Int, topN)
+      .query(topCollectionsQuery);
+
+    const topItemsByPriceResult = await pool
+      .request()
+      .input('topN', sql.Int, topN)
+      .query(topItemsByPriceQuery);
+
+    const topOrdersByAmountResult = await pool
+      .request()
+      .input('topN', sql.Int, topN)
+      .query(topOrdersByAmountQuery);
+
+    const totals = totalsResult.recordset[0] || {
+      PublishersTotal: 0,
+      CollectionsTotal: 0,
+      ItemsTotal: 0,
+      OrdersTotal: 0,
+    };
+
+    res.json({
+      totals: {
+        publishers: Number(totals.PublishersTotal || 0),
+        collections: Number(totals.CollectionsTotal || 0),
+        items: Number(totals.ItemsTotal || 0),
+        orders: Number(totals.OrdersTotal || 0),
+      },
+      topPublishers: topPublishersResult.recordset,
+      topCollections: topCollectionsResult.recordset,
+      topItemsByPrice: topItemsByPriceResult.recordset,
+      topOrdersByAmount: topOrdersByAmountResult.recordset,
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard overview:', error);
+    res.status(500).json({ error: 'Failed to fetch dashboard overview' });
+  }
+}
+
 // Create new record
 export async function createRecord(req: Request, res: Response): Promise<void> {
+  const { tableName } = req.params;
   try {
-    const { tableName } = req.params;
-    const data = req.body;
+    const data = { ...req.body };
     const pool = await getPool();
+
+    if (tableName === 'Item' && Object.prototype.hasOwnProperty.call(data, 'StatusID')) {
+      res.status(400).json({
+        error: 'StatusID can no longer be set on Item. Update PurchaseOrder.StatusID instead.',
+      });
+      return;
+    }
+
     const request = pool.request();
 
     const columns = Object.keys(data);
@@ -287,7 +733,188 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
     res.status(201).json({ success: true, message: 'Record created' });
   } catch (error) {
     console.error('Error creating record:', error);
-    res.status(500).json({ error: 'Failed to create record' });
+
+    const dbError = error as any;
+    if (
+      tableName === 'PurchaseOrderDetail' &&
+      (dbError?.number === 2627 || dbError?.number === 2601)
+    ) {
+      res.status(409).json({
+        error: 'This item already exists in the selected purchase order. Edit the existing row instead of adding a duplicate item.',
+      });
+      return;
+    }
+
+    res.status(500).json({
+      error: dbError?.message || 'Failed to create record',
+    });
+  }
+}
+
+// Create a PurchaseOrder and its PurchaseOrderDetail rows inside one transaction
+export async function createPurchaseOrderWithDetails(req: Request, res: Response): Promise<void> {
+  const { InvoiceNumber, StoreID, PurchasedDate, details } = req.body;
+
+  // --- input validation ---
+  if (!InvoiceNumber || typeof InvoiceNumber !== 'string' || !InvoiceNumber.trim()) {
+    res.status(400).json({ error: 'InvoiceNumber is required.' });
+    return;
+  }
+  const storeId = parseInt(StoreID, 10);
+  if (!Number.isInteger(storeId) || storeId <= 0) {
+    res.status(400).json({ error: 'StoreID must be a positive integer.' });
+    return;
+  }
+  if (!PurchasedDate || typeof PurchasedDate !== 'string') {
+    res.status(400).json({ error: 'PurchasedDate is required.' });
+    return;
+  }
+  if (!Array.isArray(details) || details.length === 0) {
+    res.status(400).json({ error: 'At least one detail row is required.' });
+    return;
+  }
+  for (let i = 0; i < details.length; i++) {
+    const d = details[i];
+    const itemId = parseInt(d.ItemID, 10);
+    const qty = Number(d.Quantity);
+    const price = Number(d.Price);
+    if (!Number.isInteger(itemId) || itemId <= 0) {
+      res.status(400).json({ error: `Detail row ${i + 1}: ItemID must be a positive integer.` });
+      return;
+    }
+    if (!Number.isFinite(qty) || qty <= 0) {
+      res.status(400).json({ error: `Detail row ${i + 1}: Quantity must be greater than 0.` });
+      return;
+    }
+    if (!Number.isFinite(price) || price < 0) {
+      res.status(400).json({ error: `Detail row ${i + 1}: Price must be 0 or greater.` });
+      return;
+    }
+  }
+
+  const pool = await getPool();
+
+  // Check unique constraint (StoreID + InvoiceNumber) — pass 0 to exclude nothing
+  const constraint = await checkPurchaseOrderUniqueConstraint(storeId, InvoiceNumber.trim(), 0);
+  if (constraint.exists) {
+    res.status(409).json({
+      error: `A purchase order with invoice number "${InvoiceNumber.trim()}" already exists for store "${constraint.storeName}". Each store can only have one purchase order per invoice number.`,
+    });
+    return;
+  }
+
+  const transaction = new sql.Transaction(pool);
+  try {
+    await transaction.begin();
+
+    // Insert PurchaseOrder and capture generated ID
+    const headerRequest = new sql.Request(transaction);
+    headerRequest.input('InvoiceNumber', sql.NVarChar(255), InvoiceNumber.trim());
+    headerRequest.input('StoreID', sql.Int, storeId);
+    headerRequest.input('PurchasedDate', sql.Date, PurchasedDate);
+
+    const headerResult = await headerRequest.query(`
+      INSERT INTO [PurchaseOrder] ([InvoiceNumber], [StoreID], [PurchasedDate])
+      OUTPUT INSERTED.[PurchaseOrderID]
+      VALUES (@InvoiceNumber, @StoreID, @PurchasedDate)
+    `);
+
+    const newOrderId: number = headerResult.recordset[0].PurchaseOrderID;
+
+    // Insert each detail row
+    for (const d of details) {
+      const detailRequest = new sql.Request(transaction);
+      detailRequest.input('PurchaseOrderID', sql.Int, newOrderId);
+      detailRequest.input('ItemID', sql.Int, parseInt(d.ItemID, 10));
+      detailRequest.input('Quantity', sql.Int, Math.round(Number(d.Quantity)));
+      detailRequest.input('Price', sql.Decimal(18, 2), Number(d.Price));
+
+      await detailRequest.query(`
+        INSERT INTO [PurchaseOrderDetail] ([PurchaseOrderID], [ItemID], [Quantity], [Price])
+        VALUES (@PurchaseOrderID, @ItemID, @Quantity, @Price)
+      `);
+    }
+
+    await transaction.commit();
+    res.status(201).json({ success: true, PurchaseOrderID: newOrderId });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Error creating purchase order with details:', error);
+    const dbError = error as any;
+    if (dbError?.number === 2627 || dbError?.number === 2601) {
+      res.status(409).json({
+        error: 'One or more items already exist in this purchase order. Each item may only appear once per order.',
+      });
+      return;
+    }
+    res.status(500).json({ error: dbError?.message || 'Failed to create purchase order' });
+  }
+}
+
+// Delete record by query params (supports composite-key tables)
+export async function deleteRecordByQuery(req: Request, res: Response): Promise<void> {
+  try {
+    const { tableName } = req.params;
+    const pool = await getPool();
+    const request = pool.request();
+
+    if (req.query.id) {
+      request.input('id', sql.Int, req.query.id as string);
+      await request.query(`DELETE FROM [${tableName}] WHERE [${getPrimaryKeyColumn(tableName)}] = @id`);
+      res.json({ success: true, message: 'Record deleted' });
+      return;
+    }
+
+    if (tableName === 'PurchaseOrderDetail') {
+      const purchaseOrderId = parseInt(req.query.purchaseOrderId as string, 10);
+
+      if (!Number.isInteger(purchaseOrderId)) {
+        res.status(400).json({ error: 'purchaseOrderId is required' });
+        return;
+      }
+
+      request.input('purchaseOrderId', sql.Int, purchaseOrderId);
+      await request.query('DELETE FROM [PurchaseOrderDetail] WHERE [PurchaseOrderID] = @purchaseOrderId');
+      res.json({ success: true, message: 'Purchase order details deleted' });
+      return;
+    }
+
+    if (tableName === 'CategorySubType') {
+      const categoryId = parseInt(req.query.categoryId as string, 10);
+      const subTypeId = parseInt(req.query.subTypeId as string, 10);
+
+      if (!Number.isInteger(categoryId) || !Number.isInteger(subTypeId)) {
+        res.status(400).json({ error: 'categoryId and subTypeId are required' });
+        return;
+      }
+
+      request.input('categoryId', sql.Int, categoryId);
+      request.input('subTypeId', sql.Int, subTypeId);
+      await request.query(`DELETE FROM [${tableName}] WHERE [CategoryID] = @categoryId AND [SubTypeID] = @subTypeId`);
+      res.json({ success: true, message: 'Record deleted' });
+      return;
+    }
+
+    if (tableName === 'PublisherCollection') {
+      const publisherId = parseInt(req.query.publisherId as string, 10);
+      const collectionId = parseInt(req.query.collectionId as string, 10);
+
+      if (!Number.isInteger(publisherId) || !Number.isInteger(collectionId)) {
+        res.status(400).json({ error: 'publisherId and collectionId are required' });
+        return;
+      }
+
+      request.input('publisherId', sql.Int, publisherId);
+      request.input('collectionId', sql.Int, collectionId);
+      await request.query(`DELETE FROM [${tableName}] WHERE [PublisherID] = @publisherId AND [CollectionID] = @collectionId`);
+      res.json({ success: true, message: 'Record deleted' });
+      return;
+    }
+
+    res.status(400).json({ error: 'Invalid delete parameters' });
+  } catch (error) {
+    console.error('Error deleting record by query:', error);
+    res.status(500).json({ error: 'Failed to delete record' });
   }
 }
 
@@ -297,30 +924,85 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
     const { tableName, id } = req.params;
     const data = req.body;
     const pool = await getPool();
-    const request = pool.request();
     const primaryKey = getPrimaryKeyColumn(tableName);
 
-    const updates = Object.keys(data)
-      .map(col => `[${col}] = @${col}`)
-      .join(', ');
+    if (tableName === 'Item' && Object.prototype.hasOwnProperty.call(data, 'StatusID')) {
+      res.status(400).json({
+        error: 'StatusID can no longer be set on Item. Update PurchaseOrder.StatusID instead.',
+      });
+      return;
+    } else if (tableName === 'PurchaseOrder' && (data.StoreID || data.InvoiceNumber)) {
+      // Validate unique constraint for StoreID + InvoiceNumber combination
+      const currentOrder = await pool.request()
+        .input('id', sql.Int, id)
+        .query('SELECT StoreID, InvoiceNumber FROM PurchaseOrder WHERE PurchaseOrderID = @id');
+      
+      if (currentOrder.recordset.length === 0) {
+        res.status(404).json({ error: 'Purchase order not found' });
+        return;
+      }
 
-    Object.entries(data).forEach(([col, value]) => {
-      request.input(col, value);
-    });
+      const current = currentOrder.recordset[0];
+      const newStoreId = data.StoreID ?? current.StoreID;
+      const newInvoiceNumber = data.InvoiceNumber ?? current.InvoiceNumber;
 
-    request.input('id', sql.Int, id);
+      // Check if the new combination already exists
+      const constraint = await checkPurchaseOrderUniqueConstraint(newStoreId, newInvoiceNumber, parseInt(id as string));
+      if (constraint.exists) {
+        res.status(409).json({
+          error: `A purchase order with invoice number "${newInvoiceNumber}" already exists for store "${constraint.storeName}". Each store can only have one purchase order per invoice number.`
+        });
+        return;
+      }
 
-    const query = `
-      UPDATE [${tableName}]
-      SET ${updates}
-      WHERE [${primaryKey}] = @id
-    `;
+      // If validation passes, proceed with update
+      const request = pool.request();
+      const updates = Object.keys(data)
+        .map(col => `[${col}] = @${col}`)
+        .join(', ');
 
-    await request.query(query);
+      Object.entries(data).forEach(([col, value]) => {
+        request.input(col, value);
+      });
+
+      request.input('id', sql.Int, id);
+
+      const query = `
+        UPDATE [${tableName}]
+        SET ${updates}
+        WHERE [${primaryKey}] = @id
+      `;
+
+      await request.query(query);
+      res.json({ success: true, message: 'Record updated' });
+      return;
+    } else {
+      const request = pool.request();
+      const updates = Object.keys(data)
+        .map(col => `[${col}] = @${col}`)
+        .join(', ');
+
+      Object.entries(data).forEach(([col, value]) => {
+        request.input(col, value);
+      });
+
+      request.input('id', sql.Int, id);
+
+      const query = `
+        UPDATE [${tableName}]
+        SET ${updates}
+        WHERE [${primaryKey}] = @id
+      `;
+
+      await request.query(query);
+    }
+
     res.json({ success: true, message: 'Record updated' });
   } catch (error) {
     console.error('Error updating record:', error);
-    res.status(500).json({ error: 'Failed to update record' });
+    res.status(500).json({
+      error: (error as any)?.message || 'Failed to update record',
+    });
   }
 }
 
@@ -331,13 +1013,48 @@ export async function deleteRecord(req: Request, res: Response): Promise<void> {
     const pool = await getPool();
     const primaryKey = getPrimaryKeyColumn(tableName);
 
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .query(`DELETE FROM [${tableName}] WHERE [${primaryKey}] = @id`);
+    // Prevent deletion of stores with purchase orders
+    if (tableName === 'Store') {
+      const hasPurchaseOrders = await checkStoreHasPurchaseOrders(parseInt(id as string));
+      if (hasPurchaseOrders) {
+        res.status(409).json({ 
+          error: 'Cannot delete this store because it has associated purchase orders. Please delete or reassign the related orders first.' 
+        });
+        return;
+      }
+    }
+
+    if (tableName === 'Item') {
+      const transaction = new sql.Transaction(pool);
+      await transaction.begin();
+
+      try {
+        const request = new sql.Request(transaction);
+        request.input('id', sql.Int, id);
+
+        // Remove child purchase order detail rows first to satisfy FK constraints.
+        await request.query(`
+          IF OBJECT_ID('dbo.PurchaseOrderDetail', 'U') IS NOT NULL
+            DELETE FROM [PurchaseOrderDetail] WHERE [ItemID] = @id
+        `);
+        await request.query(`DELETE FROM [Item] WHERE [ItemID] = @id`);
+
+        await transaction.commit();
+      } catch (txError) {
+        await transaction.rollback();
+        throw txError;
+      }
+    } else {
+      await pool.request()
+        .input('id', sql.Int, id)
+        .query(`DELETE FROM [${tableName}] WHERE [${primaryKey}] = @id`);
+    }
 
     res.json({ success: true, message: 'Record deleted' });
   } catch (error) {
     console.error('Error deleting record:', error);
-    res.status(500).json({ error: 'Failed to delete record' });
+    res.status(500).json({
+      error: (error as any)?.message || 'Failed to delete record',
+    });
   }
 }

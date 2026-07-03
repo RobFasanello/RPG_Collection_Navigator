@@ -79,9 +79,42 @@ You should see the RPG Collection Manager dashboard with all your database table
 
 ### Issue: Port already in use
 **Solution:**
-Change ports in configuration:
-- Backend: Edit `backend/src/server.ts` - change PORT variable
-- Frontend: Run `npm run dev -- --port 5174`
+1. Find the process using port 3001 (PowerShell):
+   ```powershell
+   Get-NetTCPConnection -LocalPort 3001 | Select-Object LocalAddress, LocalPort, State, OwningProcess
+   ```
+2. Stop that process (if safe):
+   ```powershell
+   Stop-Process -Id <PID> -Force
+   ```
+3. Or move backend to another port by adding `PORT` to `backend/.env`, for example:
+   ```env
+   PORT=3002
+   ```
+4. Restart backend: `npm run dev`
+5. If using IIS reverse proxy or service mode, keep backend on port 3001 unless you also update proxy targets.
+
+## Project Folder Moved Checklist
+
+When this repo is moved to a new local path, run these steps to refresh Windows service and IIS path bindings:
+
+1. From repo root, stop/remove old backend service registration (if present):
+   ```powershell
+   ./scripts/remove-backend-service.ps1
+   ```
+2. Reinstall backend service so NSSM points to the new backend folder:
+   ```powershell
+   ./scripts/install-backend-service.ps1
+   ```
+3. Reconfigure IIS site physical path to the new frontend dist folder:
+   ```powershell
+   ./scripts/configure-iis-site.ps1 -SiteName "RPG Collection Navigator" -Port 80 -HostHeader "localhost" -ReconcileBindings
+   ```
+4. Verify endpoints:
+   - http://localhost:3001/api/health
+   - http://localhost/api/health
+   - http://localhost
+5. If backend dev startup fails with EADDRINUSE on 3001, stop the old process or change `PORT` in `backend/.env`.
 
 ## Development Workflow
 
@@ -102,7 +135,127 @@ npm start
 ```bash
 cd frontend
 npm run build
-npm run preview
+```
+
+## Local IIS + Windows Service Deployment
+
+This deployment mode serves the frontend from IIS and proxies `/api/*` to a backend Node process running as a Windows service.
+
+### Prerequisite bootstrap
+Run PowerShell as Administrator from the repo root:
+
+```powershell
+./scripts/setup-local-iis-prereqs.ps1 -EnableIISFeatures
+```
+
+Use `-CheckOnly` to validate without changing Windows features.
+
+### One-command bootstrap
+Run PowerShell as Administrator from the repo root:
+
+```powershell
+./scripts/deploy-local-iis.ps1 -SiteName "RPG Collection Navigator" -HostHeader "localhost" -Port 80
+```
+
+Optional switches:
+- `-SkipBuild` skips dependency install and build steps
+- `-SkipVerification` skips post-deploy health checks
+- `-EnableIISFeatures` enables required IIS Windows features before deployment
+- `-ReconcileBindings` removes stale IIS HTTP bindings and keeps only the requested host/port binding
+- `-UseNpmInstall` forces `npm install` instead of default `npm ci` behavior
+- `-ForceCloseNodeProcesses` force-stops running Node processes tied to the repo/frontend/backend paths before install/build
+
+### 1. Install prerequisites
+- IIS with Static Content role service
+- IIS URL Rewrite module
+- Application Request Routing (ARR)
+- NSSM (Non-Sucking Service Manager)
+
+### 2. Build application artifacts
+```bash
+cd backend
+npm ci
+npm run build
+
+cd ..\frontend
+npm ci
+npm run build
+```
+
+Notes:
+- The deploy scripts default to `npm ci` when `package-lock.json` is present.
+- If a lockfile is missing or you need legacy behavior, use `-UseNpmInstall`.
+
+### 3. Install backend Windows service
+Run PowerShell as Administrator:
+
+```powershell
+./scripts/install-backend-service.ps1
+```
+
+Optional parameters:
+
+```powershell
+./scripts/install-backend-service.ps1 -ServiceName "RPG-Backend" -NssmPath "C:\tools\nssm\nssm.exe"
+```
+
+Force `npm install` instead of default `npm ci`:
+
+```powershell
+./scripts/install-backend-service.ps1 -UseNpmInstall
+```
+
+### 4. Configure IIS site for frontend
+Run PowerShell as Administrator:
+
+```powershell
+./scripts/configure-iis-site.ps1 -SiteName "RPG Collection Navigator" -Port 80 -HostHeader "rpg.local"
+```
+
+Remove stale HTTP bindings and keep only the requested host/port:
+
+```powershell
+./scripts/configure-iis-site.ps1 -SiteName "RPG Collection Navigator" -Port 80 -HostHeader "rpg.local" -ReconcileBindings
+```
+
+The frontend build includes `web.config` with two IIS rewrite rules:
+- `/api/*` is proxied to `http://localhost:3001/api/*`
+- all other unknown routes are rewritten to `index.html` for SPA routing
+
+### 5. Verify deployment
+1. Check backend service status:
+   ```powershell
+   Get-Service -Name "RPG-Backend"
+   ```
+2. Verify backend health endpoint directly:
+   - http://localhost:3001/api/health
+3. Verify IIS-proxied health endpoint:
+   - http://rpg.local/api/health
+4. Open frontend:
+   - http://rpg.local
+
+### Common deploy variants
+Force clean binding reconciliation and keep default `npm ci` behavior:
+
+```powershell
+./scripts/deploy-local-iis.ps1 -SiteName "RPG Collection Navigator" -HostHeader "localhost" -Port 80 -ReconcileBindings
+```
+
+Force legacy dependency install behavior:
+
+```powershell
+./scripts/deploy-local-iis.ps1 -SiteName "RPG Collection Navigator" -HostHeader "localhost" -Port 80 -UseNpmInstall
+```
+
+Force-close blocking Node processes (helpful for EPERM node_modules file locks):
+
+```powershell
+./scripts/deploy-local-iis.ps1 -SiteName "RPG Collection Navigator" -HostHeader "localhost" -Port 80 -ReconcileBindings -UseNpmInstall -ForceCloseNodeProcesses
+```
+
+### 6. Remove backend service (if needed)
+```powershell
+./scripts/remove-backend-service.ps1
 ```
 
 ## Key Features

@@ -1,5 +1,11 @@
 #!/usr/bin/env pwsh
 
+$ErrorActionPreference = "Stop"
+
+$repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$backendPath = Join-Path $repoRoot "backend"
+$frontendPath = Join-Path $repoRoot "frontend"
+
 Write-Host @"
 ========================================
  RPG Collection Manager - Setup
@@ -18,42 +24,46 @@ try {
 
 # Setup Backend
 Write-Host "`nSetting up Backend..." -ForegroundColor Yellow
-Push-Location backend
+Push-Location $backendPath
+try {
+    if (-not (Test-Path "node_modules")) {
+        Write-Host "Installing backend dependencies..." -ForegroundColor Cyan
+        npm install
+    } else {
+        Write-Host "Backend dependencies already installed" -ForegroundColor Green
+    }
 
-if (-not (Test-Path node_modules)) {
-    Write-Host "Installing backend dependencies..." -ForegroundColor Cyan
-    npm install
-} else {
-    Write-Host "Backend dependencies already installed" -ForegroundColor Green
-}
+    if (-not (Test-Path ".env")) {
+        Write-Host "Creating .env file from .env.example..." -ForegroundColor Cyan
+        Copy-Item ".env.example" ".env"
+        Write-Host @"
 
-if (-not (Test-Path .env)) {
-    Write-Host "Creating .env file from .env.example..." -ForegroundColor Cyan
-    Copy-Item .env.example .env
-    Write-Host @"
-    
 WARNING: Please edit backend\.env with your database credentials:
   - DB_SERVER: FASARIG2
   - DB_DATABASE: your_database_name
   - DB_USER: your_username (leave blank for Windows Auth)
   - DB_PASSWORD: your_password (leave blank for Windows Auth)
 "@ -ForegroundColor Yellow
+    }
 }
-
-Pop-Location
+finally {
+    Pop-Location
+}
 
 # Setup Frontend
 Write-Host "`nSetting up Frontend..." -ForegroundColor Yellow
-Push-Location frontend
-
-if (-not (Test-Path node_modules)) {
-    Write-Host "Installing frontend dependencies..." -ForegroundColor Cyan
-    npm install
-} else {
-    Write-Host "Frontend dependencies already installed" -ForegroundColor Green
+Push-Location $frontendPath
+try {
+    if (-not (Test-Path "node_modules")) {
+        Write-Host "Installing frontend dependencies..." -ForegroundColor Cyan
+        npm install
+    } else {
+        Write-Host "Frontend dependencies already installed" -ForegroundColor Green
+    }
 }
-
-Pop-Location
+finally {
+    Pop-Location
+}
 
 Write-Host @"
 
