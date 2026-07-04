@@ -151,19 +151,17 @@ export default function CollectionsPage() {
                   <td className="px-6 py-4 text-right space-x-2">
                     <button
                       onClick={() => setEditingId(String(record.CollectionID))}
-                      className="inline-flex items-center justify-center p-1 text-blue-600 hover:text-blue-700"
-                      aria-label="Edit collection"
-                      title="Edit"
+                      className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700"
                     >
                       <Edit2 className="w-4 h-4" />
+                      Edit
                     </button>
                     <button
                       onClick={() => handleDelete(String(record.CollectionID))}
-                      className="inline-flex items-center justify-center p-1 text-red-600 hover:text-red-700"
-                      aria-label="Delete collection"
-                      title="Delete"
+                      className="inline-flex items-center gap-1 text-red-600 hover:text-red-700"
                     >
                       <Trash2 className="w-4 h-4" />
+                      Delete
                     </button>
                   </td>
                 </tr>
