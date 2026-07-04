@@ -27,6 +27,22 @@ interface InventoryItem {
   SubTypeName: string;
 }
 
+interface InventoryExportRow {
+  Publisher?: string | null;
+  Collection?: string | null;
+  Item?: string | null;
+  Category?: string | null;
+  SubType?: string | null;
+  ProductID?: string | null;
+  ReleaseDate?: string | null;
+  Store?: string | null;
+  InvoiceNumber?: string | null;
+  PurchaseDate?: string | null;
+  Price?: number | null;
+  Count?: number | null;
+  POStatus?: string | null;
+}
+
 export default function InventoryLookupPage() {
   const [urlSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
@@ -73,6 +89,8 @@ export default function InventoryLookupPage() {
   const [selectedLinkedOrder, setSelectedLinkedOrder] = useState<LinkedPurchaseOrder | null>(null);
   const [detailTargetItemId, setDetailTargetItemId] = useState<number | null>(null);
   const [fallbackHasPurchaseOrder, setFallbackHasPurchaseOrder] = useState<Record<number, boolean>>({});
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
 
   const queryClient = useQueryClient();
 
@@ -610,29 +628,7 @@ export default function InventoryLookupPage() {
   >({
     queryKey,
     queryFn: async () => {
-      const cleanedParams = Object.entries(searchParams).reduce((acc, [key, value]) => {
-        if (Array.isArray(value)) {
-          const nonEmptyValues = value.filter((entry) => typeof entry === 'string' && entry.trim().length > 0);
-          if (nonEmptyValues.length > 0) {
-            acc[key] = nonEmptyValues;
-          }
-          return acc;
-        }
-
-        if (typeof value === 'string') {
-          const trimmed = value.trim();
-          if (trimmed.length > 0) {
-            acc[key] = trimmed;
-          }
-          return acc;
-        }
-
-        if (value !== null && value !== undefined) {
-          acc[key] = value;
-        }
-
-        return acc;
-      }, {} as Record<string, any>);
+      const cleanedParams = buildCleanedInventoryFilters(searchParams);
 
       const response = await tablesAPI.getInventoryItems({
         ...cleanedParams,
@@ -647,30 +643,36 @@ export default function InventoryLookupPage() {
   });
 
   const handleFilterChange = (field: string, value: string) => {
+    setDownloadError('');
     setFilterValues((current) => ({ ...current, [field]: value }));
   };
 
   // handle multi-select change for publisherName
   const handlePublisherChange = (values: string[]) => {
+    setDownloadError('');
     setFilterValues((current) => ({ ...current, publisherName: values }));
   };
 
   // handle multi-select change for collectionName
   const handleCollectionChange = (values: string[]) => {
+    setDownloadError('');
     setFilterValues((current) => ({ ...current, collectionName: values }));
   };
 
   // handle multi-select change for categoryName
   const handleCategoryChange = (values: string[]) => {
+    setDownloadError('');
     setFilterValues((current) => ({ ...current, categoryName: values }));
   };
 
   // handle multi-select change for subTypeName
   const handleSubTypeChange = (values: string[]) => {
+    setDownloadError('');
     setFilterValues((current) => ({ ...current, subTypeName: values }));
   };
 
   const applyFilters = () => {
+    setDownloadError('');
     setPage(1);
     setSearchParams(filterValues);
   };
@@ -693,6 +695,7 @@ export default function InventoryLookupPage() {
   };
 
   const clearFilters = () => {
+    setDownloadError('');
     setFilterValues({
       itemName: '',
       productID: '',
@@ -710,6 +713,127 @@ export default function InventoryLookupPage() {
       subTypeName: [],
     });
     setPage(1);
+  };
+
+  const buildCleanedInventoryFilters = (filters: Record<string, any>) => {
+    return Object.entries(filters).reduce((acc, [key, value]) => {
+      if (Array.isArray(value)) {
+        const nonEmptyValues = value.filter((entry) => typeof entry === 'string' && entry.trim().length > 0);
+        if (nonEmptyValues.length > 0) {
+          acc[key] = nonEmptyValues;
+        }
+        return acc;
+      }
+
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed.length > 0) {
+          acc[key] = trimmed;
+        }
+        return acc;
+      }
+
+      if (value !== null && value !== undefined) {
+        acc[key] = value;
+      }
+
+      return acc;
+    }, {} as Record<string, any>);
+  };
+
+  const csvEscape = (rawValue: string) => {
+    // Strip null bytes and protect spreadsheet clients from interpreting formulas.
+    let value = rawValue.replace(/\u0000/g, '');
+    if (/^[=+\-@]/.test(value)) {
+      value = `'${value}`;
+    }
+
+    if (value.includes('"')) {
+      value = value.replace(/"/g, '""');
+    }
+
+    if (value.includes(',') || value.includes('\n') || value.includes('\r') || value.includes('"')) {
+      return `"${value}"`;
+    }
+
+    return value;
+  };
+
+  const formatDateForCsv = (date?: string | null) => {
+    const parts = parseDateParts(date || undefined);
+    if (!parts) {
+      return '';
+    }
+
+    return `${String(parts.month).padStart(2, '0')}/${String(parts.day).padStart(2, '0')}/${parts.year}`;
+  };
+
+  const buildCsvContent = (rows: InventoryExportRow[]) => {
+    const headers = [
+      'Publisher',
+      'Collection',
+      'Item',
+      'Category',
+      'SubType',
+      'ProductID',
+      'Release Date',
+      'Store',
+      'Invoice Number',
+      'Purchase Date',
+      'Price',
+      'Count',
+      'PO Status',
+    ];
+
+    const lines = rows.map((row) => {
+      const values = [
+        row.Publisher || '',
+        row.Collection || '',
+        row.Item || '',
+        row.Category || '',
+        row.SubType || '',
+        row.ProductID || '',
+        formatDateForCsv(row.ReleaseDate),
+        row.Store || '',
+        row.InvoiceNumber || '',
+        formatDateForCsv(row.PurchaseDate),
+        row.Price !== null && row.Price !== undefined ? Number(row.Price).toFixed(2) : '',
+        row.Count !== null && row.Count !== undefined ? String(row.Count) : '',
+        row.POStatus || '',
+      ];
+
+      return values.map((value) => csvEscape(String(value))).join(',');
+    });
+
+    return [headers.join(','), ...lines].join('\r\n');
+  };
+
+  const handleDownloadCsv = async () => {
+    try {
+      setIsDownloading(true);
+      setDownloadError('');
+
+      const cleanedParams = buildCleanedInventoryFilters(searchParams);
+      const response = await tablesAPI.getInventoryExportRows(cleanedParams);
+      const rows = (response.data?.data || []) as InventoryExportRow[];
+
+      const csvContent = buildCsvContent(rows);
+      // Prefix UTF-8 BOM so Excel preserves special characters consistently.
+      const blob = new Blob(['\uFEFF', csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      link.href = url;
+      link.download = `item-master-export-${timestamp}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      setDownloadError(error.response?.data?.error || error.message || 'Failed to download CSV');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const openEditModal = (item: InventoryItem) => {
@@ -1030,11 +1154,20 @@ export default function InventoryLookupPage() {
               <Button className="bg-green-600 hover:bg-green-700" onClick={openAddModal}>
                 Add Item
               </Button>
+              <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading}>
+                {isDownloading ? 'Downloading...' : 'Download CSV'}
+              </Button>
               <Button onClick={applyFilters}>Apply Filters</Button>
               <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters}>
                 Clear
               </Button>
             </div>
+
+            {downloadError ? (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+                {downloadError}
+              </div>
+            ) : null}
           </div>
         </section>
 

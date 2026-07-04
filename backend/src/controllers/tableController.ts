@@ -350,6 +350,139 @@ export async function getItemsForLookup(req: Request, res: Response): Promise<vo
   }
 }
 
+// Export inventory rows with optional linked purchase order details
+export async function getInventoryExportRows(req: Request, res: Response): Promise<void> {
+  try {
+    const filters: string[] = [];
+    const pool = await getPool();
+    const request = pool.request();
+
+    if (req.query.itemName) {
+      request.input('itemName', sql.NVarChar(255), `%${req.query.itemName}%`);
+      filters.push('[Item].[ItemName] LIKE @itemName');
+    }
+
+    if (req.query.productID) {
+      request.input('productID', sql.NVarChar(255), `%${req.query.productID}%`);
+      filters.push('[Item].[ProductID] LIKE @productID');
+    }
+
+    if (req.query.publisherName) {
+      if (Array.isArray(req.query.publisherName)) {
+        const names = req.query.publisherName as string[];
+        const clauses: string[] = [];
+        names.forEach((name, idx) => {
+          const param = `publisherName_${idx}`;
+          request.input(param, sql.NVarChar(255), name);
+          clauses.push(`[Publisher].[PublisherName] = @${param}`);
+        });
+        if (clauses.length) {
+          filters.push(`(${clauses.join(' OR ')})`);
+        }
+      } else {
+        request.input('publisherName', sql.NVarChar(255), `%${req.query.publisherName}%`);
+        filters.push('[Publisher].[PublisherName] LIKE @publisherName');
+      }
+    }
+
+    if (req.query.collectionName) {
+      if (Array.isArray(req.query.collectionName)) {
+        const names = req.query.collectionName as string[];
+        const clauses: string[] = [];
+        names.forEach((name, idx) => {
+          const param = `collectionName_${idx}`;
+          request.input(param, sql.NVarChar(255), name);
+          clauses.push(`[Collection].[CollectionName] = @${param}`);
+        });
+        if (clauses.length) {
+          filters.push(`(${clauses.join(' OR ')})`);
+        }
+      } else {
+        request.input('collectionName', sql.NVarChar(255), `%${req.query.collectionName}%`);
+        filters.push('[Collection].[CollectionName] LIKE @collectionName');
+      }
+    }
+
+    if (req.query.categoryName) {
+      if (Array.isArray(req.query.categoryName)) {
+        const names = req.query.categoryName as string[];
+        const clauses: string[] = [];
+        names.forEach((name, idx) => {
+          const param = `categoryName_${idx}`;
+          request.input(param, sql.NVarChar(255), name);
+          clauses.push(`[Category].[CategoryName] = @${param}`);
+        });
+        if (clauses.length) {
+          filters.push(`(${clauses.join(' OR ')})`);
+        }
+      } else {
+        request.input('categoryName', sql.NVarChar(255), `%${req.query.categoryName}%`);
+        filters.push('[Category].[CategoryName] LIKE @categoryName');
+      }
+    }
+
+    if (req.query.subTypeName) {
+      if (Array.isArray(req.query.subTypeName)) {
+        const names = req.query.subTypeName as string[];
+        const clauses: string[] = [];
+        names.forEach((name, idx) => {
+          const param = `subTypeName_${idx}`;
+          request.input(param, sql.NVarChar(255), name);
+          clauses.push(`[SubType].[SubTypeName] = @${param}`);
+        });
+        if (clauses.length) {
+          filters.push(`(${clauses.join(' OR ')})`);
+        }
+      } else {
+        request.input('subTypeName', sql.NVarChar(255), `%${req.query.subTypeName}%`);
+        filters.push('[SubType].[SubTypeName] LIKE @subTypeName');
+      }
+    }
+
+    const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+
+    const query = `
+      SELECT
+        [Publisher].[PublisherName] AS [Publisher],
+        [Collection].[CollectionName] AS [Collection],
+        [Item].[ItemName] AS [Item],
+        [Category].[CategoryName] AS [Category],
+        [SubType].[SubTypeName] AS [SubType],
+        [Item].[ProductID] AS [ProductID],
+        [Item].[ReleaseDate] AS [ReleaseDate],
+        [Store].[StoreName] AS [Store],
+        [PurchaseOrder].[InvoiceNumber] AS [InvoiceNumber],
+        [PurchaseOrder].[PurchasedDate] AS [PurchaseDate],
+        [PurchaseOrderDetail].[Price] AS [Price],
+        [PurchaseOrderDetail].[Quantity] AS [Count],
+        [Status].[StatusName] AS [POStatus]
+      FROM [Item]
+      INNER JOIN [Publisher] ON [Publisher].[PublisherID] = [Item].[PublisherID]
+      INNER JOIN [Collection] ON [Collection].[CollectionID] = [Item].[CollectionID]
+      INNER JOIN [Category] ON [Category].[CategoryID] = [Item].[CategoryID]
+      INNER JOIN [SubType] ON [SubType].[SubTypeID] = [Item].[SubTypeID]
+      LEFT JOIN [PurchaseOrderDetail] ON [PurchaseOrderDetail].[ItemID] = [Item].[ItemID]
+      LEFT JOIN [PurchaseOrder] ON [PurchaseOrder].[PurchaseOrderID] = [PurchaseOrderDetail].[PurchaseOrderID]
+      LEFT JOIN [Store] ON [Store].[StoreID] = [PurchaseOrder].[StoreID]
+      LEFT JOIN [Status] ON [Status].[StatusID] = [PurchaseOrder].[StatusID]
+      ${whereClause}
+      ORDER BY
+        [Publisher].[PublisherName] ASC,
+        [Collection].[CollectionName] ASC,
+        [Item].[ItemName] ASC,
+        [PurchaseOrder].[PurchasedDate] DESC,
+        [PurchaseOrder].[PurchaseOrderID] DESC,
+        [PurchaseOrderDetail].[PurchaseOrderDetailID] DESC
+    `;
+
+    const result = await request.query(query);
+    res.json({ data: result.recordset, total: result.recordset.length });
+  } catch (error) {
+    console.error('Error exporting inventory rows:', error);
+    res.status(500).json({ error: 'Failed to export inventory rows' });
+  }
+}
+
 // Get purchase orders with filtering and sorting
 export async function getPurchaseOrders(req: Request, res: Response): Promise<void> {
   try {
@@ -755,7 +888,7 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
 
 // Create a PurchaseOrder and its PurchaseOrderDetail rows inside one transaction
 export async function createPurchaseOrderWithDetails(req: Request, res: Response): Promise<void> {
-  const { InvoiceNumber, StoreID, PurchasedDate, details } = req.body;
+  const { InvoiceNumber, StoreID, PurchasedDate, StatusID, details } = req.body;
 
   // --- input validation ---
   if (!InvoiceNumber || typeof InvoiceNumber !== 'string' || !InvoiceNumber.trim()) {
@@ -771,6 +904,17 @@ export async function createPurchaseOrderWithDetails(req: Request, res: Response
     res.status(400).json({ error: 'PurchasedDate is required.' });
     return;
   }
+
+  let statusId: number | null = null;
+  if (StatusID !== undefined && StatusID !== null && `${StatusID}` !== '') {
+    const parsedStatusId = parseInt(StatusID, 10);
+    if (!Number.isInteger(parsedStatusId) || parsedStatusId <= 0) {
+      res.status(400).json({ error: 'StatusID must be a positive integer.' });
+      return;
+    }
+    statusId = parsedStatusId;
+  }
+
   if (!Array.isArray(details) || details.length === 0) {
     res.status(400).json({ error: 'At least one detail row is required.' });
     return;
@@ -796,6 +940,23 @@ export async function createPurchaseOrderWithDetails(req: Request, res: Response
 
   const pool = await getPool();
 
+  if (statusId === null) {
+    const defaultStatusResult = await pool.request()
+      .input('defaultStatusName', sql.NVarChar(255), 'On Order')
+      .query(`
+        SELECT TOP 1 [StatusID]
+        FROM [Status]
+        WHERE LOWER(LTRIM(RTRIM([StatusName]))) = LOWER(LTRIM(RTRIM(@defaultStatusName)))
+      `);
+
+    if (!defaultStatusResult.recordset.length) {
+      res.status(500).json({ error: 'Default order status "On Order" was not found.' });
+      return;
+    }
+
+    statusId = defaultStatusResult.recordset[0].StatusID;
+  }
+
   // Check unique constraint (StoreID + InvoiceNumber) — pass 0 to exclude nothing
   const constraint = await checkPurchaseOrderUniqueConstraint(storeId, InvoiceNumber.trim(), 0);
   if (constraint.exists) {
@@ -814,11 +975,12 @@ export async function createPurchaseOrderWithDetails(req: Request, res: Response
     headerRequest.input('InvoiceNumber', sql.NVarChar(255), InvoiceNumber.trim());
     headerRequest.input('StoreID', sql.Int, storeId);
     headerRequest.input('PurchasedDate', sql.Date, PurchasedDate);
+    headerRequest.input('StatusID', sql.Int, statusId);
 
     const headerResult = await headerRequest.query(`
-      INSERT INTO [PurchaseOrder] ([InvoiceNumber], [StoreID], [PurchasedDate])
+      INSERT INTO [PurchaseOrder] ([InvoiceNumber], [StoreID], [PurchasedDate], [StatusID])
       OUTPUT INSERTED.[PurchaseOrderID]
-      VALUES (@InvoiceNumber, @StoreID, @PurchasedDate)
+      VALUES (@InvoiceNumber, @StoreID, @PurchasedDate, @StatusID)
     `);
 
     const newOrderId: number = headerResult.recordset[0].PurchaseOrderID;

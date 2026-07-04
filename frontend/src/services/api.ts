@@ -28,6 +28,9 @@ export const tablesAPI = {
   getInventoryItems: (params: Record<string, any>) =>
     api.get('/tables/inventory', { params }),
 
+  getInventoryExportRows: (params: Record<string, any>) =>
+    api.get('/tables/inventory-export', { params }),
+
   getItemsForLookup: () =>
     api.get('/tables/items-for-lookup'),
 
@@ -55,6 +58,7 @@ export const tablesAPI = {
   createPurchaseOrderWithDetails: (data: {
     InvoiceNumber: string;
     StoreID: number;
+    StatusID: number;
     PurchasedDate: string;
     details: Array<{ ItemID: number; Quantity: number; Price: number }>;
   }) => api.post('/tables/purchase-order-with-details', data),

@@ -16,6 +16,8 @@ interface PurchaseOrder {
   StoreName: string;
   InvoiceNumber: string;
   PurchaseDate: string;
+  StatusID?: number | null;
+  StatusName?: string | null;
   ItemCount: number;
   TotalAmount: number;
 }
@@ -57,6 +59,7 @@ export default function OrderMasterPage() {
   const [filterValues, setFilterValues] = useState({
     storeNames: [] as string[],
     invoiceNumber: '',
+    statusNames: [] as string[],
     purchaseDateStart: '',
     purchaseDateEnd: '',
   });
@@ -64,7 +67,12 @@ export default function OrderMasterPage() {
   const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [editedOrder, setEditedOrder] = useState<{ InvoiceNumber: string; StoreName: string; PurchaseDate: string } | null>(null);
+  const [editedOrder, setEditedOrder] = useState<{
+    InvoiceNumber: string;
+    StoreName: string;
+    PurchaseDate: string;
+    StatusName: string;
+  } | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addOrderError, setAddOrderError] = useState<string | null>(null);
@@ -73,6 +81,7 @@ export default function OrderMasterPage() {
   const [addOrderValues, setAddOrderValues] = useState({
     InvoiceNumber: '',
     StoreID: '',
+    StatusID: '',
     PurchaseDate: '',
   });
   const [addOrderDetails, setAddOrderDetails] = useState<AddOrderDetailDraft[]>([
@@ -100,6 +109,7 @@ export default function OrderMasterPage() {
     const nextFilters = {
       storeNames: store ? [store] : [],
       invoiceNumber: invoice,
+      statusNames: [],
       purchaseDateStart: '',
       purchaseDateEnd: '',
     };
@@ -115,7 +125,13 @@ export default function OrderMasterPage() {
     return resp.data;
   });
 
+  const { data: statusesResp } = useQuery(['statuses'], async () => {
+    const resp = await tablesAPI.getTableData('Status', 1, 100);
+    return resp.data;
+  });
+
   const storesData = storesResp?.data || [];
+  const statusesData = statusesResp?.data || [];
 
   const { data: itemLookupResp, isLoading: itemLookupLoading } = useQuery([
     'itemLookupForAddOrder',
@@ -156,6 +172,19 @@ export default function OrderMasterPage() {
   const storeOptions = useMemo(() => {
     return storesData.map((s: any) => ({ value: s.StoreName, label: s.StoreName }));
   }, [storesData]);
+
+  const statusOptions = useMemo(() => {
+    return statusesData.map((s: any) => ({ value: s.StatusName, label: s.StatusName }));
+  }, [statusesData]);
+
+  const defaultOnOrderStatusId = useMemo(() => {
+    const status = statusesData.find(
+      (s: any) => String(s.StatusName || '').trim().toLowerCase() === 'on order'
+    );
+    return status ? String(status.StatusID) : '';
+  }, [statusesData]);
+
+  const isOnOrderStatusMissing = statusesData.length > 0 && !defaultOnOrderStatusId;
 
   const itemLookupOptions = useMemo(() => {
     return itemLookupData.map((item) => ({
@@ -270,12 +299,20 @@ export default function OrderMasterPage() {
 
   // Update purchase order mutation
   const updateMutation = useMutation({
-    mutationFn: async (data: { InvoiceNumber: string; StoreID: number; PurchasedDate: string; StoreName: string }) => {
+    mutationFn: async (data: {
+      InvoiceNumber: string;
+      StoreID: number;
+      PurchasedDate: string;
+      StatusID: number;
+      StoreName: string;
+      StatusName: string;
+    }) => {
       if (!selectedOrder) throw new Error('No order selected');
       return await tablesAPI.updateRecord('PurchaseOrder', selectedOrder.PurchaseOrderID, {
         InvoiceNumber: data.InvoiceNumber,
         StoreID: data.StoreID,
         PurchasedDate: data.PurchasedDate,
+        StatusID: data.StatusID,
       });
     },
     onSuccess: (_response, variables) => {
@@ -296,6 +333,8 @@ export default function OrderMasterPage() {
           InvoiceNumber: variables.InvoiceNumber,
           StoreName: variables.StoreName,
           PurchaseDate: variables.PurchasedDate,
+          StatusID: variables.StatusID,
+          StatusName: variables.StatusName,
         };
       });
     },
@@ -331,6 +370,9 @@ export default function OrderMasterPage() {
       const storeId = parseInt(addOrderValues.StoreID, 10);
       if (!Number.isInteger(storeId) || storeId <= 0) throw new Error('Store is required.');
 
+      const statusId = parseInt(addOrderValues.StatusID, 10);
+      if (!Number.isInteger(statusId) || statusId <= 0) throw new Error('Order Status is required.');
+
       const purchaseDateParts = parseDateParts(addOrderValues.PurchaseDate);
       if (!purchaseDateParts) throw new Error('Purchase Date is required.');
 
@@ -357,6 +399,7 @@ export default function OrderMasterPage() {
       const response = await tablesAPI.createPurchaseOrderWithDetails({
         InvoiceNumber: invoiceNumber,
         StoreID: storeId,
+        StatusID: statusId,
         PurchasedDate: purchasedDate,
         details: normalizedDetails,
       });
@@ -378,7 +421,7 @@ export default function OrderMasterPage() {
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
       setAddOrderError(null);
       setIsAddModalOpen(false);
-      setAddOrderValues({ InvoiceNumber: '', StoreID: '', PurchaseDate: '' });
+      setAddOrderValues({ InvoiceNumber: '', StoreID: '', StatusID: '', PurchaseDate: '' });
       setAddOrderDetails([{ id: 1, ItemID: '', Quantity: '1', Price: '' }]);
       setNextDetailRowId(2);
 
@@ -487,6 +530,7 @@ export default function OrderMasterPage() {
     setAddOrderValues({
       InvoiceNumber: '',
       StoreID: '',
+      StatusID: '',
       PurchaseDate: '',
     });
     setAddOrderDetails([{ id: 1, ItemID: '', Quantity: '1', Price: '' }]);
@@ -499,6 +543,7 @@ export default function OrderMasterPage() {
         InvoiceNumber: selectedOrder.InvoiceNumber,
         StoreName: selectedOrder.StoreName,
         PurchaseDate: selectedOrder.PurchaseDate,
+        StatusName: selectedOrder.StatusName || '',
       });
       setIsEditMode(true);
     }
@@ -510,7 +555,10 @@ export default function OrderMasterPage() {
     setUpdateError(null);
   };
 
-  const handleEditFieldChange = (field: 'InvoiceNumber' | 'StoreName' | 'PurchaseDate', value: string) => {
+  const handleEditFieldChange = (
+    field: 'InvoiceNumber' | 'StoreName' | 'PurchaseDate' | 'StatusName',
+    value: string
+  ) => {
     if (editedOrder) {
       setEditedOrder((prev) => prev ? { ...prev, [field]: value } : null);
     }
@@ -526,6 +574,12 @@ export default function OrderMasterPage() {
       return;
     }
 
+    const selectedStatus = statusesData.find((s: any) => s.StatusName === editedOrder.StatusName);
+    if (!selectedStatus) {
+      setUpdateError('Selected order status not found');
+      return;
+    }
+
     // Convert date format from MM/DD/YYYY or YYYY-MM-DD to YYYY-MM-DD for the database
     let purchasedDate = editedOrder.PurchaseDate;
     const dateParts = parseDateParts(editedOrder.PurchaseDate);
@@ -537,7 +591,9 @@ export default function OrderMasterPage() {
       InvoiceNumber: editedOrder.InvoiceNumber,
       StoreID: selectedStore.StoreID,
       PurchasedDate: purchasedDate,
+      StatusID: selectedStatus.StatusID,
       StoreName: editedOrder.StoreName,
+      StatusName: selectedStatus.StatusName,
     });
   };
 
@@ -547,6 +603,10 @@ export default function OrderMasterPage() {
 
   const handleInvoiceNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFilterValues((current) => ({ ...current, invoiceNumber: e.target.value }));
+  };
+
+  const handleStatusFilterChange = (values: string[]) => {
+    setFilterValues((current) => ({ ...current, statusNames: values }));
   };
 
   const handleDateStartChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -583,12 +643,14 @@ export default function OrderMasterPage() {
     setFilterValues({
       storeNames: [],
       invoiceNumber: '',
+      statusNames: [],
       purchaseDateStart: '',
       purchaseDateEnd: '',
     });
     setSearchParams({
       storeNames: [],
       invoiceNumber: '',
+      statusNames: [],
       purchaseDateStart: '',
       purchaseDateEnd: '',
     });
@@ -604,6 +666,7 @@ export default function OrderMasterPage() {
     setAddOrderValues({
       InvoiceNumber: '',
       StoreID: '',
+      StatusID: defaultOnOrderStatusId,
       PurchaseDate: initialDate,
     });
     setAddOrderDetails([{ id: 1, ItemID: '', Quantity: '1', Price: '' }]);
@@ -612,9 +675,20 @@ export default function OrderMasterPage() {
     setIsAddModalOpen(true);
   };
 
-  const handleAddOrderFieldChange = (field: 'InvoiceNumber' | 'StoreID' | 'PurchaseDate', value: string) => {
+  const handleAddOrderFieldChange = (
+    field: 'InvoiceNumber' | 'StoreID' | 'StatusID' | 'PurchaseDate',
+    value: string
+  ) => {
     setAddOrderValues((current) => ({ ...current, [field]: value }));
   };
+
+  useEffect(() => {
+    if (!isAddModalOpen || addOrderValues.StatusID || !defaultOnOrderStatusId) {
+      return;
+    }
+
+    setAddOrderValues((current) => ({ ...current, StatusID: defaultOnOrderStatusId }));
+  }, [isAddModalOpen, addOrderValues.StatusID, defaultOnOrderStatusId]);
 
   const handleAddDetailChange = (rowId: number, field: 'ItemID' | 'Quantity' | 'Price', value: string) => {
     setAddOrderDetails((current) =>
@@ -718,7 +792,7 @@ export default function OrderMasterPage() {
       <div className="max-w-7xl mx-auto space-y-6">
         <section className="bg-white shadow rounded-lg p-6">
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <label className="space-y-2 min-w-0">
                 <span className="text-sm font-medium text-gray-700">Store Name</span>
                 <ComboMultiSelect
@@ -736,6 +810,16 @@ export default function OrderMasterPage() {
                   value={filterValues.invoiceNumber}
                   onChange={handleInvoiceNumberChange}
                   placeholder="Search invoices..."
+                />
+              </label>
+              <label className="space-y-2 min-w-0">
+                <span className="text-sm font-medium text-gray-700">Order Status</span>
+                <ComboMultiSelect
+                  options={statusOptions}
+                  selected={filterValues.statusNames}
+                  onChange={handleStatusFilterChange}
+                  placeholder="Select statuses..."
+                  className="w-full"
                 />
               </label>
               <label className="space-y-2">
@@ -797,6 +881,11 @@ export default function OrderMasterPage() {
                           Store Name <SortIndicator column="StoreName" />
                         </button>
                       </TableHead>
+                      <TableHead>
+                        <button onClick={() => handleSort('StatusName')} className="flex items-center hover:text-blue-600">
+                          Order Status <SortIndicator column="StatusName" />
+                        </button>
+                      </TableHead>
                       <TableHead className="text-right">
                         <button onClick={() => handleSort('ItemCount')} className="flex items-center justify-end hover:text-blue-600 w-full">
                           Item Count <SortIndicator column="ItemCount" />
@@ -820,13 +909,14 @@ export default function OrderMasterPage() {
                           <TableCell>{formatPurchaseDate(order.PurchaseDate)}</TableCell>
                           <TableCell>{order.InvoiceNumber}</TableCell>
                           <TableCell>{order.StoreName}</TableCell>
+                          <TableCell>{order.StatusName || '-'}</TableCell>
                           <TableCell className="text-right">{order.ItemCount}</TableCell>
                           <TableCell className="text-right font-semibold">{formatCurrency(order.TotalAmount)}</TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-10 text-gray-500">
+                        <TableCell colSpan={6} className="text-center py-10 text-gray-500">
                           No matching orders found.
                         </TableCell>
                       </TableRow>
@@ -887,7 +977,7 @@ export default function OrderMasterPage() {
             )}
 
             {/* Order Summary / Edit Form */}
-            <div className={`grid gap-4 pb-4 border-b ${isEditMode ? 'grid-cols-1' : 'grid-cols-2 md:grid-cols-4'}`}>
+            <div className={`grid gap-4 pb-4 border-b ${isEditMode ? 'grid-cols-1' : 'grid-cols-2 md:grid-cols-5'}`}>
               {/* Invoice Number */}
               <div>
                 <p className="text-sm text-gray-600">Invoice Number</p>
@@ -946,6 +1036,27 @@ export default function OrderMasterPage() {
                   />
                 ) : (
                   <p className="font-semibold">{formatPurchaseDate(selectedOrder.PurchaseDate)}</p>
+                )}
+              </div>
+
+              {/* Order Status */}
+              <div>
+                <p className="text-sm text-gray-600">Order Status</p>
+                {isEditMode ? (
+                  <select
+                    value={editedOrder?.StatusName || ''}
+                    onChange={(e) => handleEditFieldChange('StatusName', e.target.value)}
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select a status...</option>
+                    {statusesData.map((status: any) => (
+                      <option key={status.StatusID} value={status.StatusName}>
+                        {status.StatusName}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="font-semibold">{selectedOrder.StatusName || '-'}</p>
                 )}
               </div>
 
@@ -1251,13 +1362,23 @@ export default function OrderMasterPage() {
         title="Add Order"
       >
         <div className="space-y-6">
+          {isOnOrderStatusMissing && (
+            <div className="p-4 bg-amber-50 border border-amber-300 rounded-md">
+              <p className="text-amber-900 font-medium">Default status not found</p>
+              <p className="text-amber-800 text-sm mt-1">
+                The Status table does not contain an "On Order" row, so a default order status cannot be applied.
+                Please choose an Order Status before creating the order.
+              </p>
+            </div>
+          )}
+
           {addOrderError && (
             <div className="p-4 bg-red-50 border border-red-200 rounded-md">
               <p className="text-red-800">{addOrderError}</p>
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-4 border-b">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pb-4 border-b">
             <label className="space-y-2">
               <span className="text-sm text-gray-600">Invoice Number</span>
               <Input
@@ -1279,6 +1400,22 @@ export default function OrderMasterPage() {
                 {storesData.map((store: any) => (
                   <option key={store.StoreID} value={store.StoreID}>
                     {store.StoreName}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm text-gray-600">Order Status</span>
+              <select
+                value={addOrderValues.StatusID}
+                onChange={(e) => handleAddOrderFieldChange('StatusID', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Select a status...</option>
+                {statusesData.map((status: any) => (
+                  <option key={status.StatusID} value={status.StatusID}>
+                    {status.StatusName}
                   </option>
                 ))}
               </select>
@@ -1388,7 +1525,11 @@ export default function OrderMasterPage() {
             <Button className="bg-gray-600 hover:bg-gray-700" onClick={closeAddOrderModal} disabled={addOrderMutation.isPending}>
               Cancel
             </Button>
-            <Button className="bg-green-600 hover:bg-green-700" onClick={handleCreateOrder} disabled={addOrderMutation.isPending}>
+            <Button
+              className="bg-green-600 hover:bg-green-700"
+              onClick={handleCreateOrder}
+              disabled={addOrderMutation.isPending || (isOnOrderStatusMissing && !addOrderValues.StatusID)}
+            >
               {addOrderMutation.isPending ? 'Creating...' : 'Create Order'}
             </Button>
           </div>

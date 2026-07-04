@@ -4,6 +4,7 @@ import {
   getTableSchema,
   getTableData,
   getInventoryItems,
+  getInventoryExportRows,
   getItemsForLookup,
   getDashboardOverview,
   getPurchaseOrders,
@@ -27,6 +28,9 @@ router.get('/:tableName/schema', getTableSchema);
 
 // Inventory lookup
 router.get('/inventory', getInventoryItems);
+
+// Inventory export rows (for CSV download)
+router.get('/inventory-export', getInventoryExportRows);
 
 // Lightweight item list for dropdowns (no pagination)
 router.get('/items-for-lookup', getItemsForLookup);
