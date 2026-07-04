@@ -11,9 +11,17 @@ interface Props {
   onChange: (values: string[]) => void;
   placeholder?: string;
   className?: string;
+  tabIndex?: number;
 }
 
-const ComboMultiSelect: React.FC<Props> = ({ options, selected, onChange, placeholder = 'Select...', className }) => {
+const ComboMultiSelect: React.FC<Props> = ({
+  options,
+  selected,
+  onChange,
+  placeholder = 'Select...',
+  className,
+  tabIndex,
+}) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement | null>(null);
@@ -52,6 +60,7 @@ const ComboMultiSelect: React.FC<Props> = ({ options, selected, onChange, placeh
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
+        tabIndex={tabIndex}
         className={`${className === 'w-full' ? 'flex w-full' : 'inline-flex min-w-[10rem] max-w-full'} text-left border rounded-md p-2 items-center justify-between`}
       >
         <div className="truncate">

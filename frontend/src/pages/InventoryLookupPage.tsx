@@ -1100,6 +1100,7 @@ export default function InventoryLookupPage() {
                   onChange={handlePublisherChange}
                   placeholder="Publisher"
                   className="w-full"
+                  tabIndex={1}
                 />
               </label>
               <label className="space-y-2 min-w-0">
@@ -1110,6 +1111,7 @@ export default function InventoryLookupPage() {
                   onChange={handleCollectionChange}
                   placeholder="Collection"
                   className="w-full"
+                  tabIndex={2}
                 />
               </label>
               <label className="space-y-2 min-w-0">
@@ -1118,6 +1120,7 @@ export default function InventoryLookupPage() {
                   value={filterValues.itemName}
                   onChange={(event) => handleFilterChange('itemName', event.target.value)}
                   placeholder="Item name"
+                  tabIndex={3}
                 />
               </label>
               <label className="space-y-2 min-w-0">
@@ -1126,6 +1129,7 @@ export default function InventoryLookupPage() {
                   value={filterValues.productID}
                   onChange={(event) => handleFilterChange('productID', event.target.value)}
                   placeholder="Product ID"
+                  tabIndex={4}
                 />
               </label>
               <label className="space-y-2">
@@ -1136,29 +1140,31 @@ export default function InventoryLookupPage() {
                   onChange={handleCategoryChange}
                   placeholder="Category"
                   className="w-full"
+                  tabIndex={5}
                 />
               </label>
               <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">SubType</span>
+                <span className="text-sm font-medium text-gray-700">Sub Category</span>
                 <ComboMultiSelect
                   options={subTypeOptions}
                   selected={filterValues.subTypeName}
                   onChange={handleSubTypeChange}
-                  placeholder="SubType"
+                  placeholder="Sub Category"
                   className="w-full"
+                  tabIndex={6}
                 />
               </label>
             </div>
 
             <div className="flex justify-end gap-3">
-              <Button className="bg-green-600 hover:bg-green-700" onClick={openAddModal}>
+              <Button className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={7}>
                 Add Item
               </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading}>
+              <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={8}>
                 {isDownloading ? 'Downloading...' : 'Download CSV'}
               </Button>
-              <Button onClick={applyFilters}>Apply Filters</Button>
-              <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters}>
+              <Button onClick={applyFilters} tabIndex={9}>Apply Filters</Button>
+              <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} tabIndex={10}>
                 Clear
               </Button>
             </div>
@@ -1182,37 +1188,37 @@ export default function InventoryLookupPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>
-                        <button onClick={() => handleSort('PublisherName')} className="flex items-center hover:text-blue-600">
+                        <button onClick={() => handleSort('PublisherName')} className="flex items-center hover:text-blue-600" tabIndex={11}>
                           Publisher <SortIndicator column="PublisherName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-blue-600">
+                        <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-blue-600" tabIndex={12}>
                           Collection <SortIndicator column="CollectionName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-blue-600">
+                        <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-blue-600" tabIndex={13}>
                           Item <SortIndicator column="ItemName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('CategoryName')} className="flex items-center hover:text-blue-600">
+                        <button onClick={() => handleSort('CategoryName')} className="flex items-center hover:text-blue-600" tabIndex={14}>
                           Category <SortIndicator column="CategoryName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-blue-600">
-                          SubType <SortIndicator column="SubTypeName" />
+                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-blue-600" tabIndex={15}>
+                          Sub Category <SortIndicator column="SubTypeName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ProductID')} className="flex items-center hover:text-blue-600">
+                        <button onClick={() => handleSort('ProductID')} className="flex items-center hover:text-blue-600" tabIndex={16}>
                           Product ID <SortIndicator column="ProductID" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ReleaseDate')} className="flex items-center hover:text-blue-600">
+                        <button onClick={() => handleSort('ReleaseDate')} className="flex items-center hover:text-blue-600" tabIndex={17}>
                           Release Date <SortIndicator column="ReleaseDate" />
                         </button>
                       </TableHead>
@@ -1244,6 +1250,7 @@ export default function InventoryLookupPage() {
                                 onClick={(event) => handleOpenRelatedOrders(item, event)}
                                 title="Open related purchase orders"
                                 aria-label={`Open related purchase orders for ${item.ItemName}`}
+                                tabIndex={0}
                               >
                                 <Link2 className="w-5 h-5" />
                               </button>
@@ -1268,18 +1275,36 @@ export default function InventoryLookupPage() {
                   {data?.page && data?.totalPages ? ` — Page ${data.page} of ${data.totalPages}` : ''}
                 </p>
                 <div className="flex gap-2">
-                  <Button
-                    onClick={() => setPage(Math.max(1, page - 1))}
-                    disabled={page === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    onClick={() => setPage(page + 1)}
-                    disabled={page >= (data?.totalPages ?? 1)}
-                  >
-                    Next
-                  </Button>
+                  {(() => {
+                    const totalPages = data?.totalPages ?? 0;
+                    const hasManyPages = totalPages > 3;
+
+                    return (
+                      <>
+                        <Button onClick={() => setPage(1)} disabled={!hasManyPages || page === 1}>
+                          First
+                        </Button>
+                        <Button
+                          onClick={() => setPage(Math.max(1, page - 1))}
+                          disabled={page === 1}
+                        >
+                          Previous
+                        </Button>
+                        <Button
+                          onClick={() => setPage(page + 1)}
+                          disabled={page >= (data?.totalPages ?? 1)}
+                        >
+                          Next
+                        </Button>
+                        <Button
+                          onClick={() => setPage(totalPages)}
+                          disabled={!hasManyPages || page >= totalPages}
+                        >
+                          Last
+                        </Button>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </>
@@ -1382,13 +1407,13 @@ export default function InventoryLookupPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">SubType</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sub Category</label>
                   <select
                     value={editValues.SubTypeID}
                     onChange={(e) => handleEditChange('SubTypeID', e.target.value)}
                     className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                   >
-                    <option value="">Select subtype</option>
+                    <option value="">Select sub category</option>
                     {editSubTypeSelectOptions.map((option: { value: string | number; label: string }) => (
                       <option key={option.value} value={String(option.value)}>
                         {option.label}

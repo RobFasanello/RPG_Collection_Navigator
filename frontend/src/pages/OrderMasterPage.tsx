@@ -801,6 +801,7 @@ export default function OrderMasterPage() {
                   onChange={handleStoreChange}
                   placeholder="Select stores..."
                   className="w-full"
+                  tabIndex={1}
                 />
               </label>
               <label className="space-y-2">
@@ -810,6 +811,7 @@ export default function OrderMasterPage() {
                   value={filterValues.invoiceNumber}
                   onChange={handleInvoiceNumberChange}
                   placeholder="Search invoices..."
+                  tabIndex={2}
                 />
               </label>
               <label className="space-y-2 min-w-0">
@@ -820,6 +822,7 @@ export default function OrderMasterPage() {
                   onChange={handleStatusFilterChange}
                   placeholder="Select statuses..."
                   className="w-full"
+                  tabIndex={3}
                 />
               </label>
               <label className="space-y-2">
@@ -830,6 +833,7 @@ export default function OrderMasterPage() {
                   onChange={handleDateStartChange}
                   placeholder="Start date"
                   className="w-full"
+                  tabIndex={4}
                 />
               </label>
               <label className="space-y-2">
@@ -840,16 +844,17 @@ export default function OrderMasterPage() {
                   onChange={handleDateEndChange}
                   placeholder="End date"
                   className="w-full"
+                  tabIndex={5}
                 />
               </label>
             </div>
 
             <div className="flex justify-end gap-3">
-              <Button className="bg-green-600 hover:bg-green-700" onClick={openAddOrder}>
+              <Button className="bg-green-600 hover:bg-green-700" onClick={openAddOrder} tabIndex={6}>
                 Add Order
               </Button>
-              <Button onClick={applyFilters}>Apply Filters</Button>
-              <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters}>
+              <Button onClick={applyFilters} tabIndex={7}>Apply Filter</Button>
+              <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} tabIndex={8}>
                 Clear
               </Button>
             </div>
@@ -930,24 +935,37 @@ export default function OrderMasterPage() {
                   Showing {data?.data?.length ?? 0} of {data?.total ?? 0} results
                   {data?.page && data?.totalPages ? ` — Page ${data.page} of ${data.totalPages}` : ''}
                 </p>
-                {data?.data && data.data.length > 0 && (
-                  <p className="text-sm font-semibold text-gray-700">
-                    Total: {formatCurrency(data.data.reduce((sum: number, order: PurchaseOrder) => sum + (order.TotalAmount || 0), 0))}
-                  </p>
-                )}
                 <div className="flex gap-2">
-                  <Button
-                    onClick={() => setPage(Math.max(1, page - 1))}
-                    disabled={page === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    onClick={() => setPage(page + 1)}
-                    disabled={page >= (data?.totalPages ?? 1)}
-                  >
-                    Next
-                  </Button>
+                  {(() => {
+                    const totalPages = data?.totalPages ?? 0;
+                    const hasManyPages = totalPages > 3;
+
+                    return (
+                      <>
+                        <Button onClick={() => setPage(1)} disabled={!hasManyPages || page === 1}>
+                          First
+                        </Button>
+                        <Button
+                          onClick={() => setPage(Math.max(1, page - 1))}
+                          disabled={page === 1}
+                        >
+                          Previous
+                        </Button>
+                        <Button
+                          onClick={() => setPage(page + 1)}
+                          disabled={page >= (data?.totalPages ?? 1)}
+                        >
+                          Next
+                        </Button>
+                        <Button
+                          onClick={() => setPage(totalPages)}
+                          disabled={!hasManyPages || page >= totalPages}
+                        >
+                          Last
+                        </Button>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </>

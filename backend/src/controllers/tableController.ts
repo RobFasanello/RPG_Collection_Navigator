@@ -450,29 +450,44 @@ export async function getInventoryExportRows(req: Request, res: Response): Promi
         [SubType].[SubTypeName] AS [SubType],
         [Item].[ProductID] AS [ProductID],
         [Item].[ReleaseDate] AS [ReleaseDate],
-        [Store].[StoreName] AS [Store],
-        [PurchaseOrder].[InvoiceNumber] AS [InvoiceNumber],
-        [PurchaseOrder].[PurchasedDate] AS [PurchaseDate],
-        [PurchaseOrderDetail].[Price] AS [Price],
-        [PurchaseOrderDetail].[Quantity] AS [Count],
-        [Status].[StatusName] AS [POStatus]
+        [ExportPO].[StoreName] AS [Store],
+        [ExportPO].[InvoiceNumber] AS [InvoiceNumber],
+        [ExportPO].[PurchaseDate] AS [PurchaseDate],
+        [ExportPO].[Price] AS [Price],
+        [ExportPO].[Count] AS [Count],
+        [ExportPO].[POStatus] AS [POStatus]
       FROM [Item]
       INNER JOIN [Publisher] ON [Publisher].[PublisherID] = [Item].[PublisherID]
       INNER JOIN [Collection] ON [Collection].[CollectionID] = [Item].[CollectionID]
       INNER JOIN [Category] ON [Category].[CategoryID] = [Item].[CategoryID]
       INNER JOIN [SubType] ON [SubType].[SubTypeID] = [Item].[SubTypeID]
-      LEFT JOIN [PurchaseOrderDetail] ON [PurchaseOrderDetail].[ItemID] = [Item].[ItemID]
-      LEFT JOIN [PurchaseOrder] ON [PurchaseOrder].[PurchaseOrderID] = [PurchaseOrderDetail].[PurchaseOrderID]
-      LEFT JOIN [Store] ON [Store].[StoreID] = [PurchaseOrder].[StoreID]
-      LEFT JOIN [Status] ON [Status].[StatusID] = [PurchaseOrder].[StatusID]
+      LEFT JOIN (
+        SELECT
+          [PurchaseOrderDetail].[ItemID],
+          [PurchaseOrderDetail].[PurchaseOrderDetailID],
+          [PurchaseOrder].[PurchaseOrderID],
+          [Store].[StoreName],
+          [PurchaseOrder].[InvoiceNumber],
+          [PurchaseOrder].[PurchasedDate] AS [PurchaseDate],
+          [PurchaseOrderDetail].[Price],
+          [PurchaseOrderDetail].[Quantity] AS [Count],
+          [Status].[StatusName] AS [POStatus]
+        FROM [PurchaseOrderDetail]
+        INNER JOIN [PurchaseOrder]
+          ON [PurchaseOrder].[PurchaseOrderID] = [PurchaseOrderDetail].[PurchaseOrderID]
+        LEFT JOIN [Store]
+          ON [Store].[StoreID] = [PurchaseOrder].[StoreID]
+        LEFT JOIN [Status]
+          ON [Status].[StatusID] = [PurchaseOrder].[StatusID]
+      ) AS [ExportPO] ON [ExportPO].[ItemID] = [Item].[ItemID]
       ${whereClause}
       ORDER BY
         [Publisher].[PublisherName] ASC,
         [Collection].[CollectionName] ASC,
         [Item].[ItemName] ASC,
-        [PurchaseOrder].[PurchasedDate] DESC,
-        [PurchaseOrder].[PurchaseOrderID] DESC,
-        [PurchaseOrderDetail].[PurchaseOrderDetailID] DESC
+        [ExportPO].[PurchaseDate] DESC,
+        [ExportPO].[PurchaseOrderID] DESC,
+        [ExportPO].[PurchaseOrderDetailID] DESC
     `;
 
     const result = await request.query(query);
