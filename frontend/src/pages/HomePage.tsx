@@ -311,6 +311,71 @@ function getCoverageBandClasses(coveragePercent: number) {
   };
 }
 
+type CoverageBox = {
+  EntityID: number;
+  EntityName: string;
+  TotalItems: number;
+  ItemsInPurchaseOrder: number;
+  CoveragePercent: number;
+};
+
+function buildCoverageBoxes({
+  catalogRows,
+  dashboardRows,
+  catalogIdKey,
+  catalogNameKey,
+  dashboardIdKey,
+  dashboardNameKey,
+}: {
+  catalogRows: any[];
+  dashboardRows: any[];
+  catalogIdKey: string;
+  catalogNameKey: string;
+  dashboardIdKey: string;
+  dashboardNameKey: string;
+}): CoverageBox[] {
+  const coverageById = new Map<number, { totalItems: number; itemsInPurchaseOrder: number; coveragePercent: number }>();
+  const coverageByName = new Map<string, { totalItems: number; itemsInPurchaseOrder: number; coveragePercent: number }>();
+
+  dashboardRows.forEach((row) => {
+    const entityId = Number(row[dashboardIdKey] || 0);
+    const normalizedName = String(row[dashboardNameKey] || '').trim().toLowerCase();
+    const coverageValue = {
+      totalItems: Number(row.TotalItems || 0),
+      itemsInPurchaseOrder: Number(row.ItemsInPurchaseOrder || 0),
+      coveragePercent: Number(row.CoveragePercent || 0),
+    };
+
+    if (Number.isFinite(entityId) && entityId > 0) {
+      coverageById.set(entityId, coverageValue);
+    }
+
+    if (normalizedName) {
+      coverageByName.set(normalizedName, coverageValue);
+    }
+  });
+
+  return catalogRows.map((catalogRow) => {
+    const entityId = Number(catalogRow[catalogIdKey] || 0);
+    const entityName = String(catalogRow[catalogNameKey] || '').trim();
+    const coverage =
+      coverageById.get(entityId) ||
+      coverageByName.get(entityName.toLowerCase()) || {
+        totalItems: 0,
+        itemsInPurchaseOrder: 0,
+        coveragePercent: 0,
+      };
+
+    return {
+      EntityID: entityId,
+      EntityName: entityName,
+      TotalItems: coverage.totalItems,
+      ItemsInPurchaseOrder: coverage.itemsInPurchaseOrder,
+      CoveragePercent: coverage.coveragePercent,
+    };
+  });
+}
+
 function TopListCard({ title, loading, children }: { title: string; loading: boolean; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4">
@@ -335,6 +400,16 @@ export default function HomePage() {
     },
   });
 
+  const { data: allPublishersRows, isLoading: publishersLoading } = useQuery({
+    queryKey: ['coveragePublishersCatalog'],
+    queryFn: async () => getAllTableRows('Publisher'),
+  });
+
+  const { data: allCollectionsRows, isLoading: collectionsLoading } = useQuery({
+    queryKey: ['coverageCollectionsCatalog'],
+    queryFn: async () => getAllTableRows('Collection'),
+  });
+
   const totals = dashboardData?.totals || {
     publishers: 0,
     collections: 0,
@@ -348,6 +423,24 @@ export default function HomePage() {
   const topOrdersByAmount = dashboardData?.topOrdersByAmount || [];
   const publisherDashboard = dashboardData?.publisherDashboard || [];
   const collectionDashboard = dashboardData?.collectionDashboard || [];
+
+  const publisherBoxes = buildCoverageBoxes({
+    catalogRows: allPublishersRows || [],
+    dashboardRows: publisherDashboard,
+    catalogIdKey: 'PublisherID',
+    catalogNameKey: 'PublisherName',
+    dashboardIdKey: 'PublisherID',
+    dashboardNameKey: 'PublisherName',
+  });
+
+  const collectionBoxes = buildCoverageBoxes({
+    catalogRows: allCollectionsRows || [],
+    dashboardRows: collectionDashboard,
+    catalogIdKey: 'CollectionID',
+    catalogNameKey: 'CollectionName',
+    dashboardIdKey: 'CollectionID',
+    dashboardNameKey: 'CollectionName',
+  });
 
   return (
     <AdminLayout title="Home">
@@ -494,21 +587,23 @@ export default function HomePage() {
           </div>
 
           {coverageView === 'publisher' ? (
-            dashboardLoading && !publisherDashboard.length ? (
+            dashboardLoading && !publisherBoxes.length ? (
               <p className="text-sm text-gray-500">Loading publisher coverage...</p>
-            ) : publisherDashboard.length ? (
+            ) : publishersLoading && !publisherBoxes.length ? (
+              <p className="text-sm text-gray-500">Loading publishers...</p>
+            ) : publisherBoxes.length ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {publisherDashboard.map((publisher) => {
+                {publisherBoxes.map((publisher) => {
                   const coverageBand = getCoverageBandClasses(publisher.CoveragePercent);
 
                   return (
                     <Link
-                      key={publisher.PublisherID || publisher.PublisherName}
-                      to={`/admin/inventory?publisher=${encodeURIComponent(publisher.PublisherName)}`}
+                      key={publisher.EntityID || publisher.EntityName}
+                      to={`/admin/inventory?publisher=${encodeURIComponent(publisher.EntityName)}`}
                       className={`block rounded-xl border p-5 transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${coverageBand.card}`}
                     >
-                      <p className={`text-sm font-medium truncate ${coverageBand.title}`} title={publisher.PublisherName}>
-                        {publisher.PublisherName}
+                      <p className={`text-sm font-medium truncate ${coverageBand.title}`} title={publisher.EntityName}>
+                        {publisher.EntityName}
                       </p>
                       <p className={`mt-2 text-3xl font-bold ${coverageBand.value}`}>{formatPercent(publisher.CoveragePercent)}</p>
                       <p className={`mt-2 text-sm ${coverageBand.detail}`}>
@@ -521,21 +616,23 @@ export default function HomePage() {
             ) : (
               <p className="text-sm text-gray-500">No publishers found.</p>
             )
-          ) : dashboardLoading && !collectionDashboard.length ? (
+          ) : dashboardLoading && !collectionBoxes.length ? (
             <p className="text-sm text-gray-500">Loading collection coverage...</p>
-          ) : collectionDashboard.length ? (
+          ) : collectionsLoading && !collectionBoxes.length ? (
+            <p className="text-sm text-gray-500">Loading collections...</p>
+          ) : collectionBoxes.length ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {collectionDashboard.map((collection) => {
+              {collectionBoxes.map((collection) => {
                 const coverageBand = getCoverageBandClasses(collection.CoveragePercent);
 
                 return (
                   <Link
-                    key={collection.CollectionID || collection.CollectionName}
-                    to={`/admin/inventory?collection=${encodeURIComponent(collection.CollectionName)}`}
+                    key={collection.EntityID || collection.EntityName}
+                    to={`/admin/inventory?collection=${encodeURIComponent(collection.EntityName)}`}
                     className={`block rounded-xl border p-5 transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${coverageBand.card}`}
                   >
-                    <p className={`text-sm font-medium truncate ${coverageBand.title}`} title={collection.CollectionName}>
-                      {collection.CollectionName}
+                    <p className={`text-sm font-medium truncate ${coverageBand.title}`} title={collection.EntityName}>
+                      {collection.EntityName}
                     </p>
                     <p className={`mt-2 text-3xl font-bold ${coverageBand.value}`}>{formatPercent(collection.CoveragePercent)}</p>
                     <p className={`mt-2 text-sm ${coverageBand.detail}`}>

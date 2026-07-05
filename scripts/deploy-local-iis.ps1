@@ -10,7 +10,8 @@ param(
     [switch]$UseNpmInstall,
     [switch]$ForceCloseNodeProcesses,
     [switch]$SkipBuild,
-    [switch]$SkipVerification
+    [switch]$SkipVerification,
+    [string]$FrontendDeployPath = ".deploy\\frontend-iis"
 )
 
 $ErrorActionPreference = "Stop"
@@ -107,7 +108,7 @@ function Get-NodeProcessesInPaths {
         return @()
     }
 
-    $matches = @()
+    $matchingProcesses = @()
     foreach ($proc in $processes) {
         $procCommand = [string]$proc.CommandLine
         $procExe = [string]$proc.ExecutablePath
@@ -117,13 +118,13 @@ function Get-NodeProcessesInPaths {
                 ($procCommand -and ($procCommand -like "*$candidate*")) -or
                 ($procExe -and ($procExe -like "*$candidate*"))
             ) {
-                $matches += $proc
+                $matchingProcesses += $proc
                 break
             }
         }
     }
 
-    return $matches
+    return $matchingProcesses
 }
 
 function Invoke-NodeProcessGuardrail {
@@ -178,6 +179,31 @@ function Install-NodeDependencies {
     }
 
     Invoke-CheckedCommand -FilePath "npm" -Arguments @("ci") -Description "npm ci in $ProjectPath" -MaxAttempts 3
+}
+
+function Invoke-RobocopyMirror {
+    param(
+        [Parameter(Mandatory = $true)][string]$Source,
+        [Parameter(Mandatory = $true)][string]$Destination,
+        [string]$Description = "robocopy mirror"
+    )
+
+    if (-not (Test-Path $Source)) {
+        throw "Source path '$Source' does not exist for $Description."
+    }
+
+    if (-not (Test-Path $Destination)) {
+        New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+    }
+
+    & robocopy $Source $Destination /MIR /R:2 /W:2 /NFL /NDL /NJH /NJS /NP
+    $robocopyExitCode = $LASTEXITCODE
+
+    if ($robocopyExitCode -gt 7) {
+        throw "$Description failed with robocopy exit code $robocopyExitCode."
+    }
+
+    Write-Host "$Description completed (robocopy exit code $robocopyExitCode)." -ForegroundColor Green
 }
 
 function Test-Url {
@@ -277,7 +303,27 @@ Write-Host "Installing/updating backend Windows service..." -ForegroundColor Yel
 
 Write-Host "Configuring IIS site..." -ForegroundColor Yellow
 $frontendDist = Join-Path $frontendPath "dist"
-& $configureIisScript -SiteName $SiteName -FrontendPath $frontendDist -Port $Port -HostHeader $HostHeader -ReconcileBindings:$ReconcileBindings
+
+if (-not (Test-Path $frontendDist)) {
+    throw "Frontend dist path '$frontendDist' does not exist. Run with build enabled or generate the frontend build first."
+}
+
+if ([System.IO.Path]::IsPathRooted($FrontendDeployPath)) {
+    $frontendPublishRoot = $FrontendDeployPath
+} else {
+    $frontendPublishRoot = Join-Path $repoRoot $FrontendDeployPath
+}
+
+$frontendPublishRoot = [System.IO.Path]::GetFullPath($frontendPublishRoot)
+
+Write-Host "Publishing frontend build from '$frontendDist' to '$frontendPublishRoot'..." -ForegroundColor Yellow
+Invoke-RobocopyMirror -Source $frontendDist -Destination $frontendPublishRoot -Description "frontend publish"
+
+if (-not (Test-Path (Join-Path $frontendPublishRoot "index.html"))) {
+    throw "Frontend publish verification failed. '$frontendPublishRoot\\index.html' was not found after mirror step."
+}
+
+& $configureIisScript -SiteName $SiteName -FrontendPath $frontendPublishRoot -Port $Port -HostHeader $HostHeader -ReconcileBindings:$ReconcileBindings
 
 $siteBaseUrl = Resolve-SiteBaseUrl -ResolvedHostHeader $HostHeader -ResolvedPort $Port
 

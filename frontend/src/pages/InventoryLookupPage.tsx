@@ -80,6 +80,16 @@ export default function InventoryLookupPage() {
     SubTypeID: '',
   });
   const [addError, setAddError] = useState('');
+  const [selectedItemIds, setSelectedItemIds] = useState<number[]>([]);
+  const [isBulkUpdateOpen, setIsBulkUpdateOpen] = useState(false);
+  const [bulkStep, setBulkStep] = useState<'edit' | 'confirm'>('edit');
+  const [bulkValues, setBulkValues] = useState({
+    PublisherID: '',
+    CollectionID: '',
+    CategoryID: '',
+    SubTypeID: '',
+  });
+  const [bulkError, setBulkError] = useState('');
   const [isRelatedOrdersModalOpen, setIsRelatedOrdersModalOpen] = useState(false);
   const [selectedItemForRelatedOrders, setSelectedItemForRelatedOrders] = useState<InventoryItem | null>(null);
   const [relatedOrdersLoading, setRelatedOrdersLoading] = useState(false);
@@ -98,6 +108,13 @@ export default function InventoryLookupPage() {
     () => ['inventory', searchParams, page, sortBy, sortOrder],
     [searchParams, page, sortBy, sortOrder]
   );
+
+  useEffect(() => {
+    setSelectedItemIds([]);
+    setIsBulkUpdateOpen(false);
+    setBulkStep('edit');
+    setBulkError('');
+  }, [queryKey]);
 
   useEffect(() => {
     const publisher = (urlSearchParams.get('publisher') || '').trim();
@@ -677,6 +694,36 @@ export default function InventoryLookupPage() {
     keepPreviousData: true,
   });
 
+  const currentPageItems: InventoryItem[] = Array.isArray(data?.data) ? data.data : [];
+  const selectedItemIdSet = useMemo(() => new Set(selectedItemIds), [selectedItemIds]);
+  const selectedCurrentPageItems = useMemo(
+    () => currentPageItems.filter((item) => selectedItemIdSet.has(item.ItemID)),
+    [currentPageItems, selectedItemIdSet]
+  );
+  const areAllCurrentPageItemsSelected = currentPageItems.length > 0 && currentPageItems.every((item) => selectedItemIdSet.has(item.ItemID));
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: async (payload: { itemIds: number[]; updates: Record<string, number> }) => {
+      return tablesAPI.bulkUpdateItems({ itemIds: payload.itemIds, ...payload.updates });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      setSelectedItemIds([]);
+      setIsBulkUpdateOpen(false);
+      setBulkStep('edit');
+      setBulkValues({
+        PublisherID: '',
+        CollectionID: '',
+        CategoryID: '',
+        SubTypeID: '',
+      });
+      setBulkError('');
+    },
+    onError: (error: any) => {
+      setBulkError(error.response?.data?.error || 'Failed to bulk update items');
+    },
+  });
+
   const handleFilterChange = (field: string, value: string) => {
     setDownloadError('');
     setFilterValues((current) => ({ ...current, [field]: value }));
@@ -756,6 +803,114 @@ export default function InventoryLookupPage() {
       subTypeName: [],
     });
     setPage(1);
+  };
+
+  const openBulkUpdateDialog = () => {
+    if (selectedItemIds.length === 0) {
+      return;
+    }
+
+    setBulkError('');
+    setBulkStep('edit');
+    setIsBulkUpdateOpen(true);
+  };
+
+  const closeBulkUpdateDialog = () => {
+    setIsBulkUpdateOpen(false);
+    setBulkStep('edit');
+    setBulkError('');
+    setBulkValues({
+      PublisherID: '',
+      CollectionID: '',
+      CategoryID: '',
+      SubTypeID: '',
+    });
+  };
+
+  const toggleItemSelection = (itemId: number) => {
+    setSelectedItemIds((current) =>
+      current.includes(itemId) ? current.filter((selectedId) => selectedId !== itemId) : [...current, itemId]
+    );
+  };
+
+  const toggleSelectAllCurrentPage = () => {
+    if (areAllCurrentPageItemsSelected) {
+      setSelectedItemIds((current) => current.filter((itemId) => !currentPageItems.some((item) => item.ItemID === itemId)));
+      return;
+    }
+
+    setSelectedItemIds((current) => {
+      const next = new Set(current);
+      currentPageItems.forEach((item) => next.add(item.ItemID));
+      return Array.from(next);
+    });
+  };
+
+  const handleBulkFieldChange = (field: 'PublisherID' | 'CollectionID' | 'CategoryID' | 'SubTypeID', value: string) => {
+    setBulkError('');
+    setBulkValues((current) => ({ ...current, [field]: value }));
+  };
+
+  const buildBulkUpdatePayload = () => {
+    const updates: Record<string, number> = {};
+
+    if (bulkValues.PublisherID) {
+      updates.PublisherID = parseInt(bulkValues.PublisherID, 10);
+    }
+    if (bulkValues.CollectionID) {
+      updates.CollectionID = parseInt(bulkValues.CollectionID, 10);
+    }
+    if (bulkValues.CategoryID) {
+      updates.CategoryID = parseInt(bulkValues.CategoryID, 10);
+    }
+    if (bulkValues.SubTypeID) {
+      updates.SubTypeID = parseInt(bulkValues.SubTypeID, 10);
+    }
+
+    return updates;
+  };
+
+  const getBulkFieldLabel = (field: 'PublisherID' | 'CollectionID' | 'CategoryID' | 'SubTypeID', value: string) => {
+    if (!value) {
+      return '';
+    }
+
+    const numericValue = parseInt(value, 10);
+    const source =
+      field === 'PublisherID'
+        ? publisherSelectOptions
+        : field === 'CollectionID'
+          ? collectionSelectOptions
+          : field === 'CategoryID'
+            ? categorySelectOptions
+            : subTypeSelectOptions;
+
+    return source.find((option: { value: string | number; label: string }) => Number(option.value) === numericValue)?.label || value;
+  };
+
+  const handleBulkPreview = () => {
+    const updates = buildBulkUpdatePayload();
+    if (Object.keys(updates).length === 0) {
+      setBulkError('Select at least one field to update.');
+      return;
+    }
+
+    setBulkError('');
+    setBulkStep('confirm');
+  };
+
+  const handleBulkConfirm = () => {
+    const updates = buildBulkUpdatePayload();
+    if (Object.keys(updates).length === 0) {
+      setBulkError('Select at least one field to update.');
+      setBulkStep('edit');
+      return;
+    }
+
+    bulkUpdateMutation.mutate({
+      itemIds: selectedItemIds,
+      updates,
+    });
   };
 
   const buildCleanedInventoryFilters = (filters: Record<string, any>) => {
@@ -1201,14 +1356,22 @@ export default function InventoryLookupPage() {
             </div>
 
             <div className="flex justify-end gap-3">
-              <Button className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={7}>
+              <Button
+                className="bg-amber-600 hover:bg-amber-700"
+                onClick={openBulkUpdateDialog}
+                disabled={selectedItemIds.length === 0}
+                tabIndex={7}
+              >
+                Bulk Update{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
+              </Button>
+              <Button className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={8}>
                 Add Item
               </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={8}>
+              <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={9}>
                 {isDownloading ? 'Downloading...' : 'Download CSV'}
               </Button>
-              <Button onClick={applyFilters} disabled={!hasFilterCriteria} tabIndex={9}>Apply Filters</Button>
-              <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={10}>
+              <Button onClick={applyFilters} disabled={!hasFilterCriteria} tabIndex={10}>Apply Filters</Button>
+              <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={11}>
                 Clear
               </Button>
             </div>
@@ -1231,38 +1394,46 @@ export default function InventoryLookupPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-px whitespace-nowrap px-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={areAllCurrentPageItemsSelected}
+                          onChange={toggleSelectAllCurrentPage}
+                          aria-label="Select all items on this page"
+                        />
+                      </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('PublisherName')} className="flex items-center hover:text-blue-600" tabIndex={11}>
+                        <button onClick={() => handleSort('PublisherName')} className="flex items-center hover:text-blue-600" tabIndex={12}>
                           Publisher <SortIndicator column="PublisherName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-blue-600" tabIndex={12}>
+                        <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-blue-600" tabIndex={13}>
                           Collection <SortIndicator column="CollectionName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-blue-600" tabIndex={13}>
+                        <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-blue-600" tabIndex={14}>
                           Item <SortIndicator column="ItemName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('CategoryName')} className="flex items-center hover:text-blue-600" tabIndex={14}>
+                        <button onClick={() => handleSort('CategoryName')} className="flex items-center hover:text-blue-600" tabIndex={15}>
                           Category <SortIndicator column="CategoryName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-blue-600" tabIndex={15}>
+                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-blue-600" tabIndex={16}>
                           Sub Category <SortIndicator column="SubTypeName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ProductID')} className="flex items-center hover:text-blue-600" tabIndex={16}>
+                        <button onClick={() => handleSort('ProductID')} className="flex items-center hover:text-blue-600" tabIndex={17}>
                           Product ID <SortIndicator column="ProductID" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ReleaseDate')} className="flex items-center hover:text-blue-600" tabIndex={17}>
+                        <button onClick={() => handleSort('ReleaseDate')} className="flex items-center hover:text-blue-600" tabIndex={18}>
                           Release Date <SortIndicator column="ReleaseDate" />
                         </button>
                       </TableHead>
@@ -1277,6 +1448,14 @@ export default function InventoryLookupPage() {
                           className="cursor-pointer hover:bg-gray-50"
                           onClick={() => openEditModal(item)}
                         >
+                          <TableCell className="w-px whitespace-nowrap px-2 text-center" onClick={(event) => event.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={selectedItemIdSet.has(item.ItemID)}
+                              onChange={() => toggleItemSelection(item.ItemID)}
+                              aria-label={`Select ${item.ItemName}`}
+                            />
+                          </TableCell>
                           <TableCell>{item.PublisherName}</TableCell>
                           <TableCell>{item.CollectionName}</TableCell>
                           <TableCell>{item.ItemName}</TableCell>
@@ -1304,7 +1483,7 @@ export default function InventoryLookupPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-10 text-gray-500">
+                        <TableCell colSpan={9} className="text-center py-10 text-gray-500">
                           No matching items found.
                         </TableCell>
                       </TableRow>
@@ -1625,6 +1804,168 @@ export default function InventoryLookupPage() {
             </form>
           </div>
         </div>
+      ) : null}
+
+      {isBulkUpdateOpen ? (
+        <Dialog
+          open={isBulkUpdateOpen}
+          onOpenChange={(open) => {
+            if (open) {
+              setIsBulkUpdateOpen(true);
+              return;
+            }
+
+            closeBulkUpdateDialog();
+          }}
+          title={bulkStep === 'confirm' ? 'Confirm Bulk Update' : 'Bulk Update Items'}
+          contentClassName="max-w-3xl"
+        >
+          <div className="space-y-5">
+            {bulkError ? (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+                {bulkError}
+              </div>
+            ) : null}
+
+            {bulkStep === 'edit' ? (
+              <>
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900">
+                  Bulk updates apply to {selectedCurrentPageItems.length} selected item{selectedCurrentPageItems.length === 1 ? '' : 's'} on this page.
+                  Only the fields you change will be written.
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Publisher</label>
+                    <select
+                      value={bulkValues.PublisherID}
+                      onChange={(event) => handleBulkFieldChange('PublisherID', event.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    >
+                      <option value="">Leave unchanged</option>
+                      {publisherSelectOptions.map((option: { value: string | number; label: string }) => (
+                        <option key={option.value} value={String(option.value)}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Collection</label>
+                    <select
+                      value={bulkValues.CollectionID}
+                      onChange={(event) => handleBulkFieldChange('CollectionID', event.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    >
+                      <option value="">Leave unchanged</option>
+                      {collectionSelectOptions.map((option: { value: string | number; label: string }) => (
+                        <option key={option.value} value={String(option.value)}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <select
+                      value={bulkValues.CategoryID}
+                      onChange={(event) => handleBulkFieldChange('CategoryID', event.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    >
+                      <option value="">Leave unchanged</option>
+                      {categorySelectOptions.map((option: { value: string | number; label: string }) => (
+                        <option key={option.value} value={String(option.value)}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Sub Category</label>
+                    <select
+                      value={bulkValues.SubTypeID}
+                      onChange={(event) => handleBulkFieldChange('SubTypeID', event.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    >
+                      <option value="">Leave unchanged</option>
+                      {subTypeSelectOptions.map((option: { value: string | number; label: string }) => (
+                        <option key={option.value} value={String(option.value)}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                  <Button
+                    type="button"
+                    className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                    onClick={closeBulkUpdateDialog}
+                    disabled={bulkUpdateMutation.isLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    className="bg-amber-600 hover:bg-amber-700"
+                    onClick={handleBulkPreview}
+                    disabled={bulkUpdateMutation.isLoading}
+                  >
+                    Review {selectedCurrentPageItems.length} Update{selectedCurrentPageItems.length === 1 ? '' : 's'}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                  You are about to update {selectedCurrentPageItems.length} item{selectedCurrentPageItems.length === 1 ? '' : 's'}.
+                  Confirm only after checking the summary below.
+                </div>
+
+                <div className="rounded-lg border border-gray-200">
+                  <div className="border-b border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700">
+                    Update Summary
+                  </div>
+                  <div className="space-y-2 px-4 py-3 text-sm text-gray-700">
+                    {Object.entries(bulkValues)
+                      .filter(([, value]) => value)
+                      .map(([field, value]) => (
+                        <div key={field} className="flex items-center justify-between gap-4">
+                          <span className="font-medium text-gray-600">
+                            {field === 'PublisherID' ? 'Publisher' : field === 'CollectionID' ? 'Collection' : field === 'CategoryID' ? 'Category' : 'Sub Category'}
+                          </span>
+                          <span className="text-right">{getBulkFieldLabel(field as 'PublisherID' | 'CollectionID' | 'CategoryID' | 'SubTypeID', value)}</span>
+                        </div>
+                      ))}
+                    {!Object.values(bulkValues).some((value) => value) ? (
+                      <div className="text-gray-500">No fields selected for update.</div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                  <Button
+                    type="button"
+                    className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                    onClick={() => setBulkStep('edit')}
+                    disabled={bulkUpdateMutation.isLoading}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    type="button"
+                    className="bg-amber-600 hover:bg-amber-700"
+                    onClick={handleBulkConfirm}
+                    disabled={bulkUpdateMutation.isLoading}
+                  >
+                    {bulkUpdateMutation.isLoading ? 'Updating...' : `Confirm Update (${selectedCurrentPageItems.length})`}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </Dialog>
       ) : null}
 
       <Dialog

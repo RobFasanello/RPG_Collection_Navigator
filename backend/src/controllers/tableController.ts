@@ -5,6 +5,214 @@ function getPrimaryKeyColumn(tableName: string): string {
   return `${tableName}ID`;
 }
 
+function parsePositiveInt(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+
+  if (typeof value === 'string' && /^\d+$/.test(value)) {
+    const parsed = parseInt(value, 10);
+    return parsed > 0 ? parsed : null;
+  }
+
+  return null;
+}
+
+async function recordExists(
+  transaction: sql.Transaction,
+  tableName: string,
+  keyColumn: string,
+  id: number
+): Promise<boolean> {
+  const result = await new sql.Request(transaction)
+    .input('id', sql.Int, id)
+    .query(`SELECT TOP 1 1 AS [Exists] FROM [${tableName}] WHERE [${keyColumn}] = @id`);
+
+  return result.recordset.length > 0;
+}
+
+async function linkExists(
+  transaction: sql.Transaction,
+  tableName: string,
+  firstColumn: string,
+  secondColumn: string,
+  firstValue: number,
+  secondValue: number
+): Promise<boolean> {
+  const result = await new sql.Request(transaction)
+    .input('firstValue', sql.Int, firstValue)
+    .input('secondValue', sql.Int, secondValue)
+    .query(`
+      SELECT TOP 1 1 AS [Exists]
+      FROM [${tableName}]
+      WHERE [${firstColumn}] = @firstValue
+        AND [${secondColumn}] = @secondValue
+    `);
+
+  return result.recordset.length > 0;
+}
+
+export async function bulkUpdateItemRecords(req: Request, res: Response): Promise<void> {
+  const rawItemIds: unknown[] = Array.isArray(req.body?.itemIds) ? req.body.itemIds : [];
+  const uniqueItemIds = Array.from(
+    new Set(rawItemIds.map((itemId) => parsePositiveInt(itemId)).filter((itemId): itemId is number => itemId !== null))
+  );
+
+  const publisherId = parsePositiveInt(req.body?.PublisherID);
+  const collectionId = parsePositiveInt(req.body?.CollectionID);
+  const categoryId = parsePositiveInt(req.body?.CategoryID);
+  const subTypeId = parsePositiveInt(req.body?.SubTypeID);
+
+  const updateFields = [
+    { column: 'PublisherID', value: publisherId },
+    { column: 'CollectionID', value: collectionId },
+    { column: 'CategoryID', value: categoryId },
+    { column: 'SubTypeID', value: subTypeId },
+  ].filter((field): field is { column: string; value: number } => field.value !== null && field.value !== undefined);
+
+  if (uniqueItemIds.length === 0) {
+    res.status(400).json({ error: 'At least one itemId is required.' });
+    return;
+  }
+
+  if (updateFields.length === 0) {
+    res.status(400).json({ error: 'At least one of PublisherID, CollectionID, CategoryID, or SubTypeID is required.' });
+    return;
+  }
+
+  try {
+    const pool = await getPool();
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    try {
+      const itemRequest = new sql.Request(transaction);
+      uniqueItemIds.forEach((itemId, index) => {
+        itemRequest.input(`itemId${index}`, sql.Int, itemId);
+      });
+
+      const currentItemsResult = await itemRequest.query(`
+        SELECT [ItemID], [PublisherID], [CollectionID], [CategoryID], [SubTypeID]
+        FROM [Item]
+        WHERE [ItemID] IN (${uniqueItemIds.map((_, index) => `@itemId${index}`).join(', ')})
+      `);
+
+      if (currentItemsResult.recordset.length !== uniqueItemIds.length) {
+        const foundIds = new Set(currentItemsResult.recordset.map((row) => Number(row.ItemID)));
+        const missingIds = uniqueItemIds.filter((itemId: number) => !foundIds.has(itemId));
+        await transaction.rollback();
+        res.status(404).json({ error: `One or more items were not found: ${missingIds.join(', ')}.` });
+        return;
+      }
+
+      const currentItemsById = new Map<number, { PublisherID: number; CollectionID: number; CategoryID: number; SubTypeID: number }>();
+      currentItemsResult.recordset.forEach((row) => {
+        currentItemsById.set(Number(row.ItemID), {
+          PublisherID: Number(row.PublisherID),
+          CollectionID: Number(row.CollectionID),
+          CategoryID: Number(row.CategoryID),
+          SubTypeID: Number(row.SubTypeID),
+        });
+      });
+
+      const validationTargets: Array<{ tableName: string; keyColumn: string; id: number; label: string }> = [];
+      if (publisherId !== null) {
+        validationTargets.push({ tableName: 'Publisher', keyColumn: 'PublisherID', id: publisherId, label: 'PublisherID' });
+      }
+      if (collectionId !== null) {
+        validationTargets.push({ tableName: 'Collection', keyColumn: 'CollectionID', id: collectionId, label: 'CollectionID' });
+      }
+      if (categoryId !== null) {
+        validationTargets.push({ tableName: 'Category', keyColumn: 'CategoryID', id: categoryId, label: 'CategoryID' });
+      }
+      if (subTypeId !== null) {
+        validationTargets.push({ tableName: 'SubType', keyColumn: 'SubTypeID', id: subTypeId, label: 'SubTypeID' });
+      }
+
+      for (const target of validationTargets) {
+        const exists = await recordExists(transaction, target.tableName, target.keyColumn, target.id);
+        if (!exists) {
+          await transaction.rollback();
+          res.status(400).json({ error: `${target.label} ${target.id} was not found.` });
+          return;
+        }
+      }
+
+      const publisherCollectionCache = new Map<string, boolean>();
+      const categorySubTypeCache = new Map<string, boolean>();
+
+      for (const itemId of uniqueItemIds) {
+        const currentItem = currentItemsById.get(itemId);
+        if (!currentItem) {
+          continue;
+        }
+
+        const nextPublisherId = publisherId ?? currentItem.PublisherID;
+        const nextCollectionId = collectionId ?? currentItem.CollectionID;
+        const nextCategoryId = categoryId ?? currentItem.CategoryID;
+        const nextSubTypeId = subTypeId ?? currentItem.SubTypeID;
+
+        const publisherCollectionKey = `${nextPublisherId}:${nextCollectionId}`;
+        if (!publisherCollectionCache.has(publisherCollectionKey)) {
+          publisherCollectionCache.set(
+            publisherCollectionKey,
+            await linkExists(transaction, 'PublisherCollection', 'PublisherID', 'CollectionID', nextPublisherId, nextCollectionId)
+          );
+        }
+
+        if (!publisherCollectionCache.get(publisherCollectionKey)) {
+          await transaction.rollback();
+          res.status(409).json({ error: `Item ${itemId} would not have a valid Publisher and Collection combination.` });
+          return;
+        }
+
+        const categorySubTypeKey = `${nextCategoryId}:${nextSubTypeId}`;
+        if (!categorySubTypeCache.has(categorySubTypeKey)) {
+          categorySubTypeCache.set(
+            categorySubTypeKey,
+            await linkExists(transaction, 'CategorySubType', 'CategoryID', 'SubTypeID', nextCategoryId, nextSubTypeId)
+          );
+        }
+
+        if (!categorySubTypeCache.get(categorySubTypeKey)) {
+          await transaction.rollback();
+          res.status(409).json({ error: `Item ${itemId} would not have a valid Category and Sub Category combination.` });
+          return;
+        }
+      }
+
+      const updateRequest = new sql.Request(transaction);
+      updateFields.forEach((field) => {
+        updateRequest.input(field.column, sql.Int, field.value);
+      });
+
+      uniqueItemIds.forEach((itemId, index) => {
+        updateRequest.input(`itemId${index}`, sql.Int, itemId);
+      });
+
+      const updates = updateFields.map((field) => `[${field.column}] = @${field.column}`).join(', ');
+      await updateRequest.query(`
+        UPDATE [Item]
+        SET ${updates}
+        WHERE [ItemID] IN (${uniqueItemIds.map((_, index) => `@itemId${index}`).join(', ')})
+      `);
+
+      await transaction.commit();
+      res.json({
+        success: true,
+        updatedCount: uniqueItemIds.length,
+        message: `Updated ${uniqueItemIds.length} item${uniqueItemIds.length === 1 ? '' : 's'}.`,
+      });
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error bulk updating item records:', error);
+    res.status(500).json({ error: (error as any)?.message || 'Failed to bulk update items' });
+  }
+}
+
 // Check if a store has any purchase orders (referential integrity check)
 async function checkStoreHasPurchaseOrders(storeId: number): Promise<boolean> {
   try {

@@ -164,6 +164,7 @@ Optional switches:
 - `-ReconcileBindings` removes stale IIS HTTP bindings and keeps only the requested host/port binding
 - `-UseNpmInstall` forces `npm install` instead of default `npm ci` behavior
 - `-ForceCloseNodeProcesses` force-stops running Node processes tied to the repo/frontend/backend paths before install/build
+- `-FrontendDeployPath` sets where frontend files are mirrored before IIS serves them (default: `.deploy\\frontend-iis`)
 
 ### 1. Install prerequisites
 - IIS with Static Content role service

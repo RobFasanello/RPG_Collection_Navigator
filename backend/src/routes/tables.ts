@@ -13,6 +13,7 @@ import {
   getRecord,
   createRecord,
   createPurchaseOrderWithDetails,
+  bulkUpdateItemRecords,
   updateRecord,
   deleteRecord,
   deleteRecordByQuery,
@@ -49,6 +50,9 @@ router.get('/purchase-orders-by-item', getPurchaseOrdersByItem);
 
 // Create purchase order with details in one transaction
 router.post('/purchase-order-with-details', createPurchaseOrderWithDetails);
+
+// Bulk update Item foreign-key fields
+router.patch('/items/bulk-update', bulkUpdateItemRecords);
 
 // Get table data with pagination
 router.get('/:tableName/data', getTableData);

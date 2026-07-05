@@ -62,6 +62,14 @@ export const tablesAPI = {
     PurchasedDate: string;
     details: Array<{ ItemID: number; Quantity: number; Price: number }>;
   }) => api.post('/tables/purchase-order-with-details', data),
+
+  bulkUpdateItems: (data: {
+    itemIds: number[];
+    PublisherID?: number;
+    CollectionID?: number;
+    CategoryID?: number;
+    SubTypeID?: number;
+  }) => api.patch('/tables/items/bulk-update', data),
   
   updateRecord: (tableName: string, id: number | string, data: Record<string, any>) =>
     api.patch(`/tables/${tableName}/${parseId(id)}`, data),
