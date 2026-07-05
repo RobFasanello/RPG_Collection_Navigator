@@ -515,6 +515,22 @@ export default function InventoryLookupPage() {
     return ids;
   }, [editValues.CategoryID, categorySubTypeLinks]);
 
+  const allowedEditCollectionIds = useMemo(() => {
+    const publisherId = parseInt(editValues.PublisherID, 10);
+    if (!Number.isInteger(publisherId)) {
+      return null;
+    }
+
+    const ids = new Set<number>();
+    for (const link of publisherCollectionLinks) {
+      if (link.PublisherID === publisherId) {
+        ids.add(link.CollectionID);
+      }
+    }
+
+    return ids;
+  }, [editValues.PublisherID, publisherCollectionLinks]);
+
   const addSubTypeSelectOptions = useMemo(() => {
     return subTypeSelectOptions.filter((option: { value: string | number; label: string }) =>
       !allowedAddSubTypeIds || allowedAddSubTypeIds.has(Number(option.value))
@@ -532,6 +548,12 @@ export default function InventoryLookupPage() {
       !allowedEditSubTypeIds || allowedEditSubTypeIds.has(Number(option.value))
     );
   }, [subTypeSelectOptions, allowedEditSubTypeIds]);
+
+  const editCollectionSelectOptions = useMemo(() => {
+    return collectionSelectOptions.filter((option: { value: string | number; label: string }) =>
+      !allowedEditCollectionIds || allowedEditCollectionIds.has(Number(option.value))
+    );
+  }, [collectionSelectOptions, allowedEditCollectionIds]);
 
   useEffect(() => {
     if (!allowedSubTypeIds) {
@@ -616,6 +638,19 @@ export default function InventoryLookupPage() {
     setEditValues((current) => ({ ...current, SubTypeID: '' }));
   }, [allowedEditSubTypeIds, editValues.SubTypeID]);
 
+  useEffect(() => {
+    if (!allowedEditCollectionIds || !editValues.CollectionID) {
+      return;
+    }
+
+    const collectionId = parseInt(editValues.CollectionID, 10);
+    if (!Number.isInteger(collectionId) || allowedEditCollectionIds.has(collectionId)) {
+      return;
+    }
+
+    setEditValues((current) => ({ ...current, CollectionID: '' }));
+  }, [allowedEditCollectionIds, editValues.CollectionID]);
+
   const { data, isLoading, error } = useQuery<
     {
       data: InventoryItem[];
@@ -670,6 +705,14 @@ export default function InventoryLookupPage() {
     setDownloadError('');
     setFilterValues((current) => ({ ...current, subTypeName: values }));
   };
+
+  const hasFilterCriteria =
+    filterValues.itemName.trim().length > 0 ||
+    filterValues.productID.trim().length > 0 ||
+    filterValues.publisherName.length > 0 ||
+    filterValues.collectionName.length > 0 ||
+    filterValues.categoryName.length > 0 ||
+    filterValues.subTypeName.length > 0;
 
   const applyFilters = () => {
     setDownloadError('');
@@ -1100,6 +1143,7 @@ export default function InventoryLookupPage() {
                   onChange={handlePublisherChange}
                   placeholder="Publisher"
                   className="w-full"
+                  autoFocus
                   tabIndex={1}
                 />
               </label>
@@ -1163,8 +1207,8 @@ export default function InventoryLookupPage() {
               <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={8}>
                 {isDownloading ? 'Downloading...' : 'Download CSV'}
               </Button>
-              <Button onClick={applyFilters} tabIndex={9}>Apply Filters</Button>
-              <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} tabIndex={10}>
+              <Button onClick={applyFilters} disabled={!hasFilterCriteria} tabIndex={9}>Apply Filters</Button>
+              <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={10}>
                 Clear
               </Button>
             </div>
@@ -1384,7 +1428,7 @@ export default function InventoryLookupPage() {
                     className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                   >
                     <option value="">Select collection</option>
-                    {collectionSelectOptions.map((option: { value: string | number; label: string }) => (
+                    {editCollectionSelectOptions.map((option: { value: string | number; label: string }) => (
                       <option key={option.value} value={String(option.value)}>
                         {option.label}
                       </option>

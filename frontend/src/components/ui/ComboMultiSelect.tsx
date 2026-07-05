@@ -12,6 +12,7 @@ interface Props {
   placeholder?: string;
   className?: string;
   tabIndex?: number;
+  autoFocus?: boolean;
 }
 
 const ComboMultiSelect: React.FC<Props> = ({
@@ -21,10 +22,20 @@ const ComboMultiSelect: React.FC<Props> = ({
   placeholder = 'Select...',
   className,
   tabIndex,
+  autoFocus = false,
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!autoFocus) {
+      return;
+    }
+
+    buttonRef.current?.focus();
+  }, [autoFocus]);
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -58,6 +69,7 @@ const ComboMultiSelect: React.FC<Props> = ({
   return (
     <div className={`${className ?? 'inline-block'} relative`} ref={ref}>
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         tabIndex={tabIndex}

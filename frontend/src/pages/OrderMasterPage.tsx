@@ -617,6 +617,13 @@ export default function OrderMasterPage() {
     setFilterValues((current) => ({ ...current, purchaseDateEnd: e.target.value }));
   };
 
+  const hasFilterCriteria =
+    filterValues.storeNames.length > 0 ||
+    filterValues.invoiceNumber.trim().length > 0 ||
+    filterValues.statusNames.length > 0 ||
+    filterValues.purchaseDateStart.trim().length > 0 ||
+    filterValues.purchaseDateEnd.trim().length > 0;
+
   const applyFilters = () => {
     setPage(1);
     setSearchParams(filterValues);
@@ -801,6 +808,7 @@ export default function OrderMasterPage() {
                   onChange={handleStoreChange}
                   placeholder="Select stores..."
                   className="w-full"
+                  autoFocus
                   tabIndex={1}
                 />
               </label>
@@ -853,10 +861,14 @@ export default function OrderMasterPage() {
               <Button className="bg-green-600 hover:bg-green-700" onClick={openAddOrder} tabIndex={6}>
                 Add Order
               </Button>
-              <Button onClick={applyFilters} tabIndex={7}>Apply Filter</Button>
-              <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} tabIndex={8}>
-                Clear
-              </Button>
+              {hasFilterCriteria ? (
+                <>
+                  <Button onClick={applyFilters} tabIndex={7}>Apply Filter</Button>
+                  <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} tabIndex={8}>
+                    Clear
+                  </Button>
+                </>
+              ) : null}
             </div>
           </div>
         </section>
