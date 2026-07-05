@@ -802,6 +802,29 @@ export async function getDashboardOverview(req: Request, res: Response): Promise
       ORDER BY [TotalAmount] DESC, [PurchaseOrder].[PurchaseOrderID] DESC
     `;
 
+    const publisherDashboardQuery = `
+      SELECT
+        [Publisher].[PublisherID],
+        [Publisher].[PublisherName],
+        COUNT(DISTINCT [Item].[ItemID]) AS [TotalItems],
+        COUNT(DISTINCT CASE WHEN [PurchaseOrder].[PurchaseOrderID] IS NOT NULL THEN [Item].[ItemID] END) AS [ItemsInPurchaseOrder],
+        CAST(
+          CASE
+            WHEN COUNT(DISTINCT [Item].[ItemID]) = 0 THEN 0
+            ELSE (
+              100.0 *
+              COUNT(DISTINCT CASE WHEN [PurchaseOrder].[PurchaseOrderID] IS NOT NULL THEN [Item].[ItemID] END)
+            ) / COUNT(DISTINCT [Item].[ItemID])
+          END AS DECIMAL(5,2)
+        ) AS [CoveragePercent]
+      FROM [Publisher]
+      LEFT JOIN [Item] ON [Item].[PublisherID] = [Publisher].[PublisherID]
+      LEFT JOIN [PurchaseOrderDetail] ON [PurchaseOrderDetail].[ItemID] = [Item].[ItemID]
+      LEFT JOIN [PurchaseOrder] ON [PurchaseOrder].[PurchaseOrderID] = [PurchaseOrderDetail].[PurchaseOrderID]
+      GROUP BY [Publisher].[PublisherID], [Publisher].[PublisherName]
+      ORDER BY [Publisher].[PublisherName] ASC
+    `;
+
     const totalsResult = await pool.request().query(totalsQuery);
 
     const topPublishersResult = await pool
@@ -824,6 +847,10 @@ export async function getDashboardOverview(req: Request, res: Response): Promise
       .input('topN', sql.Int, topN)
       .query(topOrdersByAmountQuery);
 
+    const publisherDashboardResult = await pool
+      .request()
+      .query(publisherDashboardQuery);
+
     const totals = totalsResult.recordset[0] || {
       PublishersTotal: 0,
       CollectionsTotal: 0,
@@ -842,6 +869,13 @@ export async function getDashboardOverview(req: Request, res: Response): Promise
       topCollections: topCollectionsResult.recordset,
       topItemsByPrice: topItemsByPriceResult.recordset,
       topOrdersByAmount: topOrdersByAmountResult.recordset,
+      publisherDashboard: publisherDashboardResult.recordset.map((row) => ({
+        PublisherID: Number(row.PublisherID || 0),
+        PublisherName: String(row.PublisherName || ''),
+        TotalItems: Number(row.TotalItems || 0),
+        ItemsInPurchaseOrder: Number(row.ItemsInPurchaseOrder || 0),
+        CoveragePercent: Number(row.CoveragePercent || 0),
+      })),
     });
   } catch (error) {
     console.error('Error fetching dashboard overview:', error);

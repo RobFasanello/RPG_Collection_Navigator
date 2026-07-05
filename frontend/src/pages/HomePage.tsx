@@ -10,6 +10,13 @@ type DashboardData = {
     items: number;
     orders: number;
   };
+  publisherDashboard: Array<{
+    PublisherID: number;
+    PublisherName: string;
+    TotalItems: number;
+    ItemsInPurchaseOrder: number;
+    CoveragePercent: number;
+  }>;
   topPublishers: Array<{ PublisherName: string; ItemCount: number }>;
   topCollections: Array<{ CollectionName: string; ItemCount: number }>;
   topItemsByPrice: Array<{ ItemID: number; ItemName: string; ProductID?: string; MaxPrice: number }>;
@@ -53,10 +60,11 @@ async function getAllTableRows(tableName: string): Promise<any[]> {
 }
 
 async function getDashboardFallback(): Promise<DashboardData> {
-  const [publishersResp, collectionsResp, itemsResp] = await Promise.all([
+  const [publishersResp, collectionsResp, itemsResp, allPublishersRows] = await Promise.all([
     tablesAPI.getTableData('Publisher', 1, 1),
     tablesAPI.getTableData('Collection', 1, 1),
     tablesAPI.getInventoryItems({ page: 1, pageSize: 1 }),
+    getAllTableRows('Publisher'),
   ]);
 
   let ordersTotal = 0;
@@ -94,6 +102,48 @@ async function getDashboardFallback(): Promise<DashboardData> {
     .map(([CollectionName, ItemCount]) => ({ CollectionName, ItemCount }))
     .sort((a, b) => b.ItemCount - a.ItemCount || a.CollectionName.localeCompare(b.CollectionName))
     .slice(0, 10);
+
+  const publisherCoverageMap = new Map<string, { itemIds: Set<number>; coveredItemIds: Set<number> }>();
+
+  inventoryRows.forEach((row) => {
+    const publisherName = String(row.PublisherName || '').trim();
+    const itemId = Number(row.ItemID);
+    const hasPurchaseOrder = row.HasPurchaseOrder === true || row.HasPurchaseOrder === 1;
+
+    if (!publisherName || !Number.isFinite(itemId)) {
+      return;
+    }
+
+    const current = publisherCoverageMap.get(publisherName) || {
+      itemIds: new Set<number>(),
+      coveredItemIds: new Set<number>(),
+    };
+
+    current.itemIds.add(itemId);
+    if (hasPurchaseOrder) {
+      current.coveredItemIds.add(itemId);
+    }
+
+    publisherCoverageMap.set(publisherName, current);
+  });
+
+  const publisherDashboard = allPublishersRows
+    .map((publisherRow) => {
+      const publisherName = String(publisherRow.PublisherName || '').trim();
+      const coverage = publisherCoverageMap.get(publisherName);
+      const totalItems = coverage?.itemIds.size || 0;
+      const itemsInPurchaseOrder = coverage?.coveredItemIds.size || 0;
+      const coveragePercent = totalItems === 0 ? 0 : (itemsInPurchaseOrder / totalItems) * 100;
+
+      return {
+        PublisherID: Number(publisherRow.PublisherID || 0),
+        PublisherName: publisherName,
+        TotalItems: totalItems,
+        ItemsInPurchaseOrder: itemsInPurchaseOrder,
+        CoveragePercent: Number(coveragePercent.toFixed(2)),
+      };
+    })
+    .sort((a, b) => a.PublisherName.localeCompare(b.PublisherName));
 
   const [purchaseOrderDetailsRows, itemLookupResp] = await Promise.all([
     getAllTableRows('PurchaseOrderDetail'),
@@ -166,6 +216,7 @@ async function getDashboardFallback(): Promise<DashboardData> {
     topCollections,
     topItemsByPrice,
     topOrdersByAmount,
+    publisherDashboard,
   };
 }
 
@@ -183,6 +234,37 @@ function MetricCard({ label, value, loading, to }: { label: string; value: numbe
 
 function formatCurrency(amount: number) {
   return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatPercent(value: number) {
+  return `${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`;
+}
+
+function getCoverageBandClasses(coveragePercent: number) {
+  if (coveragePercent < 40) {
+    return {
+      card: 'border-red-200 bg-red-50 hover:bg-red-100 hover:border-red-300',
+      title: 'text-red-800',
+      value: 'text-red-900',
+      detail: 'text-red-700',
+    };
+  }
+
+  if (coveragePercent < 80) {
+    return {
+      card: 'border-amber-200 bg-amber-50 hover:bg-amber-100 hover:border-amber-300',
+      title: 'text-amber-800',
+      value: 'text-amber-900',
+      detail: 'text-amber-700',
+    };
+  }
+
+  return {
+    card: 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-300',
+    title: 'text-emerald-800',
+    value: 'text-emerald-900',
+    detail: 'text-emerald-700',
+  };
 }
 
 function TopListCard({ title, loading, children }: { title: string; loading: boolean; children: React.ReactNode }) {
@@ -218,6 +300,7 @@ export default function HomePage() {
   const topCollections = dashboardData?.topCollections || [];
   const topItemsByPrice = dashboardData?.topItemsByPrice || [];
   const topOrdersByAmount = dashboardData?.topOrdersByAmount || [];
+  const publisherDashboard = dashboardData?.publisherDashboard || [];
 
   return (
     <AdminLayout title="Home">
@@ -234,7 +317,7 @@ export default function HomePage() {
         </section>
 
         <section className="bg-white rounded-lg shadow p-8">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">Collection Dashboard</h3>
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">Repository Dashboard</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <div className="space-y-3">
               <MetricCard label="Publishers" value={totals.publishers} loading={dashboardLoading} to="/admin/publishers" />
@@ -332,6 +415,37 @@ export default function HomePage() {
               </TopListCard>
             </div>
           </div>
+        </section>
+
+        <section className="bg-white rounded-lg shadow p-8">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">Publisher Dashboard</h3>
+          {dashboardLoading && !publisherDashboard.length ? (
+            <p className="text-sm text-gray-500">Loading publisher coverage...</p>
+          ) : publisherDashboard.length ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {publisherDashboard.map((publisher) => {
+                const coverageBand = getCoverageBandClasses(publisher.CoveragePercent);
+
+                return (
+                  <Link
+                    key={publisher.PublisherID || publisher.PublisherName}
+                    to={`/admin/inventory?publisher=${encodeURIComponent(publisher.PublisherName)}`}
+                    className={`block rounded-xl border p-5 transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${coverageBand.card}`}
+                  >
+                    <p className={`text-sm font-medium truncate ${coverageBand.title}`} title={publisher.PublisherName}>
+                      {publisher.PublisherName}
+                    </p>
+                    <p className={`mt-2 text-3xl font-bold ${coverageBand.value}`}>{formatPercent(publisher.CoveragePercent)}</p>
+                    <p className={`mt-2 text-sm ${coverageBand.detail}`}>
+                      {publisher.ItemsInPurchaseOrder.toLocaleString()} / {publisher.TotalItems.toLocaleString()} items in orders
+                    </p>
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">No publishers found.</p>
+          )}
         </section>
       </div>
     </AdminLayout>
