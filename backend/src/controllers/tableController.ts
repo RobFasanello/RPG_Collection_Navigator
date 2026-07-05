@@ -825,6 +825,29 @@ export async function getDashboardOverview(req: Request, res: Response): Promise
       ORDER BY [Publisher].[PublisherName] ASC
     `;
 
+    const collectionDashboardQuery = `
+      SELECT
+        [Collection].[CollectionID],
+        [Collection].[CollectionName],
+        COUNT(DISTINCT [Item].[ItemID]) AS [TotalItems],
+        COUNT(DISTINCT CASE WHEN [PurchaseOrder].[PurchaseOrderID] IS NOT NULL THEN [Item].[ItemID] END) AS [ItemsInPurchaseOrder],
+        CAST(
+          CASE
+            WHEN COUNT(DISTINCT [Item].[ItemID]) = 0 THEN 0
+            ELSE (
+              100.0 *
+              COUNT(DISTINCT CASE WHEN [PurchaseOrder].[PurchaseOrderID] IS NOT NULL THEN [Item].[ItemID] END)
+            ) / COUNT(DISTINCT [Item].[ItemID])
+          END AS DECIMAL(5,2)
+        ) AS [CoveragePercent]
+      FROM [Collection]
+      LEFT JOIN [Item] ON [Item].[CollectionID] = [Collection].[CollectionID]
+      LEFT JOIN [PurchaseOrderDetail] ON [PurchaseOrderDetail].[ItemID] = [Item].[ItemID]
+      LEFT JOIN [PurchaseOrder] ON [PurchaseOrder].[PurchaseOrderID] = [PurchaseOrderDetail].[PurchaseOrderID]
+      GROUP BY [Collection].[CollectionID], [Collection].[CollectionName]
+      ORDER BY [Collection].[CollectionName] ASC
+    `;
+
     const totalsResult = await pool.request().query(totalsQuery);
 
     const topPublishersResult = await pool
@@ -851,6 +874,10 @@ export async function getDashboardOverview(req: Request, res: Response): Promise
       .request()
       .query(publisherDashboardQuery);
 
+    const collectionDashboardResult = await pool
+      .request()
+      .query(collectionDashboardQuery);
+
     const totals = totalsResult.recordset[0] || {
       PublishersTotal: 0,
       CollectionsTotal: 0,
@@ -872,6 +899,13 @@ export async function getDashboardOverview(req: Request, res: Response): Promise
       publisherDashboard: publisherDashboardResult.recordset.map((row) => ({
         PublisherID: Number(row.PublisherID || 0),
         PublisherName: String(row.PublisherName || ''),
+        TotalItems: Number(row.TotalItems || 0),
+        ItemsInPurchaseOrder: Number(row.ItemsInPurchaseOrder || 0),
+        CoveragePercent: Number(row.CoveragePercent || 0),
+      })),
+      collectionDashboard: collectionDashboardResult.recordset.map((row) => ({
+        CollectionID: Number(row.CollectionID || 0),
+        CollectionName: String(row.CollectionName || ''),
         TotalItems: Number(row.TotalItems || 0),
         ItemsInPurchaseOrder: Number(row.ItemsInPurchaseOrder || 0),
         CoveragePercent: Number(row.CoveragePercent || 0),

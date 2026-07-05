@@ -14,8 +14,8 @@ type SortColumn = 'publisher' | 'collection' | null;
 
 export default function PublisherCollectionsPage() {
   const [isAdding, setIsAdding] = useState(false);
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
-  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortColumn, setSortColumn] = useState<SortColumn>('publisher');
   const [formValues, setFormValues] = useState({ PublisherID: '', CollectionID: '' });
   const [formError, setFormError] = useState('');
   const [isSaving, setIsSaving] = useState(false);

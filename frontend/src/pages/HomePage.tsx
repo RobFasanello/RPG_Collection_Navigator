@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import { tablesAPI } from '../services/api';
@@ -13,6 +14,13 @@ type DashboardData = {
   publisherDashboard: Array<{
     PublisherID: number;
     PublisherName: string;
+    TotalItems: number;
+    ItemsInPurchaseOrder: number;
+    CoveragePercent: number;
+  }>;
+  collectionDashboard: Array<{
+    CollectionID: number;
+    CollectionName: string;
     TotalItems: number;
     ItemsInPurchaseOrder: number;
     CoveragePercent: number;
@@ -60,11 +68,12 @@ async function getAllTableRows(tableName: string): Promise<any[]> {
 }
 
 async function getDashboardFallback(): Promise<DashboardData> {
-  const [publishersResp, collectionsResp, itemsResp, allPublishersRows] = await Promise.all([
+  const [publishersResp, collectionsResp, itemsResp, allPublishersRows, allCollectionsRows] = await Promise.all([
     tablesAPI.getTableData('Publisher', 1, 1),
     tablesAPI.getTableData('Collection', 1, 1),
     tablesAPI.getInventoryItems({ page: 1, pageSize: 1 }),
     getAllTableRows('Publisher'),
+    getAllTableRows('Collection'),
   ]);
 
   let ordersTotal = 0;
@@ -104,6 +113,7 @@ async function getDashboardFallback(): Promise<DashboardData> {
     .slice(0, 10);
 
   const publisherCoverageMap = new Map<string, { itemIds: Set<number>; coveredItemIds: Set<number> }>();
+  const collectionCoverageMap = new Map<string, { itemIds: Set<number>; coveredItemIds: Set<number> }>();
 
   inventoryRows.forEach((row) => {
     const publisherName = String(row.PublisherName || '').trim();
@@ -125,6 +135,21 @@ async function getDashboardFallback(): Promise<DashboardData> {
     }
 
     publisherCoverageMap.set(publisherName, current);
+
+    const collectionName = String(row.CollectionName || '').trim();
+    if (collectionName) {
+      const collectionCurrent = collectionCoverageMap.get(collectionName) || {
+        itemIds: new Set<number>(),
+        coveredItemIds: new Set<number>(),
+      };
+
+      collectionCurrent.itemIds.add(itemId);
+      if (hasPurchaseOrder) {
+        collectionCurrent.coveredItemIds.add(itemId);
+      }
+
+      collectionCoverageMap.set(collectionName, collectionCurrent);
+    }
   });
 
   const publisherDashboard = allPublishersRows
@@ -144,6 +169,24 @@ async function getDashboardFallback(): Promise<DashboardData> {
       };
     })
     .sort((a, b) => a.PublisherName.localeCompare(b.PublisherName));
+
+  const collectionDashboard = allCollectionsRows
+    .map((collectionRow) => {
+      const collectionName = String(collectionRow.CollectionName || '').trim();
+      const coverage = collectionCoverageMap.get(collectionName);
+      const totalItems = coverage?.itemIds.size || 0;
+      const itemsInPurchaseOrder = coverage?.coveredItemIds.size || 0;
+      const coveragePercent = totalItems === 0 ? 0 : (itemsInPurchaseOrder / totalItems) * 100;
+
+      return {
+        CollectionID: Number(collectionRow.CollectionID || 0),
+        CollectionName: collectionName,
+        TotalItems: totalItems,
+        ItemsInPurchaseOrder: itemsInPurchaseOrder,
+        CoveragePercent: Number(coveragePercent.toFixed(2)),
+      };
+    })
+    .sort((a, b) => a.CollectionName.localeCompare(b.CollectionName));
 
   const [purchaseOrderDetailsRows, itemLookupResp] = await Promise.all([
     getAllTableRows('PurchaseOrderDetail'),
@@ -217,6 +260,7 @@ async function getDashboardFallback(): Promise<DashboardData> {
     topItemsByPrice,
     topOrdersByAmount,
     publisherDashboard,
+    collectionDashboard,
   };
 }
 
@@ -277,6 +321,8 @@ function TopListCard({ title, loading, children }: { title: string; loading: boo
 }
 
 export default function HomePage() {
+  const [coverageView, setCoverageView] = useState<'publisher' | 'collection'>('publisher');
+
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery({
     queryKey: ['homeMetrics', 'dashboardOverview'],
     queryFn: async () => {
@@ -301,6 +347,7 @@ export default function HomePage() {
   const topItemsByPrice = dashboardData?.topItemsByPrice || [];
   const topOrdersByAmount = dashboardData?.topOrdersByAmount || [];
   const publisherDashboard = dashboardData?.publisherDashboard || [];
+  const collectionDashboard = dashboardData?.collectionDashboard || [];
 
   return (
     <AdminLayout title="Home">
@@ -418,33 +465,88 @@ export default function HomePage() {
         </section>
 
         <section className="bg-white rounded-lg shadow p-8">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">Publisher Dashboard</h3>
-          {dashboardLoading && !publisherDashboard.length ? (
-            <p className="text-sm text-gray-500">Loading publisher coverage...</p>
-          ) : publisherDashboard.length ? (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <h3 className="text-xl font-semibold text-gray-900">Coverage Dashboard</h3>
+            <div className="grid grid-cols-2 gap-2 bg-gray-100 rounded-lg p-1 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => setCoverageView('publisher')}
+                className={`px-3 py-2 text-sm rounded-md transition ${
+                  coverageView === 'publisher'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Publisher View
+              </button>
+              <button
+                type="button"
+                onClick={() => setCoverageView('collection')}
+                className={`px-3 py-2 text-sm rounded-md transition ${
+                  coverageView === 'collection'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Collection View
+              </button>
+            </div>
+          </div>
+
+          {coverageView === 'publisher' ? (
+            dashboardLoading && !publisherDashboard.length ? (
+              <p className="text-sm text-gray-500">Loading publisher coverage...</p>
+            ) : publisherDashboard.length ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {publisherDashboard.map((publisher) => {
+                  const coverageBand = getCoverageBandClasses(publisher.CoveragePercent);
+
+                  return (
+                    <Link
+                      key={publisher.PublisherID || publisher.PublisherName}
+                      to={`/admin/inventory?publisher=${encodeURIComponent(publisher.PublisherName)}`}
+                      className={`block rounded-xl border p-5 transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${coverageBand.card}`}
+                    >
+                      <p className={`text-sm font-medium truncate ${coverageBand.title}`} title={publisher.PublisherName}>
+                        {publisher.PublisherName}
+                      </p>
+                      <p className={`mt-2 text-3xl font-bold ${coverageBand.value}`}>{formatPercent(publisher.CoveragePercent)}</p>
+                      <p className={`mt-2 text-sm ${coverageBand.detail}`}>
+                        {publisher.ItemsInPurchaseOrder.toLocaleString()} / {publisher.TotalItems.toLocaleString()} items in orders
+                      </p>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No publishers found.</p>
+            )
+          ) : dashboardLoading && !collectionDashboard.length ? (
+            <p className="text-sm text-gray-500">Loading collection coverage...</p>
+          ) : collectionDashboard.length ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {publisherDashboard.map((publisher) => {
-                const coverageBand = getCoverageBandClasses(publisher.CoveragePercent);
+              {collectionDashboard.map((collection) => {
+                const coverageBand = getCoverageBandClasses(collection.CoveragePercent);
 
                 return (
                   <Link
-                    key={publisher.PublisherID || publisher.PublisherName}
-                    to={`/admin/inventory?publisher=${encodeURIComponent(publisher.PublisherName)}`}
+                    key={collection.CollectionID || collection.CollectionName}
+                    to={`/admin/inventory?collection=${encodeURIComponent(collection.CollectionName)}`}
                     className={`block rounded-xl border p-5 transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${coverageBand.card}`}
                   >
-                    <p className={`text-sm font-medium truncate ${coverageBand.title}`} title={publisher.PublisherName}>
-                      {publisher.PublisherName}
+                    <p className={`text-sm font-medium truncate ${coverageBand.title}`} title={collection.CollectionName}>
+                      {collection.CollectionName}
                     </p>
-                    <p className={`mt-2 text-3xl font-bold ${coverageBand.value}`}>{formatPercent(publisher.CoveragePercent)}</p>
+                    <p className={`mt-2 text-3xl font-bold ${coverageBand.value}`}>{formatPercent(collection.CoveragePercent)}</p>
                     <p className={`mt-2 text-sm ${coverageBand.detail}`}>
-                      {publisher.ItemsInPurchaseOrder.toLocaleString()} / {publisher.TotalItems.toLocaleString()} items in orders
+                      {collection.ItemsInPurchaseOrder.toLocaleString()} / {collection.TotalItems.toLocaleString()} items in orders
                     </p>
                   </Link>
                 );
               })}
             </div>
           ) : (
-            <p className="text-sm text-gray-500">No publishers found.</p>
+            <p className="text-sm text-gray-500">No collections found.</p>
           )}
         </section>
       </div>

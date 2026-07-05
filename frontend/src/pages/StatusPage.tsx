@@ -15,7 +15,7 @@ type SortDirection = 'asc' | 'desc' | null;
 export default function StatusPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const queryClient = useQueryClient();
   const tableName = 'Status';
 

@@ -13,7 +13,7 @@ type SortDirection = 'asc' | 'desc' | null;
 
 export default function CategorySubTypesPage() {
   const [isAdding, setIsAdding] = useState(false);
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [formValues, setFormValues] = useState({ CategoryID: '', SubTypeID: '' });
   const [formError, setFormError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
