@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, X, ChevronUp, ChevronDown, Edit2 } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
+import ComboSelect from '../components/ui/ComboSelect';
 import { tableAPI } from '../services/api';
 
 interface CategorySubType {
@@ -11,9 +12,28 @@ interface CategorySubType {
 
 type SortDirection = 'asc' | 'desc' | null;
 
+async function getAllTableRows(tableName: string): Promise<any[]> {
+  const pageSize = 500;
+  const firstResponse = await tableAPI.getTableData(tableName, 1, pageSize);
+  const firstData = firstResponse.data;
+  const rows = [...(firstData?.data || [])];
+  const totalPages = Number(firstData?.totalPages || 1);
+
+  for (let page = 2; page <= totalPages; page++) {
+    const response = await tableAPI.getTableData(tableName, page, pageSize);
+    rows.push(...(response.data?.data || []));
+  }
+
+  return rows;
+}
+
 export default function CategorySubTypesPage() {
   const [isAdding, setIsAdding] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<CategorySubType | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [filterInputs, setFilterInputs] = useState({ categoryName: '', subTypeName: '' });
+  const [activeFilters, setActiveFilters] = useState({ categoryName: '', subTypeName: '' });
   const [formValues, setFormValues] = useState({ CategoryID: '', SubTypeID: '' });
   const [formError, setFormError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -44,6 +64,11 @@ export default function CategorySubTypesPage() {
     },
   });
 
+  const { data: allItems = [] } = useQuery<any, Error>({
+    queryKey: ['table', 'Item', 'all-for-category-subtype-counts'],
+    queryFn: async () => getAllTableRows('Item'),
+  });
+
   const categoryNameById = (categoryRecords || []).reduce(
     (map: Record<number, string>, item: any) => {
       if (item?.CategoryID != null) {
@@ -63,6 +88,43 @@ export default function CategorySubTypesPage() {
     },
     {}
   );
+
+  const categoryFilterOptions = (categoryRecords || []).map((category: any) => ({
+    value: String(category.CategoryName || ''),
+    label: String(category.CategoryName || ''),
+  }));
+
+  const subTypeFilterOptions = (subTypeRecords || []).map((subType: any) => ({
+    value: String(subType.SubTypeName || ''),
+    label: String(subType.SubTypeName || ''),
+  }));
+
+  const categoryFormOptions = (categoryRecords || []).map((category: any) => ({
+    value: String(category.CategoryID || ''),
+    label: String(category.CategoryName || ''),
+  }));
+
+  const subTypeFormOptions = (subTypeRecords || []).map((subType: any) => ({
+    value: String(subType.SubTypeID || ''),
+    label: String(subType.SubTypeName || ''),
+  }));
+
+  const hasFilterChanges =
+    filterInputs.categoryName !== activeFilters.categoryName ||
+    filterInputs.subTypeName !== activeFilters.subTypeName;
+
+  const itemCountByCategorySubType = (allItems || []).reduce((map: Record<string, number>, item: any) => {
+    const categoryId = Number(item?.CategoryID);
+    const subTypeId = Number(item?.SubTypeID);
+
+    if (!Number.isFinite(categoryId) || !Number.isFinite(subTypeId)) {
+      return map;
+    }
+
+    const key = `${categoryId}:${subTypeId}`;
+    map[key] = (map[key] || 0) + 1;
+    return map;
+  }, {});
 
   const deleteMutation = useMutation({
     mutationFn: async (payload: number | string | { categoryId: number; subTypeId: number }) => {
@@ -88,6 +150,25 @@ export default function CategorySubTypesPage() {
     }
   };
 
+  const handleEdit = (record: CategorySubType) => {
+    setIsAdding(false);
+    setIsEditing(true);
+    setEditingRecord(record);
+    setFormValues({
+      CategoryID: String(record.CategoryID ?? ''),
+      SubTypeID: String(record.SubTypeID ?? ''),
+    });
+    setFormError('');
+  };
+
+  const closeForm = () => {
+    setIsAdding(false);
+    setIsEditing(false);
+    setEditingRecord(null);
+    setFormValues({ CategoryID: '', SubTypeID: '' });
+    setFormError('');
+  };
+
   const handleCategorySort = () => {
     if (sortDirection === 'asc') {
       setSortDirection('desc');
@@ -99,11 +180,28 @@ export default function CategorySubTypesPage() {
   };
 
   const getSortedRecords = () => {
-    if (!Array.isArray(records) || !sortDirection) {
-      return records;
+    if (!Array.isArray(records)) {
+      return [];
     }
 
-    const sorted = [...records].sort((a, b) => {
+    const categoryFilter = activeFilters.categoryName.trim().toLowerCase();
+    const subTypeFilter = activeFilters.subTypeName.trim().toLowerCase();
+
+    const filteredRecords = records.filter((record: CategorySubType) => {
+      const categoryName = String(categoryNameById[record.CategoryID] ?? record.CategoryID).toLowerCase();
+      const subTypeName = String(subTypeNameById[record.SubTypeID] ?? record.SubTypeID).toLowerCase();
+
+      const categoryMatches = !categoryFilter || categoryName.includes(categoryFilter);
+      const subTypeMatches = !subTypeFilter || subTypeName.includes(subTypeFilter);
+
+      return categoryMatches && subTypeMatches;
+    });
+
+    if (!sortDirection) {
+      return filteredRecords;
+    }
+
+    const sorted = [...filteredRecords].sort((a, b) => {
       const nameA = (categoryNameById[a.CategoryID] ?? String(a.CategoryID)).toLowerCase();
       const nameB = (categoryNameById[b.CategoryID] ?? String(b.CategoryID)).toLowerCase();
 
@@ -115,6 +213,18 @@ export default function CategorySubTypesPage() {
     return sorted;
   };
 
+  const applyFilters = () => {
+    setActiveFilters({
+      categoryName: filterInputs.categoryName,
+      subTypeName: filterInputs.subTypeName,
+    });
+  };
+
+  const clearFilters = () => {
+    setFilterInputs({ categoryName: '', subTypeName: '' });
+    setActiveFilters({ categoryName: '', subTypeName: '' });
+  };
+
   const getSortIcon = () => {
     if (sortDirection === 'asc') return <ChevronUp className="w-4 h-4" />;
     if (sortDirection === 'desc') return <ChevronDown className="w-4 h-4" />;
@@ -124,28 +234,65 @@ export default function CategorySubTypesPage() {
   return (
     <AdminLayout title="Category Subtypes">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <Button
-            onClick={() => {
-              setIsAdding(true);
-            }}
-            className="gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            New Category Subtype
-          </Button>
+        <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Category Name</label>
+              <ComboSelect
+                options={categoryFilterOptions}
+                value={filterInputs.categoryName}
+                onChange={(value) => setFilterInputs((prev) => ({ ...prev, categoryName: value }))}
+                placeholder="Select category"
+                className="w-full"
+                tabIndex={1}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Sub Category Name</label>
+              <ComboSelect
+                options={subTypeFilterOptions}
+                value={filterInputs.subTypeName}
+                onChange={(value) => setFilterInputs((prev) => ({ ...prev, subTypeName: value }))}
+                placeholder="Select sub category"
+                className="w-full"
+                tabIndex={2}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 justify-end">
+            <Button
+              onClick={() => {
+                setIsEditing(false);
+                setEditingRecord(null);
+                setIsAdding(true);
+                setFormValues({ CategoryID: '', SubTypeID: '' });
+                setFormError('');
+              }}
+              className="gap-2 bg-green-600 hover:bg-green-700"
+              tabIndex={999}
+            >
+              <Plus className="w-4 h-4" />
+              Add New Category Subtype
+            </Button>
+            <Button onClick={applyFilters} tabIndex={3} disabled={!hasFilterChanges}>Apply Filters</Button>
+            <Button
+              onClick={clearFilters}
+              className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+              tabIndex={4}
+              disabled={!hasFilterChanges}
+            >
+              Clear
+            </Button>
+          </div>
         </div>
 
-        {isAdding ? (
+        {isAdding || isEditing ? (
           <div className="mb-8 bg-white p-6 rounded-lg shadow">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">New Category Subtype</h2>
+              <h2 className="text-2xl font-bold">{isEditing ? 'Edit Category Subtype' : 'New Category Subtype'}</h2>
               <button
-                onClick={() => {
-                  setIsAdding(false);
-                  setFormValues({ CategoryID: '', SubTypeID: '' });
-                  setFormError('');
-                }}
+                onClick={closeForm}
                 className="text-gray-500 hover:text-gray-700"
               >
                 <X className="w-6 h-6" />
@@ -172,7 +319,14 @@ export default function CategorySubTypesPage() {
                 const subTypeId = parseInt(formValues.SubTypeID, 10);
                 const duplicateExists = (records || []).some(
                   (record: any) =>
-                    record.CategoryID === categoryId && record.SubTypeID === subTypeId
+                    record.CategoryID === categoryId &&
+                    record.SubTypeID === subTypeId &&
+                    (
+                      !isEditing ||
+                      !editingRecord ||
+                      record.CategorySubTypeID !== editingRecord.CategorySubTypeID ||
+                      (Number(record.CategoryID) !== Number(editingRecord.CategoryID) || Number(record.SubTypeID) !== Number(editingRecord.SubTypeID))
+                    )
                 );
 
                 if (duplicateExists) {
@@ -182,13 +336,38 @@ export default function CategorySubTypesPage() {
 
                 setIsSaving(true);
                 try {
-                  await tableAPI.createRecord(tableName, {
-                    CategoryID: categoryId,
-                    SubTypeID: subTypeId,
-                  });
+                  if (isEditing && editingRecord) {
+                    if (editingRecord.CategorySubTypeID != null) {
+                      await tableAPI.updateRecord(tableName, editingRecord.CategorySubTypeID, {
+                        CategoryID: categoryId,
+                        SubTypeID: subTypeId,
+                      });
+                    } else {
+                      const isSamePair =
+                        Number(editingRecord.CategoryID) === categoryId &&
+                        Number(editingRecord.SubTypeID) === subTypeId;
+
+                      if (!isSamePair) {
+                        await tableAPI.createRecord(tableName, {
+                          CategoryID: categoryId,
+                          SubTypeID: subTypeId,
+                        });
+
+                        await tableAPI.deleteRecord(tableName, {
+                          categoryId: Number(editingRecord.CategoryID),
+                          subTypeId: Number(editingRecord.SubTypeID),
+                        });
+                      }
+                    }
+                  } else {
+                    await tableAPI.createRecord(tableName, {
+                      CategoryID: categoryId,
+                      SubTypeID: subTypeId,
+                    });
+                  }
+
                   queryClient.invalidateQueries({ queryKey: ['table', tableName] });
-                  setIsAdding(false);
-                  setFormValues({ CategoryID: '', SubTypeID: '' });
+                  closeForm();
                 } catch (err: any) {
                   setFormError(err.response?.data?.error || 'Error saving record');
                 } finally {
@@ -199,52 +378,36 @@ export default function CategorySubTypesPage() {
             >
               <div>
                 <label className="block text-sm font-medium mb-1">Category Name</label>
-                <select
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                <ComboSelect
+                  options={categoryFormOptions}
                   value={formValues.CategoryID}
-                  onChange={(e) => setFormValues((prev) => ({ ...prev, CategoryID: e.target.value }))}
-                  required
-                >
-                  <option value="">Select category</option>
-                  {categoryRecords.map((category: any) => (
-                    <option key={category.CategoryID} value={category.CategoryID}>
-                      {category.CategoryName}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setFormValues((prev) => ({ ...prev, CategoryID: value }))}
+                  placeholder="Select category"
+                  className="w-full"
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">SubType Name</label>
-                <select
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                <label className="block text-sm font-medium mb-1">Sub Category Name</label>
+                <ComboSelect
+                  options={subTypeFormOptions}
                   value={formValues.SubTypeID}
-                  onChange={(e) => setFormValues((prev) => ({ ...prev, SubTypeID: e.target.value }))}
-                  required
-                >
-                  <option value="">Select subtype</option>
-                  {subTypeRecords.map((subType: any) => (
-                    <option key={subType.SubTypeID} value={subType.SubTypeID}>
-                      {subType.SubTypeName}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setFormValues((prev) => ({ ...prev, SubTypeID: value }))}
+                  placeholder="Select sub category"
+                  className="w-full"
+                />
               </div>
 
               <div className="flex gap-2 justify-end mt-6">
                 <Button
                   type="button"
-                  onClick={() => {
-                    setIsAdding(false);
-                    setFormValues({ CategoryID: '', SubTypeID: '' });
-                    setFormError('');
-                  }}
+                  onClick={closeForm}
                   className="bg-gray-200 text-gray-800 hover:bg-gray-300"
                 >
                   Cancel
                 </Button>
                 <Button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : 'Save'}
+                  {isSaving ? 'Saving...' : isEditing ? 'Update' : 'Save'}
                 </Button>
               </div>
             </form>
@@ -261,6 +424,7 @@ export default function CategorySubTypesPage() {
                 <th 
                   className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
                   onClick={handleCategorySort}
+                  tabIndex={5}
                 >
                   <div className="flex items-center gap-2">
                     Category Name
@@ -268,6 +432,7 @@ export default function CategorySubTypesPage() {
                   </div>
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">SubType Name</th>
+                <th className="px-6 py-3 text-right text-sm font-semibold">Item Count</th>
                 <th className="px-6 py-3 text-right text-sm font-semibold">Actions</th>
               </tr>
             </thead>
@@ -276,7 +441,17 @@ export default function CategorySubTypesPage() {
                 <tr key={record.CategorySubTypeID ?? `${record.CategoryID}-${record.SubTypeID}-${idx}`} className="hover:bg-gray-50">
                   <td className="px-6 py-4">{categoryNameById[record.CategoryID] ?? record.CategoryID}</td>
                   <td className="px-6 py-4">{subTypeNameById[record.SubTypeID] ?? record.SubTypeID}</td>
+                  <td className="px-6 py-4 text-right">
+                    {(itemCountByCategorySubType[`${Number(record.CategoryID)}:${Number(record.SubTypeID)}`] || 0).toLocaleString()}
+                  </td>
                   <td className="px-6 py-4 text-right space-x-2">
+                    <button
+                      onClick={() => handleEdit(record)}
+                      className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                      Edit
+                    </button>
                     <button
                       onClick={() => handleDelete(record)}
                       className="inline-flex items-center gap-1 text-red-600 hover:text-red-700"

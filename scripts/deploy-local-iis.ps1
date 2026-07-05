@@ -28,7 +28,8 @@ function Resolve-ExecutablePath {
     param(
         [string]$ExplicitPath,
         [string]$CommandName,
-        [string]$DisplayName
+        [string]$DisplayName,
+        [string]$PathParameterName
     )
 
     if ($ExplicitPath -and (Test-Path $ExplicitPath)) {
@@ -40,7 +41,11 @@ function Resolve-ExecutablePath {
         return $cmd.Source
     }
 
-    throw "$DisplayName not found. Provide -${DisplayName}Path or add it to PATH."
+    if (-not [string]::IsNullOrWhiteSpace($PathParameterName)) {
+        throw "$DisplayName not found. Provide -$PathParameterName or add it to PATH."
+    }
+
+    throw "$DisplayName not found. Add it to PATH."
 }
 
 function Resolve-SiteBaseUrl {
@@ -108,7 +113,7 @@ function Get-NodeProcessesInPaths {
         return @()
     }
 
-    $matchingProcesses = @()
+    $processHits = @()
     foreach ($proc in $processes) {
         $procCommand = [string]$proc.CommandLine
         $procExe = [string]$proc.ExecutablePath
@@ -118,13 +123,13 @@ function Get-NodeProcessesInPaths {
                 ($procCommand -and ($procCommand -like "*$candidate*")) -or
                 ($procExe -and ($procExe -like "*$candidate*"))
             ) {
-                $matchingProcesses += $proc
+                $processHits += $proc
                 break
             }
         }
     }
 
-    return $matchingProcesses
+    return $processHits
 }
 
 function Invoke-NodeProcessGuardrail {
@@ -267,8 +272,8 @@ if ($EnableIISFeatures) {
     & $prereqsScript -CheckOnly
 }
 
-$nodeExe = Resolve-ExecutablePath -ExplicitPath $NodePath -CommandName "node" -DisplayName "Node"
-$nssmExe = Resolve-ExecutablePath -ExplicitPath $NssmPath -CommandName "nssm" -DisplayName "Nssm"
+$nodeExe = Resolve-ExecutablePath -ExplicitPath $NodePath -CommandName "node" -DisplayName "Node" -PathParameterName "NodePath"
+$nssmExe = Resolve-ExecutablePath -ExplicitPath $NssmPath -CommandName "nssm" -DisplayName "NSSM" -PathParameterName "NssmPath"
 
 Write-Host "Repository root: $repoRoot" -ForegroundColor Cyan
 Write-Host "Node executable: $nodeExe" -ForegroundColor Cyan
