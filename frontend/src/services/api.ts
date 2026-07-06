@@ -70,6 +70,19 @@ export const tablesAPI = {
     CategoryID?: number;
     SubTypeID?: number;
   }) => api.patch('/tables/items/bulk-update', data),
+
+  bulkCreateItems: (data: {
+    rows: Array<{
+      RowNumber?: number;
+      Publisher: string;
+      Collection: string;
+      ItemName: string;
+      Category: string;
+      SubCategory: string;
+      ProductID: string;
+      ReleaseDate?: string | null;
+    }>;
+  }) => api.post('/tables/items/bulk-create', data),
   
   updateRecord: (tableName: string, id: number | string, data: Record<string, any>) =>
     api.patch(`/tables/${tableName}/${parseId(id)}`, data),

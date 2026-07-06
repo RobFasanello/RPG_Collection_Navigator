@@ -213,6 +213,327 @@ export async function bulkUpdateItemRecords(req: Request, res: Response): Promis
   }
 }
 
+interface BulkCreateItemInputRow {
+  RowNumber?: unknown;
+  Publisher?: unknown;
+  Collection?: unknown;
+  ItemName?: unknown;
+  Category?: unknown;
+  SubCategory?: unknown;
+  ProductID?: unknown;
+  ReleaseDate?: unknown;
+}
+
+interface BulkCreateItemNormalizedRow {
+  rowNumber: number;
+  Publisher: string;
+  Collection: string;
+  ItemName: string;
+  Category: string;
+  SubCategory: string;
+  ProductID: string;
+  ReleaseDate: Date | null;
+}
+
+interface BulkCreateItemRowResult {
+  rowNumber: number;
+  success: boolean;
+  errors: string[];
+}
+
+function normalizeBulkText(value: unknown): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value).trim();
+}
+
+function parseBulkReleaseDate(value: unknown): { date: Date | null; error?: string } {
+  if (value === null || value === undefined) {
+    return { date: null };
+  }
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      return { date: null, error: 'ReleaseDate is invalid.' };
+    }
+    return { date: value };
+  }
+
+  const raw = String(value).trim();
+  if (!raw) {
+    return { date: null };
+  }
+
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]);
+    const day = Number(isoMatch[3]);
+    const candidate = new Date(Date.UTC(year, month - 1, day));
+    if (
+      candidate.getUTCFullYear() === year &&
+      candidate.getUTCMonth() === month - 1 &&
+      candidate.getUTCDate() === day
+    ) {
+      return { date: candidate };
+    }
+    return { date: null, error: 'ReleaseDate is invalid.' };
+  }
+
+  const mdyMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mdyMatch) {
+    const month = Number(mdyMatch[1]);
+    const day = Number(mdyMatch[2]);
+    const year = Number(mdyMatch[3]);
+    const candidate = new Date(Date.UTC(year, month - 1, day));
+    if (
+      candidate.getUTCFullYear() === year &&
+      candidate.getUTCMonth() === month - 1 &&
+      candidate.getUTCDate() === day
+    ) {
+      return { date: candidate };
+    }
+    return { date: null, error: 'ReleaseDate is invalid.' };
+  }
+
+  return { date: null, error: 'ReleaseDate must be YYYY-MM-DD or MM/DD/YYYY.' };
+}
+
+export async function bulkCreateItems(req: Request, res: Response): Promise<void> {
+  const rawRows: BulkCreateItemInputRow[] = Array.isArray(req.body?.rows) ? req.body.rows : [];
+
+  if (rawRows.length === 0) {
+    res.status(400).json({ error: 'rows is required and must contain at least one item.' });
+    return;
+  }
+
+  const rowResults: BulkCreateItemRowResult[] = rawRows.map((_, index) => ({
+    rowNumber: parsePositiveInt(rawRows[index]?.RowNumber) ?? index + 1,
+    success: false,
+    errors: [],
+  }));
+  const rowResultIndexByRowNumber = new Map<number, number>();
+  rowResults.forEach((result, index) => {
+    if (!rowResultIndexByRowNumber.has(result.rowNumber)) {
+      rowResultIndexByRowNumber.set(result.rowNumber, index);
+    }
+  });
+
+  const normalizedRows: BulkCreateItemNormalizedRow[] = [];
+
+  rawRows.forEach((row, index) => {
+    const rowNumber = parsePositiveInt(row?.RowNumber) ?? index + 1;
+    const publisher = normalizeBulkText(row?.Publisher);
+    const collection = normalizeBulkText(row?.Collection);
+    const itemName = normalizeBulkText(row?.ItemName);
+    const category = normalizeBulkText(row?.Category);
+    const subCategory = normalizeBulkText(row?.SubCategory);
+    const productId = normalizeBulkText(row?.ProductID);
+
+    if (!publisher) {
+      rowResults[index].errors.push('Publisher is required.');
+    }
+    if (!collection) {
+      rowResults[index].errors.push('Collection is required.');
+    }
+    if (!itemName) {
+      rowResults[index].errors.push('ItemName is required.');
+    }
+    if (!category) {
+      rowResults[index].errors.push('Category is required.');
+    }
+    if (!subCategory) {
+      rowResults[index].errors.push('SubCategory is required.');
+    }
+    if (!productId) {
+      rowResults[index].errors.push('ProductID is required.');
+    }
+
+    const releaseDateParse = parseBulkReleaseDate(row?.ReleaseDate);
+    if (releaseDateParse.error) {
+      rowResults[index].errors.push(releaseDateParse.error);
+    }
+
+    if (rowResults[index].errors.length === 0) {
+      normalizedRows.push({
+        rowNumber,
+        Publisher: publisher,
+        Collection: collection,
+        ItemName: itemName,
+        Category: category,
+        SubCategory: subCategory,
+        ProductID: productId,
+        ReleaseDate: releaseDateParse.date,
+      });
+    }
+  });
+
+  try {
+    const pool = await getPool();
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    try {
+      const request = new sql.Request(transaction);
+
+      const publishersResult = await request.query('SELECT [PublisherID], [PublisherName] FROM [Publisher]');
+      const collectionsResult = await request.query('SELECT [CollectionID], [CollectionName] FROM [Collection]');
+      const categoriesResult = await request.query('SELECT [CategoryID], [CategoryName] FROM [Category]');
+      const subTypesResult = await request.query('SELECT [SubTypeID], [SubTypeName] FROM [SubType]');
+      const publisherCollectionResult = await request.query('SELECT [PublisherID], [CollectionID] FROM [PublisherCollection]');
+      const categorySubTypeResult = await request.query('SELECT [CategoryID], [SubTypeID] FROM [CategorySubType]');
+      const existingItemsResult = await request.query('SELECT [ItemName], [ProductID] FROM [Item]');
+
+      const publisherByName = new Map<string, number>();
+      publishersResult.recordset.forEach((row) => {
+        publisherByName.set(String(row.PublisherName).trim().toLowerCase(), Number(row.PublisherID));
+      });
+
+      const collectionByName = new Map<string, number>();
+      collectionsResult.recordset.forEach((row) => {
+        collectionByName.set(String(row.CollectionName).trim().toLowerCase(), Number(row.CollectionID));
+      });
+
+      const categoryByName = new Map<string, number>();
+      categoriesResult.recordset.forEach((row) => {
+        categoryByName.set(String(row.CategoryName).trim().toLowerCase(), Number(row.CategoryID));
+      });
+
+      const subTypeByName = new Map<string, number>();
+      subTypesResult.recordset.forEach((row) => {
+        subTypeByName.set(String(row.SubTypeName).trim().toLowerCase(), Number(row.SubTypeID));
+      });
+
+      const publisherCollectionLinks = new Set<string>();
+      publisherCollectionResult.recordset.forEach((row) => {
+        publisherCollectionLinks.add(`${Number(row.PublisherID)}:${Number(row.CollectionID)}`);
+      });
+
+      const categorySubTypeLinks = new Set<string>();
+      categorySubTypeResult.recordset.forEach((row) => {
+        categorySubTypeLinks.add(`${Number(row.CategoryID)}:${Number(row.SubTypeID)}`);
+      });
+
+      const existingItemKeys = new Set<string>();
+      existingItemsResult.recordset.forEach((row) => {
+        const existingName = String(row.ItemName ?? '').trim().toLowerCase();
+        const existingProduct = String(row.ProductID ?? '').trim().toLowerCase();
+        existingItemKeys.add(`${existingName}::${existingProduct}`);
+      });
+
+      const fileItemKeys = new Set<string>();
+      type PreparedInsert = {
+        rowNumber: number;
+        ItemName: string;
+        ProductID: string;
+        ReleaseDate: Date | null;
+        PublisherID: number;
+        CollectionID: number;
+        CategoryID: number;
+        SubTypeID: number;
+      };
+
+      const preparedRows: PreparedInsert[] = [];
+
+      normalizedRows.forEach((row) => {
+        const rowIndex = rowResultIndexByRowNumber.get(row.rowNumber);
+        if (rowIndex === undefined) {
+          return;
+        }
+        const publisherId = publisherByName.get(row.Publisher.toLowerCase());
+        const collectionId = collectionByName.get(row.Collection.toLowerCase());
+        const categoryId = categoryByName.get(row.Category.toLowerCase());
+        const subTypeId = subTypeByName.get(row.SubCategory.toLowerCase());
+
+        if (!publisherId) {
+          rowResults[rowIndex].errors.push(`Publisher "${row.Publisher}" was not found.`);
+        }
+        if (!collectionId) {
+          rowResults[rowIndex].errors.push(`Collection "${row.Collection}" was not found.`);
+        }
+        if (!categoryId) {
+          rowResults[rowIndex].errors.push(`Category "${row.Category}" was not found.`);
+        }
+        if (!subTypeId) {
+          rowResults[rowIndex].errors.push(`SubCategory "${row.SubCategory}" was not found.`);
+        }
+
+        if (publisherId && collectionId && !publisherCollectionLinks.has(`${publisherId}:${collectionId}`)) {
+          rowResults[rowIndex].errors.push('Publisher and Collection are not a valid combination.');
+        }
+
+        if (categoryId && subTypeId && !categorySubTypeLinks.has(`${categoryId}:${subTypeId}`)) {
+          rowResults[rowIndex].errors.push('Category and SubCategory are not a valid combination.');
+        }
+
+        const itemKey = `${row.ItemName.toLowerCase()}::${row.ProductID.toLowerCase()}`;
+
+        if (existingItemKeys.has(itemKey)) {
+          rowResults[rowIndex].errors.push('An item with the same ItemName and ProductID already exists.');
+        }
+
+        if (fileItemKeys.has(itemKey)) {
+          rowResults[rowIndex].errors.push('Duplicate ItemName and ProductID exists in this upload file.');
+        }
+
+        if (rowResults[rowIndex].errors.length === 0) {
+          fileItemKeys.add(itemKey);
+          preparedRows.push({
+            rowNumber: row.rowNumber,
+            ItemName: row.ItemName,
+            ProductID: row.ProductID,
+            ReleaseDate: row.ReleaseDate,
+            PublisherID: publisherId as number,
+            CollectionID: collectionId as number,
+            CategoryID: categoryId as number,
+            SubTypeID: subTypeId as number,
+          });
+        }
+      });
+
+      let insertedCount = 0;
+
+      for (const row of preparedRows) {
+        const insertRequest = new sql.Request(transaction);
+        insertRequest.input('ItemName', sql.NVarChar(255), row.ItemName);
+        insertRequest.input('ProductID', sql.NVarChar(255), row.ProductID);
+        insertRequest.input('ReleaseDate', sql.Date, row.ReleaseDate);
+        insertRequest.input('PublisherID', sql.Int, row.PublisherID);
+        insertRequest.input('CollectionID', sql.Int, row.CollectionID);
+        insertRequest.input('CategoryID', sql.Int, row.CategoryID);
+        insertRequest.input('SubTypeID', sql.Int, row.SubTypeID);
+
+        await insertRequest.query(`
+          INSERT INTO [Item] ([ItemName], [ProductID], [ReleaseDate], [PublisherID], [CollectionID], [CategoryID], [SubTypeID])
+          VALUES (@ItemName, @ProductID, @ReleaseDate, @PublisherID, @CollectionID, @CategoryID, @SubTypeID)
+        `);
+
+        const rowIndex = rowResultIndexByRowNumber.get(row.rowNumber);
+        if (rowIndex !== undefined) {
+          rowResults[rowIndex].success = true;
+        }
+        insertedCount += 1;
+      }
+
+      await transaction.commit();
+
+      res.json({
+        insertedCount,
+        totalRows: rawRows.length,
+        rowResults,
+      });
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error bulk creating items:', error);
+    res.status(500).json({ error: (error as any)?.message || 'Failed to bulk create items' });
+  }
+}
+
 // Check if a store has any purchase orders (referential integrity check)
 async function checkStoreHasPurchaseOrders(storeId: number): Promise<boolean> {
   try {

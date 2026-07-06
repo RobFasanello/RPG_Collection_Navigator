@@ -14,6 +14,7 @@ import {
   createRecord,
   createPurchaseOrderWithDetails,
   bulkUpdateItemRecords,
+  bulkCreateItems,
   updateRecord,
   deleteRecord,
   deleteRecordByQuery,
@@ -53,6 +54,9 @@ router.post('/purchase-order-with-details', createPurchaseOrderWithDetails);
 
 // Bulk update Item foreign-key fields
 router.patch('/items/bulk-update', bulkUpdateItemRecords);
+
+// Bulk create Item records from validated upload rows
+router.post('/items/bulk-create', bulkCreateItems);
 
 // Get table data with pagination
 router.get('/:tableName/data', getTableData);

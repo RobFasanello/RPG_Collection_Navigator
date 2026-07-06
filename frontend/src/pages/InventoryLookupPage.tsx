@@ -8,6 +8,7 @@ import { Input } from '../components/ui/Input';
 import ComboMultiSelect from '../components/ui/ComboMultiSelect';
 import { Dialog } from '../components/ui/Dialog';
 import LinkedOrderDetailModal, { type LinkedPurchaseOrder } from '../components/order/LinkedOrderDetailModal';
+import BulkItemUploadDialog from '../components/inventory/BulkItemUploadDialog';
 import { tablesAPI } from '../services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
 
@@ -90,6 +91,9 @@ export default function InventoryLookupPage() {
     SubTypeID: '',
   });
   const [bulkError, setBulkError] = useState('');
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [bulkDeleteConfirmText, setBulkDeleteConfirmText] = useState('');
+  const [bulkDeleteError, setBulkDeleteError] = useState('');
   const [isRelatedOrdersModalOpen, setIsRelatedOrdersModalOpen] = useState(false);
   const [selectedItemForRelatedOrders, setSelectedItemForRelatedOrders] = useState<InventoryItem | null>(null);
   const [relatedOrdersLoading, setRelatedOrdersLoading] = useState(false);
@@ -101,6 +105,7 @@ export default function InventoryLookupPage() {
   const [fallbackHasPurchaseOrder, setFallbackHasPurchaseOrder] = useState<Record<number, boolean>>({});
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -114,6 +119,9 @@ export default function InventoryLookupPage() {
     setIsBulkUpdateOpen(false);
     setBulkStep('edit');
     setBulkError('');
+    setIsBulkDeleteOpen(false);
+    setBulkDeleteConfirmText('');
+    setBulkDeleteError('');
   }, [queryKey]);
 
   useEffect(() => {
@@ -329,7 +337,10 @@ export default function InventoryLookupPage() {
   const publisherOptions = useMemo(() => {
     return publishersData
       .filter((p: any) => !allowedPublisherIds || allowedPublisherIds.has(p.PublisherID))
-      .map((p: any) => ({ value: p.PublisherName, label: p.PublisherName }));
+      .map((p: any) => ({ value: p.PublisherName, label: p.PublisherName }))
+      .sort((a: { value: string; label: string }, b: { value: string; label: string }) =>
+        a.label.localeCompare(b.label)
+      );
   }, [publishersData, allowedPublisherIds]);
 
   const collectionOptions = useMemo(() => {
@@ -724,6 +735,22 @@ export default function InventoryLookupPage() {
     },
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (itemIds: number[]) => {
+      await Promise.all(itemIds.map((itemId) => tablesAPI.deleteRecord('Item', itemId)));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      setSelectedItemIds([]);
+      setIsBulkDeleteOpen(false);
+      setBulkDeleteConfirmText('');
+      setBulkDeleteError('');
+    },
+    onError: (error: any) => {
+      setBulkDeleteError(error.response?.data?.error || 'Failed to bulk delete selected items');
+    },
+  });
+
   const handleFilterChange = (field: string, value: string) => {
     setDownloadError('');
     setFilterValues((current) => ({ ...current, [field]: value }));
@@ -806,13 +833,39 @@ export default function InventoryLookupPage() {
   };
 
   const openBulkUpdateDialog = () => {
-    if (selectedItemIds.length === 0) {
+    if (selectedItemIds.length < 2) {
       return;
     }
 
     setBulkError('');
     setBulkStep('edit');
     setIsBulkUpdateOpen(true);
+  };
+
+  const openBulkDeleteDialog = () => {
+    if (selectedItemIds.length < 2) {
+      return;
+    }
+
+    setBulkDeleteError('');
+    setBulkDeleteConfirmText('');
+    setIsBulkDeleteOpen(true);
+  };
+
+  const closeBulkDeleteDialog = () => {
+    setIsBulkDeleteOpen(false);
+    setBulkDeleteConfirmText('');
+    setBulkDeleteError('');
+  };
+
+  const handleBulkDeleteConfirm = () => {
+    if (bulkDeleteConfirmText.trim() !== 'DELETE') {
+      setBulkDeleteError('Type DELETE exactly to enable bulk delete.');
+      return;
+    }
+
+    setBulkDeleteError('');
+    bulkDeleteMutation.mutate(selectedItemIds);
   };
 
   const closeBulkUpdateDialog = () => {
@@ -1359,19 +1412,30 @@ export default function InventoryLookupPage() {
               <Button
                 className="bg-amber-600 hover:bg-amber-700"
                 onClick={openBulkUpdateDialog}
-                disabled={selectedItemIds.length === 0}
+                disabled={selectedItemIds.length < 2}
                 tabIndex={7}
               >
                 Bulk Update{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
               </Button>
+              <Button
+                className="bg-red-600 hover:bg-red-700"
+                onClick={openBulkDeleteDialog}
+                disabled={selectedItemIds.length < 2}
+                tabIndex={8}
+              >
+                Bulk Delete{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
+              </Button>
               <Button className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={8}>
                 Add Item
               </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={9}>
+              <Button className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={9}>
+                Bulk Upload
+              </Button>
+              <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={10}>
                 {isDownloading ? 'Downloading...' : 'Download CSV'}
               </Button>
-              <Button onClick={applyFilters} disabled={!hasFilterCriteria} tabIndex={10}>Apply Filters</Button>
-              <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={11}>
+              <Button onClick={applyFilters} disabled={!hasFilterCriteria} tabIndex={11}>Apply Filters</Button>
+              <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={12}>
                 Clear
               </Button>
             </div>
@@ -1968,6 +2032,69 @@ export default function InventoryLookupPage() {
         </Dialog>
       ) : null}
 
+      {isBulkDeleteOpen ? (
+        <Dialog
+          open={isBulkDeleteOpen}
+          onOpenChange={(open) => {
+            if (open) {
+              setIsBulkDeleteOpen(true);
+              return;
+            }
+
+            closeBulkDeleteDialog();
+          }}
+          title="Confirm Bulk Delete"
+          contentClassName="max-w-xl"
+        >
+          <div className="space-y-5">
+            {bulkDeleteError ? (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+                {bulkDeleteError}
+              </div>
+            ) : null}
+
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+              You are about to permanently delete {selectedItemIds.length} selected item{selectedItemIds.length === 1 ? '' : 's'}.
+              This action cannot be undone.
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Type DELETE to confirm
+              </label>
+              <Input
+                value={bulkDeleteConfirmText}
+                onChange={(event) => {
+                  setBulkDeleteError('');
+                  setBulkDeleteConfirmText(event.target.value);
+                }}
+                placeholder="DELETE"
+                disabled={bulkDeleteMutation.isLoading}
+              />
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                onClick={closeBulkDeleteDialog}
+                disabled={bulkDeleteMutation.isLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="bg-red-600 hover:bg-red-700"
+                onClick={handleBulkDeleteConfirm}
+                disabled={bulkDeleteMutation.isLoading || bulkDeleteConfirmText.trim() !== 'DELETE'}
+              >
+                {bulkDeleteMutation.isLoading ? 'Deleting...' : `Delete ${selectedItemIds.length} Items`}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      ) : null}
+
       <Dialog
         open={isRelatedOrdersModalOpen}
         onOpenChange={setIsRelatedOrdersModalOpen}
@@ -2043,6 +2170,18 @@ export default function InventoryLookupPage() {
         onClose={() => {
           setSelectedLinkedOrder(null);
           setDetailTargetItemId(null);
+        }}
+      />
+
+      <BulkItemUploadDialog
+        open={isBulkUploadOpen}
+        onOpenChange={setIsBulkUploadOpen}
+        publisherOptions={publisherSelectOptions}
+        collectionOptions={collectionSelectOptions}
+        categoryOptions={categorySelectOptions}
+        subTypeOptions={subTypeSelectOptions}
+        onItemsAdded={() => {
+          queryClient.invalidateQueries({ queryKey: ['inventory'] });
         }}
       />
     </AdminLayout>
