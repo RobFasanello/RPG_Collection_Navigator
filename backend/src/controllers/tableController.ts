@@ -1078,6 +1078,11 @@ export async function getPurchaseOrders(req: Request, res: Response): Promise<vo
       filters.push('[PurchaseOrder].[InvoiceNumber] LIKE @invoiceNumber');
     }
 
+    if (req.query.purchaseOrderId) {
+      request.input('purchaseOrderId', sql.Int, req.query.purchaseOrderId);
+      filters.push('[PurchaseOrder].[PurchaseOrderID] = @purchaseOrderId');
+    }
+
     // Filter by purchase date range
     if (req.query.purchaseDateStart) {
       request.input('purchaseDateStart', sql.Date, req.query.purchaseDateStart);

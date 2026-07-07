@@ -102,6 +102,10 @@ export default function OrderMasterPage() {
     const invoice = (urlSearchParams.get('invoice') || '').trim();
     const store = (urlSearchParams.get('store') || '').trim();
 
+    if (urlSearchParams.get('purchaseOrderId')) {
+      return;
+    }
+
     if (!invoice && !store) {
       return;
     }
@@ -117,6 +121,59 @@ export default function OrderMasterPage() {
     setFilterValues(nextFilters);
     setSearchParams(nextFilters);
     setPage(1);
+  }, [urlSearchParams]);
+
+  useEffect(() => {
+    const purchaseOrderIdParam = (urlSearchParams.get('purchaseOrderId') || '').trim();
+
+    if (!purchaseOrderIdParam) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const openPurchaseOrder = async () => {
+      try {
+        const response = await tablesAPI.getPurchaseOrders({
+          purchaseOrderId: purchaseOrderIdParam,
+          page: 1,
+          pageSize: 1,
+          sortBy: 'PurchasedDate',
+          sortOrder: 'DESC',
+        });
+
+        if (isCancelled) {
+          return;
+        }
+
+        const order = response.data?.data?.[0] as PurchaseOrder | undefined;
+        if (!order) {
+          throw new Error('Purchase order not found');
+        }
+
+        setIsEditMode(false);
+        setEditedOrder(null);
+        setEditingDetailId(null);
+        setEditingDetailDraft(null);
+        setNewDetailDraft(null);
+        setDeleteError(null);
+        setUpdateError(null);
+        setSelectedOrder(order);
+        setIsModalOpen(true);
+      } catch (error) {
+        if (isCancelled) {
+          return;
+        }
+
+        setUpdateError((error as any)?.response?.data?.error || (error as any)?.message || 'Failed to load order');
+      }
+    };
+
+    openPurchaseOrder();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [urlSearchParams]);
 
   // Load store options for the multi-select
@@ -861,14 +918,12 @@ export default function OrderMasterPage() {
               <Button className="bg-green-600 hover:bg-green-700" onClick={openAddOrder} tabIndex={6}>
                 Add Order
               </Button>
-              {hasFilterCriteria ? (
-                <>
-                  <Button onClick={applyFilters} tabIndex={7}>Apply Filter</Button>
-                  <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} tabIndex={8}>
-                    Clear
-                  </Button>
-                </>
-              ) : null}
+              <Button onClick={applyFilters} disabled={!hasFilterCriteria} tabIndex={7}>
+                Apply Filter
+              </Button>
+              <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={8}>
+                Clear
+              </Button>
             </div>
           </div>
         </section>
@@ -1217,9 +1272,9 @@ export default function OrderMasterPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             <Input
-                              type="number"
-                              min="1"
-                              step="1"
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
                               value={newDetailDraft.Quantity}
                               onChange={(e) => setNewDetailDraft((current) => current ? { ...current, Quantity: e.target.value } : current)}
                               className="w-24 ml-auto text-right"
@@ -1228,9 +1283,9 @@ export default function OrderMasterPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
+                              type="text"
+                              inputMode="decimal"
+                              pattern="[0-9]*[.,]?[0-9]*"
                               value={newDetailDraft.Price}
                               onChange={(e) => setNewDetailDraft((current) => current ? { ...current, Price: e.target.value } : current)}
                               className="w-28 ml-auto text-right"
@@ -1283,9 +1338,9 @@ export default function OrderMasterPage() {
                                   </TableCell>
                                   <TableCell className="text-right">
                                     <Input
-                                      type="number"
-                                      min="1"
-                                      step="1"
+                                      type="text"
+                                      inputMode="numeric"
+                                      pattern="[0-9]*"
                                       value={editingDetailDraft.Quantity}
                                       onChange={(e) => setEditingDetailDraft((current) => current ? { ...current, Quantity: e.target.value } : current)}
                                       className="w-24 ml-auto text-right"
@@ -1294,9 +1349,9 @@ export default function OrderMasterPage() {
                                   </TableCell>
                                   <TableCell className="text-right">
                                     <Input
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
+                                      type="text"
+                                      inputMode="decimal"
+                                      pattern="[0-9]*[.,]?[0-9]*"
                                       value={editingDetailDraft.Price}
                                       onChange={(e) => setEditingDetailDraft((current) => current ? { ...current, Price: e.target.value } : current)}
                                       className="w-28 ml-auto text-right"
@@ -1502,9 +1557,9 @@ export default function OrderMasterPage() {
                         <TableCell>{selectedItem?.ProductID || '-'}</TableCell>
                         <TableCell className="text-right">
                           <Input
-                            type="number"
-                            min="1"
-                            step="1"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={detail.Quantity}
                             onChange={(e) => handleAddDetailChange(detail.id, 'Quantity', e.target.value)}
                             className="w-24 ml-auto text-right"
@@ -1512,9 +1567,9 @@ export default function OrderMasterPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
+                            type="text"
+                            inputMode="decimal"
+                            pattern="[0-9]*[.,]?[0-9]*"
                             value={detail.Price}
                             onChange={(e) => handleAddDetailChange(detail.id, 'Price', e.target.value)}
                             className="w-28 ml-auto text-right"

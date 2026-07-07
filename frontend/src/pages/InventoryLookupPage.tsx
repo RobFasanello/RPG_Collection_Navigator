@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent, type MouseEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link2 } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -45,6 +45,7 @@ interface InventoryExportRow {
 }
 
 export default function InventoryLookupPage() {
+  const navigate = useNavigate();
   const [urlSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<string>('ItemName');
@@ -1120,10 +1121,8 @@ export default function InventoryLookupPage() {
   };
 
   const handleOpenLinkedOrder = (order: LinkedPurchaseOrder) => {
-    setDetailTargetItemId(selectedItemForRelatedOrders?.ItemID ?? null);
-    setSelectedLinkedOrder(order);
     setIsRelatedOrdersModalOpen(false);
-    setIsOrderDetailModalOpen(true);
+    navigate(`/admin/order-master?purchaseOrderId=${order.PurchaseOrderID}`);
   };
 
   useEffect(() => {
