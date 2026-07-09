@@ -410,6 +410,11 @@ export default function HomePage() {
     queryFn: async () => getAllTableRows('Collection'),
   });
 
+  const { data: allCollectionTypeRows } = useQuery({
+    queryKey: ['coverageCollectionTypesCatalog'],
+    queryFn: async () => getAllTableRows('CollectionType'),
+  });
+
   const totals = dashboardData?.totals || {
     publishers: 0,
     collections: 0,
@@ -433,13 +438,55 @@ export default function HomePage() {
     dashboardNameKey: 'PublisherName',
   });
 
-  const collectionBoxes = buildCoverageBoxes({
-    catalogRows: allCollectionsRows || [],
-    dashboardRows: collectionDashboard,
-    catalogIdKey: 'CollectionID',
-    catalogNameKey: 'CollectionName',
-    dashboardIdKey: 'CollectionID',
-    dashboardNameKey: 'CollectionName',
+  const collectionTypeNameById = new Map<number, string>();
+  (allCollectionTypeRows || []).forEach((row: any) => {
+    const collectionTypeId = Number(row.CollectionTypeID);
+    const collectionTypeName = String(row.CollectionTypeName || '').trim();
+    if (Number.isFinite(collectionTypeId) && collectionTypeName) {
+      collectionTypeNameById.set(collectionTypeId, collectionTypeName);
+    }
+  });
+
+  const collectionCoverageById = new Map<number, { totalItems: number; itemsInPurchaseOrder: number; coveragePercent: number }>();
+  const collectionCoverageByName = new Map<string, { totalItems: number; itemsInPurchaseOrder: number; coveragePercent: number }>();
+  (collectionDashboard || []).forEach((row: any) => {
+    const collectionId = Number(row.CollectionID || 0);
+    const normalizedName = String(row.CollectionName || '').trim().toLowerCase();
+    const coverageValue = {
+      totalItems: Number(row.TotalItems || 0),
+      itemsInPurchaseOrder: Number(row.ItemsInPurchaseOrder || 0),
+      coveragePercent: Number(row.CoveragePercent || 0),
+    };
+
+    if (Number.isFinite(collectionId) && collectionId > 0) {
+      collectionCoverageById.set(collectionId, coverageValue);
+    }
+
+    if (normalizedName) {
+      collectionCoverageByName.set(normalizedName, coverageValue);
+    }
+  });
+
+  const collectionBoxes: CoverageBox[] = (allCollectionsRows || []).map((row: any) => {
+    const collectionId = Number(row.CollectionID || 0);
+    const collectionName = String(row.CollectionName || '').trim();
+    const collectionTypeName = collectionTypeNameById.get(Number(row.CollectionTypeID)) || '';
+    const entityName = collectionTypeName ? `${collectionName} (${collectionTypeName})` : collectionName;
+    const coverage =
+      collectionCoverageById.get(collectionId) ||
+      collectionCoverageByName.get(collectionName.toLowerCase()) || {
+        totalItems: 0,
+        itemsInPurchaseOrder: 0,
+        coveragePercent: 0,
+      };
+
+    return {
+      EntityID: collectionId,
+      EntityName: entityName,
+      TotalItems: coverage.totalItems,
+      ItemsInPurchaseOrder: coverage.itemsInPurchaseOrder,
+      CoveragePercent: coverage.coveragePercent,
+    };
   });
 
   return (
@@ -628,7 +675,7 @@ export default function HomePage() {
                 return (
                   <Link
                     key={collection.EntityID || collection.EntityName}
-                    to={`/admin/inventory?collection=${encodeURIComponent(collection.EntityName)}`}
+                    to={`/admin/inventory?collection=${encodeURIComponent(String(collection.EntityID || collection.EntityName))}`}
                     className={`block rounded-xl border p-5 transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${coverageBand.card}`}
                   >
                     <p className={`text-sm font-medium truncate ${coverageBand.title}`} title={collection.EntityName}>

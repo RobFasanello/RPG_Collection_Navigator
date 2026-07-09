@@ -392,8 +392,11 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
       });
 
       const collectionByName = new Map<string, number>();
+      const collectionById = new Set<number>();
       collectionsResult.recordset.forEach((row) => {
-        collectionByName.set(String(row.CollectionName).trim().toLowerCase(), Number(row.CollectionID));
+        const collectionId = Number(row.CollectionID);
+        collectionByName.set(String(row.CollectionName).trim().toLowerCase(), collectionId);
+        collectionById.add(collectionId);
       });
 
       const categoryByName = new Map<string, number>();
@@ -443,7 +446,16 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
           return;
         }
         const publisherId = publisherByName.get(row.Publisher.toLowerCase());
-        const collectionId = collectionByName.get(row.Collection.toLowerCase());
+        const collectionRaw = row.Collection.trim();
+        let collectionId: number | undefined;
+        if (/^\d+$/.test(collectionRaw)) {
+          const parsedCollectionId = parseInt(collectionRaw, 10);
+          if (collectionById.has(parsedCollectionId)) {
+            collectionId = parsedCollectionId;
+          }
+        } else {
+          collectionId = collectionByName.get(collectionRaw.toLowerCase());
+        }
         const categoryId = categoryByName.get(row.Category.toLowerCase());
         const subTypeId = subTypeByName.get(row.SubCategory.toLowerCase());
 
@@ -747,16 +759,29 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
         const names = req.query.collectionName as string[];
         const clauses: string[] = [];
         names.forEach((name, idx) => {
-          const param = `collectionName_${idx}`;
-          request.input(param, sql.NVarChar(255), name);
-          clauses.push(`[Collection].[CollectionName] = @${param}`);
+          const trimmed = String(name).trim();
+          if (/^\d+$/.test(trimmed)) {
+            const param = `collectionId_${idx}`;
+            request.input(param, sql.Int, parseInt(trimmed, 10));
+            clauses.push(`[Item].[CollectionID] = @${param}`);
+          } else {
+            const param = `collectionName_${idx}`;
+            request.input(param, sql.NVarChar(255), trimmed);
+            clauses.push(`[Collection].[CollectionName] = @${param}`);
+          }
         });
         if (clauses.length) {
           filters.push(`(${clauses.join(' OR ')})`);
         }
       } else {
-        request.input('collectionName', sql.NVarChar(255), `%${req.query.collectionName}%`);
-        filters.push('[Collection].[CollectionName] LIKE @collectionName');
+        const singleValue = String(req.query.collectionName).trim();
+        if (/^\d+$/.test(singleValue)) {
+          request.input('collectionId', sql.Int, parseInt(singleValue, 10));
+          filters.push('[Item].[CollectionID] = @collectionId');
+        } else {
+          request.input('collectionName', sql.NVarChar(255), `%${singleValue}%`);
+          filters.push('[Collection].[CollectionName] LIKE @collectionName');
+        }
       }
     }
     if (req.query.categoryName) {
@@ -919,16 +944,29 @@ export async function getInventoryExportRows(req: Request, res: Response): Promi
         const names = req.query.collectionName as string[];
         const clauses: string[] = [];
         names.forEach((name, idx) => {
-          const param = `collectionName_${idx}`;
-          request.input(param, sql.NVarChar(255), name);
-          clauses.push(`[Collection].[CollectionName] = @${param}`);
+          const trimmed = String(name).trim();
+          if (/^\d+$/.test(trimmed)) {
+            const param = `collectionId_${idx}`;
+            request.input(param, sql.Int, parseInt(trimmed, 10));
+            clauses.push(`[Item].[CollectionID] = @${param}`);
+          } else {
+            const param = `collectionName_${idx}`;
+            request.input(param, sql.NVarChar(255), trimmed);
+            clauses.push(`[Collection].[CollectionName] = @${param}`);
+          }
         });
         if (clauses.length) {
           filters.push(`(${clauses.join(' OR ')})`);
         }
       } else {
-        request.input('collectionName', sql.NVarChar(255), `%${req.query.collectionName}%`);
-        filters.push('[Collection].[CollectionName] LIKE @collectionName');
+        const singleValue = String(req.query.collectionName).trim();
+        if (/^\d+$/.test(singleValue)) {
+          request.input('collectionId', sql.Int, parseInt(singleValue, 10));
+          filters.push('[Item].[CollectionID] = @collectionId');
+        } else {
+          request.input('collectionName', sql.NVarChar(255), `%${singleValue}%`);
+          filters.push('[Collection].[CollectionName] LIKE @collectionName');
+        }
       }
     }
 

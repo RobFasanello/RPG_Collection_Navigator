@@ -263,6 +263,11 @@ export default function InventoryLookupPage() {
     return resp.data;
   });
 
+  const { data: collectionTypeResp } = useQuery(['collectionTypes'], async () => {
+    const resp = await tablesAPI.getTableData('CollectionType', 1, 500);
+    return resp.data;
+  });
+
   // Load publisher-collection relationships for dependent filter options
   const { data: publisherCollectionResp } = useQuery(['publisherCollections'], async () => {
     const resp = await tablesAPI.getTableData('PublisherCollection', 1, 5000);
@@ -271,7 +276,35 @@ export default function InventoryLookupPage() {
 
   const publishersData = publisherResp?.data || [];
   const collectionsData = collectionResp?.data || [];
+  const collectionTypesData = collectionTypeResp?.data || [];
   const publisherCollectionLinks = publisherCollectionResp?.data || [];
+
+  const collectionTypeNameById = useMemo(() => {
+    return (collectionTypesData || []).reduce((map: Record<number, string>, item: any) => {
+      if (item?.CollectionTypeID != null) {
+        map[item.CollectionTypeID] = item.CollectionTypeName ?? String(item.CollectionTypeID);
+      }
+      return map;
+    }, {});
+  }, [collectionTypesData]);
+
+  const getCollectionLabel = (collection: any) => {
+    const collectionName = String(collection?.CollectionName ?? '').trim();
+    const collectionTypeName = collectionTypeNameById[Number(collection?.CollectionTypeID)] ?? '';
+    if (!collectionTypeName) {
+      return collectionName;
+    }
+    return `${collectionName} (${collectionTypeName})`;
+  };
+
+  const collectionLabelById = useMemo(() => {
+    return collectionsData.reduce((map: Record<number, string>, collection: any) => {
+      if (collection?.CollectionID != null) {
+        map[Number(collection.CollectionID)] = getCollectionLabel(collection);
+      }
+      return map;
+    }, {});
+  }, [collectionsData, collectionTypeNameById]);
 
   const publisherIdByName = useMemo(() => {
     return publishersData.reduce((map: Record<string, number>, item: any) => {
@@ -282,10 +315,14 @@ export default function InventoryLookupPage() {
     }, {});
   }, [publishersData]);
 
-  const collectionIdByName = useMemo(() => {
-    return collectionsData.reduce((map: Record<string, number>, item: any) => {
+  const collectionIdsByName = useMemo(() => {
+    return collectionsData.reduce((map: Record<string, number[]>, item: any) => {
       if (item?.CollectionName != null && item?.CollectionID != null) {
-        map[item.CollectionName] = item.CollectionID;
+        const key = String(item.CollectionName);
+        if (!map[key]) {
+          map[key] = [];
+        }
+        map[key].push(Number(item.CollectionID));
       }
       return map;
     }, {});
@@ -298,10 +335,18 @@ export default function InventoryLookupPage() {
   }, [filterValues.publisherName, publisherIdByName]);
 
   const selectedCollectionIds = useMemo(() => {
-    return (filterValues.collectionName || [])
-      .map((name) => collectionIdByName[name])
-      .filter((id): id is number => typeof id === 'number');
-  }, [filterValues.collectionName, collectionIdByName]);
+    return Array.from(
+      new Set(
+        (filterValues.collectionName || []).flatMap((value) => {
+          const parsedId = parseInt(value, 10);
+          if (Number.isInteger(parsedId)) {
+            return [parsedId];
+          }
+          return collectionIdsByName[value] || [];
+        })
+      )
+    );
+  }, [filterValues.collectionName, collectionIdsByName]);
 
   const allowedCollectionIds = useMemo(() => {
     if (selectedPublisherIds.length === 0) {
@@ -347,11 +392,12 @@ export default function InventoryLookupPage() {
   const collectionOptions = useMemo(() => {
     return collectionsData
       .filter((c: any) => !allowedCollectionIds || allowedCollectionIds.has(c.CollectionID))
-      .map((c: any) => ({ value: c.CollectionName, label: c.CollectionName }));
-  }, [collectionsData, allowedCollectionIds]);
+      .map((c: any) => ({ value: String(c.CollectionID), label: getCollectionLabel(c) }));
+  }, [collectionsData, allowedCollectionIds, collectionTypeNameById]);
 
   const publisherSelectOptions = publishersData.map((p: any) => ({ value: p.PublisherID, label: p.PublisherName }));
-  const collectionSelectOptions = collectionsData.map((c: any) => ({ value: c.CollectionID, label: c.CollectionName }));
+  const collectionSelectOptions = collectionsData.map((c: any) => ({ value: c.CollectionID, label: getCollectionLabel(c) }));
+  const collectionUploadOptions = collectionsData.map((c: any) => ({ value: String(c.CollectionID), label: getCollectionLabel(c) }));
 
   useEffect(() => {
     if (!allowedCollectionIds) {
@@ -359,9 +405,9 @@ export default function InventoryLookupPage() {
     }
 
     setFilterValues((current) => {
-      const nextCollectionNames = current.collectionName.filter((name) => {
-        const id = collectionIdByName[name];
-        return typeof id === 'number' && allowedCollectionIds.has(id);
+      const nextCollectionNames = current.collectionName.filter((value) => {
+        const id = parseInt(value, 10);
+        return Number.isInteger(id) && allowedCollectionIds.has(id);
       });
 
       if (nextCollectionNames.length === current.collectionName.length) {
@@ -373,7 +419,7 @@ export default function InventoryLookupPage() {
         collectionName: nextCollectionNames,
       };
     });
-  }, [allowedCollectionIds, collectionIdByName]);
+  }, [allowedCollectionIds]);
 
   useEffect(() => {
     if (!allowedPublisherIds) {
@@ -1520,7 +1566,7 @@ export default function InventoryLookupPage() {
                             />
                           </TableCell>
                           <TableCell>{item.PublisherName}</TableCell>
-                          <TableCell>{item.CollectionName}</TableCell>
+                          <TableCell>{collectionLabelById[item.CollectionID] ?? item.CollectionName}</TableCell>
                           <TableCell>{item.ItemName}</TableCell>
                           <TableCell>{item.CategoryName}</TableCell>
                           <TableCell>{item.SubTypeName}</TableCell>
@@ -2176,7 +2222,7 @@ export default function InventoryLookupPage() {
         open={isBulkUploadOpen}
         onOpenChange={setIsBulkUploadOpen}
         publisherOptions={publisherSelectOptions}
-        collectionOptions={collectionSelectOptions}
+        collectionOptions={collectionUploadOptions}
         categoryOptions={categorySelectOptions}
         subTypeOptions={subTypeSelectOptions}
         onItemsAdded={() => {

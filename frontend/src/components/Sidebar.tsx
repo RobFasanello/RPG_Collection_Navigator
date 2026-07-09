@@ -15,6 +15,7 @@ const SETUP_ITEMS: SidebarItem[] = [
   { id: 'publisher', label: 'Publishers', path: '/admin/publishers' },
   { id: 'collection', label: 'Collections', path: '/admin/collections' },
   { id: 'publishercollection', label: 'Publisher/Collections', path: '/admin/publisher-collections' },
+  { id: 'collectiontype', label: 'Collection Types', path: '/admin/collection-types' },
   { id: 'category', label: 'Categories', path: '/admin/categories' },
   { id: 'subtype', label: 'Sub Categories', path: '/admin/subtypes' },
   { id: 'categorysubtype', label: 'Category/Sub Categories', path: '/admin/category-subtypes' },

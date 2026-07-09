@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import CollectionsPage from './pages/CollectionsPage';
+import CollectionTypesPage from './pages/CollectionTypesPage';
 import CategoriesPage from './pages/CategoriesPage';
 import SubTypesPage from './pages/SubTypesPage';
 import PublishersPage from './pages/PublishersPage';
@@ -22,6 +23,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/admin/collections" element={<CollectionsPage />} />
+          <Route path="/admin/collection-types" element={<CollectionTypesPage />} />
           <Route path="/admin/categories" element={<CategoriesPage />} />
           <Route path="/admin/subtypes" element={<SubTypesPage />} />
           <Route path="/admin/publishers" element={<PublishersPage />} />

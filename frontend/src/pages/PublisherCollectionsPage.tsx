@@ -66,6 +66,14 @@ export default function PublisherCollectionsPage() {
     },
   });
 
+  const { data: collectionTypeRecords = [] } = useQuery<any, Error>({
+    queryKey: ['table', 'CollectionType'],
+    queryFn: async () => {
+      const response = await tableAPI.getTableData('CollectionType', 1, 500);
+      return response.data.data;
+    },
+  });
+
   const { data: allItems = [] } = useQuery<any, Error>({
     queryKey: ['table', 'Item', 'all-for-link-counts'],
     queryFn: async () => getAllTableRows('Item'),
@@ -81,15 +89,36 @@ export default function PublisherCollectionsPage() {
     {}
   );
 
-  const collectionNameById = (collectionRecords || []).reduce(
+  const collectionTypeNameById = (collectionTypeRecords || []).reduce(
     (map: Record<number, string>, item: any) => {
-      if (item?.CollectionID != null) {
-        map[item.CollectionID] = item.CollectionName ?? String(item.CollectionID);
+      if (item?.CollectionTypeID != null) {
+        map[item.CollectionTypeID] = item.CollectionTypeName ?? String(item.CollectionTypeID);
       }
       return map;
     },
     {}
   );
+
+  const collectionNameById = (collectionRecords || []).reduce(
+    (map: Record<number, string>, item: any) => {
+      if (item?.CollectionID != null) {
+        const collectionName = String(item.CollectionName ?? item.CollectionID);
+        const collectionTypeName = collectionTypeNameById[item.CollectionTypeID] ?? '';
+        map[item.CollectionID] = collectionTypeName ? `${collectionName} (${collectionTypeName})` : collectionName;
+      }
+      return map;
+    },
+    {}
+  );
+
+  const getCollectionLabel = (collection: any) => {
+    const collectionName = String(collection?.CollectionName ?? '').trim();
+    const collectionTypeName = collectionTypeNameById[collection?.CollectionTypeID] ?? '';
+    if (!collectionTypeName) {
+      return collectionName;
+    }
+    return `${collectionName} (${collectionTypeName})`;
+  };
 
   const publisherFilterOptions = (publisherRecords || []).map((publisher: any) => ({
     value: String(publisher.PublisherName || ''),
@@ -97,8 +126,8 @@ export default function PublisherCollectionsPage() {
   }));
 
   const collectionFilterOptions = (collectionRecords || []).map((collection: any) => ({
-    value: String(collection.CollectionName || ''),
-    label: String(collection.CollectionName || ''),
+    value: String(collection.CollectionID || ''),
+    label: getCollectionLabel(collection),
   }));
 
   const publisherFormOptions = (publisherRecords || []).map((publisher: any) => ({
@@ -108,7 +137,7 @@ export default function PublisherCollectionsPage() {
 
   const collectionFormOptions = (collectionRecords || []).map((collection: any) => ({
     value: String(collection.CollectionID || ''),
-    label: String(collection.CollectionName || ''),
+    label: getCollectionLabel(collection),
   }));
 
   const hasFilterChanges =
@@ -194,14 +223,14 @@ export default function PublisherCollectionsPage() {
     }
 
     const publisherFilter = activeFilters.publisherName.trim().toLowerCase();
-    const collectionFilter = activeFilters.collectionName.trim().toLowerCase();
+    const collectionFilterId = parseInt(activeFilters.collectionName, 10);
 
     const filteredRecords = records.filter((record: PublisherCollection) => {
       const publisherName = String(publisherNameById[record.PublisherID] ?? record.PublisherID).toLowerCase();
-      const collectionName = String(collectionNameById[record.CollectionID] ?? record.CollectionID).toLowerCase();
+      const collectionId = Number(record.CollectionID);
 
       const publisherMatches = !publisherFilter || publisherName.includes(publisherFilter);
-      const collectionMatches = !collectionFilter || collectionName.includes(collectionFilter);
+      const collectionMatches = !Number.isInteger(collectionFilterId) || collectionId === collectionFilterId;
 
       return publisherMatches && collectionMatches;
     });

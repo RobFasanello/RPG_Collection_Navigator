@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Edit2, Trash2, X, ChevronUp, ChevronDown } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
-import RecordForm from '../components/RecordForm';
+import { Input } from '../components/ui/Input';
+import ComboSelect from '../components/ui/ComboSelect';
 import { tableAPI } from '../services/api';
 
 interface Collection {
@@ -11,11 +12,19 @@ interface Collection {
 }
 
 type SortDirection = 'asc' | 'desc' | null;
+type SortColumn = 'name' | 'collectionType' | null;
 
 export default function CollectionsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [sortColumn, setSortColumn] = useState<SortColumn>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [formValues, setFormValues] = useState({
+    CollectionName: '',
+    CollectionTypeID: '',
+  });
   const queryClient = useQueryClient();
   const tableName = 'Collection';
 
@@ -23,6 +32,14 @@ export default function CollectionsPage() {
     queryKey: ['table', tableName],
     queryFn: async () => {
       const response = await tableAPI.getRecords(tableName);
+      return response.data.data;
+    },
+  });
+
+  const { data: collectionTypeRecords = [] } = useQuery<any, Error>({
+    queryKey: ['table', 'CollectionType'],
+    queryFn: async () => {
+      const response = await tableAPI.getTableData('CollectionType', 1, 500);
       return response.data.data;
     },
   });
@@ -42,11 +59,38 @@ export default function CollectionsPage() {
     }
   };
 
-  const handleNameSort = () => {
+  const handleEdit = (record: Collection) => {
+    setIsAdding(false);
+    setEditingId(String(record.CollectionID));
+    setFormValues({
+      CollectionName: String(record.CollectionName ?? ''),
+      CollectionTypeID: String(record.CollectionTypeID ?? ''),
+    });
+    setFormError('');
+  };
+
+  const closeForm = () => {
+    setIsAdding(false);
+    setEditingId(null);
+    setFormValues({
+      CollectionName: '',
+      CollectionTypeID: '',
+    });
+    setFormError('');
+  };
+
+  const handleSort = (column: Exclude<SortColumn, null>) => {
+    if (sortColumn !== column) {
+      setSortColumn(column);
+      setSortDirection('asc');
+      return;
+    }
+
     if (sortDirection === 'asc') {
       setSortDirection('desc');
     } else if (sortDirection === 'desc') {
       setSortDirection(null);
+      setSortColumn(null);
     } else {
       setSortDirection('asc');
     }
@@ -58,24 +102,49 @@ export default function CollectionsPage() {
     }
 
     const sorted = [...records].sort((a, b) => {
-      const nameA = (a.CollectionName || '').toLowerCase();
-      const nameB = (b.CollectionName || '').toLowerCase();
-      
+      const valueA =
+        sortColumn === 'collectionType'
+          ? String(collectionTypeNameById[Number(a.CollectionTypeID)] ?? a.CollectionTypeID ?? '')
+          : String(a.CollectionName ?? '');
+      const valueB =
+        sortColumn === 'collectionType'
+          ? String(collectionTypeNameById[Number(b.CollectionTypeID)] ?? b.CollectionTypeID ?? '')
+          : String(b.CollectionName ?? '');
+
+      const nameA = valueA.toLowerCase();
+      const nameB = valueB.toLowerCase();
+
       if (sortDirection === 'asc') {
         return nameA.localeCompare(nameB);
-      } else {
-        return nameB.localeCompare(nameA);
       }
+
+      return nameB.localeCompare(nameA);
     });
 
     return sorted;
   };
 
-  const getSortIcon = () => {
+  const getSortIcon = (column: Exclude<SortColumn, null>) => {
+    if (sortColumn !== column) return null;
     if (sortDirection === 'asc') return <ChevronUp className="w-4 h-4" />;
     if (sortDirection === 'desc') return <ChevronDown className="w-4 h-4" />;
     return null;
   };
+
+  const collectionTypeNameById = (collectionTypeRecords || []).reduce(
+    (map: Record<number, string>, item: any) => {
+      if (item?.CollectionTypeID != null) {
+        map[item.CollectionTypeID] = item.CollectionTypeName ?? String(item.CollectionTypeID);
+      }
+      return map;
+    },
+    {}
+  );
+
+  const collectionTypeOptions = (collectionTypeRecords || []).map((item: any) => ({
+    value: String(item.CollectionTypeID ?? ''),
+    label: String(item.CollectionTypeName ?? ''),
+  }));
 
   return (
     <AdminLayout title="Collections">
@@ -85,6 +154,8 @@ export default function CollectionsPage() {
             onClick={() => {
               setIsAdding(true);
               setEditingId(null);
+              setFormValues({ CollectionName: '', CollectionTypeID: '' });
+              setFormError('');
             }}
             className="gap-2"
           >
@@ -100,28 +171,99 @@ export default function CollectionsPage() {
                 {editingId !== null ? 'Edit Collection' : 'New Collection'}
               </h2>
               <button
-                onClick={() => {
-                  setIsAdding(false);
-                  setEditingId(null);
-                }}
+                onClick={closeForm}
                 className="text-gray-500 hover:text-gray-700"
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
-            <RecordForm
-              tableName={tableName}
-              recordId={editingId ?? undefined}
-              onClose={() => {
-                setIsAdding(false);
-                setEditingId(null);
+
+            {formError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded">
+                {formError}
+              </div>
+            )}
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setFormError('');
+
+                const collectionName = formValues.CollectionName.trim();
+                const collectionTypeId = parseInt(formValues.CollectionTypeID, 10);
+
+                if (!collectionName) {
+                  setFormError('Collection Name is required.');
+                  return;
+                }
+
+                if (!Number.isFinite(collectionTypeId)) {
+                  setFormError('Collection Type is required.');
+                  return;
+                }
+
+                setIsSaving(true);
+                try {
+                  const payload = {
+                    CollectionName: collectionName,
+                    CollectionTypeID: collectionTypeId,
+                  };
+
+                  if (editingId !== null) {
+                    await tableAPI.updateRecord(tableName, editingId, payload);
+                  } else {
+                    await tableAPI.createRecord(tableName, payload);
+                  }
+
+                  queryClient.invalidateQueries({ queryKey: ['table', tableName] });
+                  closeForm();
+                } catch (err: any) {
+                  setFormError(err.response?.data?.error || 'Error saving record');
+                } finally {
+                  setIsSaving(false);
+                }
               }}
-              onSuccess={() => {
-                setIsAdding(false);
-                setEditingId(null);
-                queryClient.invalidateQueries({ queryKey: ['table', tableName] });
-              }}
-            />
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium mb-1">Collection Name</label>
+                <Input
+                  type="text"
+                  value={formValues.CollectionName}
+                  onChange={(e) =>
+                    setFormValues((prev) => ({ ...prev, CollectionName: e.target.value }))
+                  }
+                  placeholder="Enter Collection Name"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Collection Type</label>
+                <ComboSelect
+                  options={collectionTypeOptions}
+                  value={formValues.CollectionTypeID}
+                  onChange={(value) =>
+                    setFormValues((prev) => ({ ...prev, CollectionTypeID: value }))
+                  }
+                  placeholder="Select collection type"
+                  className="w-full"
+                />
+              </div>
+
+              <div className="flex gap-2 justify-end mt-6">
+                <Button
+                  type="button"
+                  onClick={closeForm}
+                  className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving ? 'Saving...' : 'Save Collection'}
+                </Button>
+              </div>
+            </form>
           </div>
         ) : null}
 
@@ -134,11 +276,20 @@ export default function CollectionsPage() {
               <tr>
                 <th 
                   className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
-                  onClick={handleNameSort}
+                  onClick={() => handleSort('name')}
                 >
                   <div className="flex items-center gap-2">
                     Name
-                    {getSortIcon()}
+                    {getSortIcon('name')}
+                  </div>
+                </th>
+                <th
+                  className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
+                  onClick={() => handleSort('collectionType')}
+                >
+                  <div className="flex items-center gap-2">
+                    Collection Type
+                    {getSortIcon('collectionType')}
                   </div>
                 </th>
                 <th className="px-6 py-3 text-right text-sm font-semibold">Actions</th>
@@ -148,9 +299,12 @@ export default function CollectionsPage() {
               {Array.isArray(getSortedRecords()) && getSortedRecords().map((record: Collection) => (
                 <tr key={record.CollectionID} className="hover:bg-gray-50">
                   <td className="px-6 py-4">{record.CollectionName}</td>
+                  <td className="px-6 py-4">
+                    {collectionTypeNameById[Number(record.CollectionTypeID)] ?? `ID: ${record.CollectionTypeID ?? '-'}`}
+                  </td>
                   <td className="px-6 py-4 text-right space-x-2">
                     <button
-                      onClick={() => setEditingId(String(record.CollectionID))}
+                      onClick={() => handleEdit(record)}
                       className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700"
                     >
                       <Edit2 className="w-4 h-4" />

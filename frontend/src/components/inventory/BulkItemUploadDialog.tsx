@@ -100,6 +100,10 @@ function normalizeKey(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function stripCollectionTypeSuffix(value: string): string {
+  return value.replace(/\s+\([^)]+\)\s*$/, '').trim();
+}
+
 function parseDateForUpload(value: string): { normalized: string; error?: string } {
   const raw = value.trim();
   if (!raw) {
@@ -150,7 +154,27 @@ function buildRowValidation(
   subTypeOptions: OptionItem[]
 ): UploadRow[] {
   const publisherNames = new Set(publisherOptions.map((option) => normalizeKey(option.label)));
-  const collectionNames = new Set(collectionOptions.map((option) => normalizeKey(option.label)));
+  const collectionLookup = new Map<string, string[]>();
+  const addCollectionLookup = (key: string, value: string) => {
+    if (!key) {
+      return;
+    }
+    const existing = collectionLookup.get(key);
+    if (!existing) {
+      collectionLookup.set(key, [value]);
+      return;
+    }
+    if (!existing.includes(value)) {
+      existing.push(value);
+    }
+  };
+  collectionOptions.forEach((option) => {
+    const optionValue = String(option.value ?? option.label);
+    const optionLabel = String(option.label ?? option.value);
+    addCollectionLookup(normalizeKey(optionValue), optionValue);
+    addCollectionLookup(normalizeKey(optionLabel), optionValue);
+    addCollectionLookup(normalizeKey(stripCollectionTypeSuffix(optionLabel)), optionValue);
+  });
   const categoryNames = new Set(categoryOptions.map((option) => normalizeKey(option.label)));
   const subTypeNames = new Set(subTypeOptions.map((option) => normalizeKey(option.label)));
   const duplicateMap = new Map<string, number>();
@@ -183,8 +207,17 @@ function buildRowValidation(
       nextErrors.push(`Publisher "${row.values.Publisher}" was not found.`);
     }
 
-    if (row.values.Collection.trim() && !collectionNames.has(normalizeKey(row.values.Collection))) {
-      nextErrors.push(`Collection "${row.values.Collection}" was not found.`);
+    const rawCollection = row.values.Collection.trim();
+    let normalizedCollection = rawCollection;
+    if (rawCollection) {
+      const matches = collectionLookup.get(normalizeKey(rawCollection)) || [];
+      if (matches.length === 1) {
+        normalizedCollection = matches[0];
+      } else if (matches.length === 0) {
+        nextErrors.push(`Collection "${row.values.Collection}" was not found.`);
+      } else {
+        nextErrors.push(`Collection "${row.values.Collection}" matches multiple collections. Please select the specific collection.`);
+      }
     }
 
     if (row.values.Category.trim() && !categoryNames.has(normalizeKey(row.values.Category))) {
@@ -209,6 +242,7 @@ function buildRowValidation(
       ...row,
       values: {
         ...row.values,
+        Collection: normalizedCollection,
         ReleaseDate: dateParse.normalized,
       },
       errors: nextErrors,
@@ -249,7 +283,11 @@ export default function BulkItemUploadDialog({
   );
 
   const collectionSelectOptions = useMemo<SelectOption[]>(
-    () => collectionOptions.map((option) => ({ value: String(option.label), label: String(option.label) })),
+    () =>
+      collectionOptions.map((option) => ({
+        value: String(option.value ?? option.label),
+        label: String(option.label),
+      })),
     [collectionOptions]
   );
 
