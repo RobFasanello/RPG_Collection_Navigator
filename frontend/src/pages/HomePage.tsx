@@ -564,13 +564,10 @@ export default function HomePage() {
     <AdminLayout>
       <div className="max-w-[1800px] mx-auto space-y-6">
         <section className="bg-white rounded-lg shadow p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">Welcome to Arcane Repository</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">Welcome to the Arcane Repository</h2>
           <p className="text-gray-700 mb-4">
-            Use the Setup and Inventory tabs in the left menu to navigate the application.
-          </p>
-          <p className="text-gray-600">
-            Setup contains reference data pages. Inventory contains Item Master, Order Entry,
-            and Stores.
+            Within these pages lies your collection: rulebooks and tomes, dice worn smooth by fate, cards bearing hidden powers, miniatures cast in likeness of heroes and horrors, and terrain shaped for battles yet to come. 
+            Catalog your arcana. Master your library.
           </p>
         </section>
 

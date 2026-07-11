@@ -72,8 +72,8 @@ export default function HomeShell() {
                 className="h-20 w-20 rounded-md bg-white object-contain lg:h-full lg:w-auto"
               />
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">Arcane Library</h1>
-                <p className="text-sm text-slate-600">RPG Collection Navigator</p>
+                <h1 className="text-2xl font-bold text-slate-900">Arcane Repository</h1>
+                <p className="text-sm text-slate-600">A grimoire of your own making</p>
               </div>
             </div>
 
