@@ -8,7 +8,7 @@ import { Input } from '../ui/Input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table';
 import { tablesAPI } from '../../services/api';
 
-type BulkField = 'Publisher' | 'Collection' | 'ItemName' | 'Category' | 'SubCategory' | 'ProductID' | 'ReleaseDate';
+type BulkField = 'Publisher' | 'Collection' | 'ItemName' | 'ItemVersion' | 'Category' | 'SubCategory' | 'ProductID' | 'ReleaseDate';
 
 interface UploadRow {
   id: number;
@@ -54,6 +54,7 @@ const ALL_FIELDS: BulkField[] = [
   'Publisher',
   'Collection',
   'ItemName',
+  'ItemVersion',
   'Category',
   'SubCategory',
   'ProductID',
@@ -68,6 +69,9 @@ const HEADER_ALIASES: Record<string, BulkField> = {
   itemname: 'ItemName',
   item: 'ItemName',
   itemnames: 'ItemName',
+  itemversion: 'ItemVersion',
+  version: 'ItemVersion',
+  'item version': 'ItemVersion',
   category: 'Category',
   categories: 'Category',
   subcategory: 'SubCategory',
@@ -83,6 +87,7 @@ const HEADER_ALIASES: Record<string, BulkField> = {
 };
 
 const BULK_UPLOAD_TEMPLATE_URL = '/templates/Bulk%20Upload%20Template.xlsx';
+const ITEM_VERSION_MAX_LENGTH = 15;
 
 function normalizeHeader(value: unknown): string {
   return String(value ?? '')
@@ -233,6 +238,10 @@ function buildRowValidation(
       nextErrors.push(dateParse.error);
     }
 
+    if (row.values.ItemVersion.trim().length > ITEM_VERSION_MAX_LENGTH) {
+      nextErrors.push(`ItemVersion must be ${ITEM_VERSION_MAX_LENGTH} characters or fewer.`);
+    }
+
     const duplicateKey = `${normalizeKey(row.values.ItemName)}::${normalizeKey(row.values.ProductID)}`;
     if (duplicateKey !== '::' && (duplicateMap.get(duplicateKey) || 0) > 1) {
       nextErrors.push('Duplicate ItemName and ProductID exists in this upload file.');
@@ -255,6 +264,7 @@ function emptyRowValues(): Record<BulkField, string> {
     Publisher: '',
     Collection: '',
     ItemName: '',
+    ItemVersion: '',
     Category: '',
     SubCategory: '',
     ProductID: '',
@@ -328,6 +338,7 @@ export default function BulkItemUploadDialog({
         Publisher: row.values.Publisher.trim(),
         Collection: row.values.Collection.trim(),
         ItemName: row.values.ItemName.trim(),
+        ItemVersion: row.values.ItemVersion.trim() || null,
         Category: row.values.Category.trim(),
         SubCategory: row.values.SubCategory.trim(),
         ProductID: row.values.ProductID.trim(),
@@ -586,8 +597,9 @@ export default function BulkItemUploadDialog({
         </div>
 
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-          Required columns: Publisher, Collection, ItemName, Category, SubCategory, ProductID. Optional: ReleaseDate.
-          Aliases supported: Item, Item Name, Sub Type, Sub Category, Release Date.
+          Required columns: Publisher, Collection, ItemName, Category, SubCategory, ProductID. Optional: ItemVersion, ReleaseDate.
+          ItemVersion supports up to 15 characters.
+          Aliases supported: Item, Item Name, Version, Item Version, Sub Type, Sub Category, Release Date.
           <div className="mt-2">
             <a
               href={BULK_UPLOAD_TEMPLATE_URL}
@@ -621,6 +633,7 @@ export default function BulkItemUploadDialog({
                 <TableHead>Publisher</TableHead>
                 <TableHead>Collection</TableHead>
                 <TableHead>Item Name</TableHead>
+                <TableHead>Version</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Sub Category</TableHead>
                 <TableHead>Product ID</TableHead>
@@ -632,7 +645,7 @@ export default function BulkItemUploadDialog({
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="py-10 text-center text-gray-500">
+                  <TableCell colSpan={11} className="py-10 text-center text-gray-500">
                     Upload a file to preview and validate rows.
                   </TableCell>
                 </TableRow>
@@ -677,6 +690,15 @@ export default function BulkItemUploadDialog({
                         onBlur={() => handleDuplicateFieldBlur(row.id)}
                         disabled={row.success}
                         placeholder="Item name"
+                      />
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <Input
+                        value={row.values.ItemVersion}
+                        onChange={(event) => handleCellChange(row.id, 'ItemVersion', event.target.value)}
+                        disabled={row.success}
+                        placeholder="Version"
+                        maxLength={ITEM_VERSION_MAX_LENGTH}
                       />
                     </TableCell>
                     <TableCell className="align-top">

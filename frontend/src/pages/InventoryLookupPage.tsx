@@ -12,11 +12,16 @@ import BulkItemUploadDialog from '../components/inventory/BulkItemUploadDialog';
 import { tablesAPI } from '../services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
 
+const ITEM_VERSION_MAX_LENGTH = 15;
+
 interface InventoryItem {
   ItemID: number;
   ItemName: string;
+  ItemVersion?: string;
   ProductID?: string;
   ReleaseDate?: string;
+  IsPhysical?: boolean;
+  IsDigital?: boolean;
   PublisherID: number;
   CollectionID: number;
   CategoryID: number;
@@ -32,10 +37,13 @@ interface InventoryExportRow {
   Publisher?: string | null;
   Collection?: string | null;
   Item?: string | null;
+  Version?: string | null;
   Category?: string | null;
   SubType?: string | null;
   ProductID?: string | null;
   ReleaseDate?: string | null;
+  IsPhysical?: boolean | null;
+  IsDigital?: boolean | null;
   Store?: string | null;
   InvoiceNumber?: string | null;
   PurchaseDate?: string | null;
@@ -58,13 +66,18 @@ export default function InventoryLookupPage() {
     collectionName: [] as string[],
     categoryName: [] as string[],
     subTypeName: [] as string[],
+    isPhysical: undefined as boolean | undefined,
+    isDigital: undefined as boolean | undefined,
   });
   const [searchParams, setSearchParams] = useState(filterValues);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [editValues, setEditValues] = useState({
     ItemName: '',
+    ItemVersion: '',
     ProductID: '',
     ReleaseDate: '',
+    IsPhysical: false,
+    IsDigital: false,
     PublisherID: '',
     CollectionID: '',
     CategoryID: '',
@@ -74,8 +87,11 @@ export default function InventoryLookupPage() {
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [addValues, setAddValues] = useState({
     ItemName: '',
+    ItemVersion: '',
     ProductID: '',
     ReleaseDate: '',
+    IsPhysical: false,
+    IsDigital: false,
     PublisherID: '',
     CollectionID: '',
     CategoryID: '',
@@ -90,6 +106,9 @@ export default function InventoryLookupPage() {
     CollectionID: '',
     CategoryID: '',
     SubTypeID: '',
+    ItemVersion: '',
+    IsPhysical: '',
+    IsDigital: '',
   });
   const [bulkError, setBulkError] = useState('');
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
@@ -141,6 +160,8 @@ export default function InventoryLookupPage() {
       collectionName: collection ? [collection] : [],
       categoryName: [] as string[],
       subTypeName: [] as string[],
+      isPhysical: undefined as boolean | undefined,
+      isDigital: undefined as boolean | undefined,
     };
 
     setFilterValues(nextFilters);
@@ -396,6 +417,11 @@ export default function InventoryLookupPage() {
   }, [collectionsData, allowedCollectionIds, collectionTypeNameById]);
 
   const publisherSelectOptions = publishersData.map((p: any) => ({ value: p.PublisherID, label: p.PublisherName }));
+  const addPublisherSelectOptions = useMemo(() => {
+    return [...publisherSelectOptions].sort((a: { value: string | number; label: string }, b: { value: string | number; label: string }) =>
+      a.label.localeCompare(b.label)
+    );
+  }, [publisherSelectOptions]);
   const collectionSelectOptions = collectionsData.map((c: any) => ({ value: c.CollectionID, label: getCollectionLabel(c) }));
   const collectionUploadOptions = collectionsData.map((c: any) => ({ value: String(c.CollectionID), label: getCollectionLabel(c) }));
 
@@ -761,7 +787,7 @@ export default function InventoryLookupPage() {
   const areAllCurrentPageItemsSelected = currentPageItems.length > 0 && currentPageItems.every((item) => selectedItemIdSet.has(item.ItemID));
 
   const bulkUpdateMutation = useMutation({
-    mutationFn: async (payload: { itemIds: number[]; updates: Record<string, number> }) => {
+    mutationFn: async (payload: { itemIds: number[]; updates: Record<string, number | string | boolean> }) => {
       return tablesAPI.bulkUpdateItems({ itemIds: payload.itemIds, ...payload.updates });
     },
     onSuccess: () => {
@@ -774,6 +800,9 @@ export default function InventoryLookupPage() {
         CollectionID: '',
         CategoryID: '',
         SubTypeID: '',
+        ItemVersion: '',
+        IsPhysical: '',
+        IsDigital: '',
       });
       setBulkError('');
     },
@@ -827,13 +856,20 @@ export default function InventoryLookupPage() {
     setFilterValues((current) => ({ ...current, subTypeName: values }));
   };
 
+  const handleBooleanFilterChange = (field: 'isPhysical' | 'isDigital', checked: boolean) => {
+    setDownloadError('');
+    setFilterValues((current) => ({ ...current, [field]: checked ? true : undefined }));
+  };
+
   const hasFilterCriteria =
     filterValues.itemName.trim().length > 0 ||
     filterValues.productID.trim().length > 0 ||
     filterValues.publisherName.length > 0 ||
     filterValues.collectionName.length > 0 ||
     filterValues.categoryName.length > 0 ||
-    filterValues.subTypeName.length > 0;
+    filterValues.subTypeName.length > 0 ||
+    filterValues.isPhysical === true ||
+    filterValues.isDigital === true;
 
   const applyFilters = () => {
     setDownloadError('');
@@ -867,6 +903,8 @@ export default function InventoryLookupPage() {
       collectionName: [],
       categoryName: [],
       subTypeName: [],
+      isPhysical: undefined,
+      isDigital: undefined,
     });
     setSearchParams({
       itemName: '',
@@ -875,6 +913,8 @@ export default function InventoryLookupPage() {
       collectionName: [],
       categoryName: [],
       subTypeName: [],
+      isPhysical: undefined,
+      isDigital: undefined,
     });
     setPage(1);
   };
@@ -924,6 +964,9 @@ export default function InventoryLookupPage() {
       CollectionID: '',
       CategoryID: '',
       SubTypeID: '',
+      ItemVersion: '',
+      IsPhysical: '',
+      IsDigital: '',
     });
   };
 
@@ -946,13 +989,18 @@ export default function InventoryLookupPage() {
     });
   };
 
-  const handleBulkFieldChange = (field: 'PublisherID' | 'CollectionID' | 'CategoryID' | 'SubTypeID', value: string) => {
+  const handleBulkFieldChange = (field: 'PublisherID' | 'CollectionID' | 'CategoryID' | 'SubTypeID' | 'ItemVersion', value: string) => {
+    setBulkError('');
+    setBulkValues((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleBulkBooleanFieldChange = (field: 'IsPhysical' | 'IsDigital', value: string) => {
     setBulkError('');
     setBulkValues((current) => ({ ...current, [field]: value }));
   };
 
   const buildBulkUpdatePayload = () => {
-    const updates: Record<string, number> = {};
+    const updates: Record<string, number | string | boolean> = {};
 
     if (bulkValues.PublisherID) {
       updates.PublisherID = parseInt(bulkValues.PublisherID, 10);
@@ -966,13 +1014,30 @@ export default function InventoryLookupPage() {
     if (bulkValues.SubTypeID) {
       updates.SubTypeID = parseInt(bulkValues.SubTypeID, 10);
     }
+    if (bulkValues.ItemVersion.trim()) {
+      updates.ItemVersion = bulkValues.ItemVersion.trim();
+    }
+    if (bulkValues.IsPhysical) {
+      updates.IsPhysical = bulkValues.IsPhysical === 'true';
+    }
+    if (bulkValues.IsDigital) {
+      updates.IsDigital = bulkValues.IsDigital === 'true';
+    }
 
     return updates;
   };
 
-  const getBulkFieldLabel = (field: 'PublisherID' | 'CollectionID' | 'CategoryID' | 'SubTypeID', value: string) => {
+  const getBulkFieldLabel = (field: 'PublisherID' | 'CollectionID' | 'CategoryID' | 'SubTypeID' | 'ItemVersion' | 'IsPhysical' | 'IsDigital', value: string) => {
     if (!value) {
       return '';
+    }
+
+    if (field === 'ItemVersion') {
+      return value;
+    }
+
+    if (field === 'IsPhysical' || field === 'IsDigital') {
+      return value === 'true' ? 'Yes' : 'No';
     }
 
     const numericValue = parseInt(value, 10);
@@ -1071,10 +1136,13 @@ export default function InventoryLookupPage() {
       'Publisher',
       'Collection',
       'Item',
+      'Version',
       'Category',
       'SubType',
       'ProductID',
       'Release Date',
+      'Is Physical',
+      'Is Digital',
       'Store',
       'Invoice Number',
       'Purchase Date',
@@ -1088,10 +1156,13 @@ export default function InventoryLookupPage() {
         row.Publisher || '',
         row.Collection || '',
         row.Item || '',
+        row.Version || '',
         row.Category || '',
         row.SubType || '',
         row.ProductID || '',
         formatDateForCsv(row.ReleaseDate),
+        row.IsPhysical ? 'Yes' : 'No',
+        row.IsDigital ? 'Yes' : 'No',
         row.Store || '',
         row.InvoiceNumber || '',
         formatDateForCsv(row.PurchaseDate),
@@ -1138,8 +1209,11 @@ export default function InventoryLookupPage() {
     setEditingItem(item);
     setEditValues({
       ItemName: item.ItemName || '',
+      ItemVersion: item.ItemVersion || '',
       ProductID: item.ProductID || '',
       ReleaseDate: formatReleaseDateForModal(item.ReleaseDate),
+      IsPhysical: Boolean(item.IsPhysical),
+      IsDigital: Boolean(item.IsDigital),
       PublisherID: String(item.PublisherID),
       CollectionID: String(item.CollectionID),
       CategoryID: String(item.CategoryID),
@@ -1232,8 +1306,11 @@ export default function InventoryLookupPage() {
     setEditingItem(null);
     setEditValues({
       ItemName: '',
+      ItemVersion: '',
       ProductID: '',
       ReleaseDate: '',
+      IsPhysical: false,
+      IsDigital: false,
       PublisherID: '',
       CollectionID: '',
       CategoryID: '',
@@ -1246,8 +1323,11 @@ export default function InventoryLookupPage() {
     setIsAddingItem(true);
     setAddValues({
       ItemName: '',
+      ItemVersion: '',
       ProductID: '',
       ReleaseDate: '',
+      IsPhysical: false,
+      IsDigital: false,
       PublisherID: '',
       CollectionID: '',
       CategoryID: '',
@@ -1260,8 +1340,11 @@ export default function InventoryLookupPage() {
     setIsAddingItem(false);
     setAddValues({
       ItemName: '',
+      ItemVersion: '',
       ProductID: '',
       ReleaseDate: '',
+      IsPhysical: false,
+      IsDigital: false,
       PublisherID: '',
       CollectionID: '',
       CategoryID: '',
@@ -1329,8 +1412,11 @@ export default function InventoryLookupPage() {
 
     editMutation.mutate({
       ItemName: editValues.ItemName,
+      ItemVersion: editValues.ItemVersion.trim() || null,
       ProductID: editValues.ProductID || null,
       ReleaseDate: editValues.ReleaseDate ? normalizeReleaseDateForSave(editValues.ReleaseDate) : null,
+      IsPhysical: editValues.IsPhysical,
+      IsDigital: editValues.IsDigital,
       PublisherID: editValues.PublisherID ? parseInt(editValues.PublisherID, 10) : null,
       CollectionID: editValues.CollectionID ? parseInt(editValues.CollectionID, 10) : null,
       CategoryID: editValues.CategoryID ? parseInt(editValues.CategoryID, 10) : null,
@@ -1359,8 +1445,11 @@ export default function InventoryLookupPage() {
 
     addMutation.mutate({
       ItemName: addValues.ItemName.trim(),
+      ItemVersion: addValues.ItemVersion.trim() || null,
       ProductID: addValues.ProductID || null,
       ReleaseDate: addValues.ReleaseDate ? normalizeReleaseDateForSave(addValues.ReleaseDate) : null,
+      IsPhysical: addValues.IsPhysical,
+      IsDigital: addValues.IsDigital,
       PublisherID: parseInt(addValues.PublisherID, 10),
       CollectionID: parseInt(addValues.CollectionID, 10),
       CategoryID: parseInt(addValues.CategoryID, 10),
@@ -1387,7 +1476,7 @@ export default function InventoryLookupPage() {
       <div className="max-w-7xl mx-auto space-y-6">
         <section className="bg-white shadow rounded-lg p-6">
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-8 gap-4">
               <label className="space-y-2 min-w-0">
                 <span className="text-sm font-medium text-gray-700">Publisher</span>
                 <ComboMultiSelect
@@ -1450,6 +1539,22 @@ export default function InventoryLookupPage() {
                   className="w-full"
                   tabIndex={6}
                 />
+              </label>
+              <label className="space-y-2 flex items-center gap-2 pt-7">
+                <input
+                  type="checkbox"
+                  checked={Boolean(filterValues.isPhysical)}
+                  onChange={(event) => handleBooleanFilterChange('isPhysical', event.target.checked)}
+                />
+                <span className="text-sm font-medium text-gray-700">Is Physical</span>
+              </label>
+              <label className="space-y-2 flex items-center gap-2 pt-7">
+                <input
+                  type="checkbox"
+                  checked={Boolean(filterValues.isDigital)}
+                  onChange={(event) => handleBooleanFilterChange('isDigital', event.target.checked)}
+                />
+                <span className="text-sm font-medium text-gray-700">Is Digital</span>
               </label>
             </div>
 
@@ -1527,25 +1632,32 @@ export default function InventoryLookupPage() {
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('CategoryName')} className="flex items-center hover:text-blue-600" tabIndex={15}>
+                        <button onClick={() => handleSort('ItemVersion')} className="flex items-center hover:text-blue-600" tabIndex={15}>
+                          Version <SortIndicator column="ItemVersion" />
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button onClick={() => handleSort('CategoryName')} className="flex items-center hover:text-blue-600" tabIndex={16}>
                           Category <SortIndicator column="CategoryName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-blue-600" tabIndex={16}>
+                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-blue-600" tabIndex={17}>
                           Sub Category <SortIndicator column="SubTypeName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ProductID')} className="flex items-center hover:text-blue-600" tabIndex={17}>
+                        <button onClick={() => handleSort('ProductID')} className="flex items-center hover:text-blue-600" tabIndex={18}>
                           Product ID <SortIndicator column="ProductID" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ReleaseDate')} className="flex items-center hover:text-blue-600" tabIndex={18}>
+                        <button onClick={() => handleSort('ReleaseDate')} className="flex items-center hover:text-blue-600" tabIndex={19}>
                           Release Date <SortIndicator column="ReleaseDate" />
                         </button>
                       </TableHead>
+                      <TableHead className="text-center">Is Physical</TableHead>
+                      <TableHead className="text-center">Is Digital</TableHead>
                       <TableHead className="w-px whitespace-nowrap px-2 text-center">PO Link</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1568,10 +1680,17 @@ export default function InventoryLookupPage() {
                           <TableCell>{item.PublisherName}</TableCell>
                           <TableCell>{collectionLabelById[item.CollectionID] ?? item.CollectionName}</TableCell>
                           <TableCell>{item.ItemName}</TableCell>
+                          <TableCell>{item.ItemVersion || '-'}</TableCell>
                           <TableCell>{item.CategoryName}</TableCell>
                           <TableCell>{item.SubTypeName}</TableCell>
                           <TableCell>{item.ProductID || '-'}</TableCell>
                           <TableCell>{formatReleaseDate(item.ReleaseDate)}</TableCell>
+                          <TableCell className="text-center" onClick={(event) => event.stopPropagation()}>
+                            <input type="checkbox" checked={Boolean(item.IsPhysical)} readOnly tabIndex={-1} />
+                          </TableCell>
+                          <TableCell className="text-center" onClick={(event) => event.stopPropagation()}>
+                            <input type="checkbox" checked={Boolean(item.IsDigital)} readOnly tabIndex={-1} />
+                          </TableCell>
                           <TableCell className="w-px whitespace-nowrap px-2 text-center" onClick={(event) => event.stopPropagation()}>
                             {(typeof item.HasPurchaseOrder === 'boolean'
                               ? item.HasPurchaseOrder
@@ -1592,7 +1711,7 @@ export default function InventoryLookupPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-10 text-gray-500">
+                        <TableCell colSpan={12} className="text-center py-10 text-gray-500">
                           No matching items found.
                         </TableCell>
                       </TableRow>
@@ -1678,6 +1797,15 @@ export default function InventoryLookupPage() {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Version</label>
+                  <Input
+                    value={editValues.ItemVersion}
+                    onChange={(e) => handleEditChange('ItemVersion', e.target.value)}
+                    placeholder="Version"
+                    maxLength={ITEM_VERSION_MAX_LENGTH}
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Product ID</label>
                   <Input
                     value={editValues.ProductID}
@@ -1693,6 +1821,22 @@ export default function InventoryLookupPage() {
                     placeholder="Release date"
                   />
                 </div>
+                <label className="flex items-center gap-2 pt-6 text-sm font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={editValues.IsPhysical}
+                    onChange={(event) => setEditValues((current) => ({ ...current, IsPhysical: event.target.checked }))}
+                  />
+                  Is Physical
+                </label>
+                <label className="flex items-center gap-2 pt-6 text-sm font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={editValues.IsDigital}
+                    onChange={(event) => setEditValues((current) => ({ ...current, IsDigital: event.target.checked }))}
+                  />
+                  Is Digital
+                </label>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Publisher</label>
                   <select
@@ -1701,7 +1845,7 @@ export default function InventoryLookupPage() {
                     className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                   >
                     <option value="">Select publisher</option>
-                    {publisherSelectOptions.map((option: { value: string | number; label: string }) => (
+                    {addPublisherSelectOptions.map((option: { value: string | number; label: string }) => (
                       <option key={option.value} value={String(option.value)}>
                         {option.label}
                       </option>
@@ -1816,6 +1960,15 @@ export default function InventoryLookupPage() {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Version</label>
+                  <Input
+                    value={addValues.ItemVersion}
+                    onChange={(e) => handleAddChange('ItemVersion', e.target.value)}
+                    placeholder="Version"
+                    maxLength={ITEM_VERSION_MAX_LENGTH}
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Product ID</label>
                   <Input
                     value={addValues.ProductID}
@@ -1832,6 +1985,22 @@ export default function InventoryLookupPage() {
                     placeholder="Release date"
                   />
                 </div>
+                <label className="flex items-center gap-2 pt-6 text-sm font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={addValues.IsPhysical}
+                    onChange={(event) => setAddValues((current) => ({ ...current, IsPhysical: event.target.checked }))}
+                  />
+                  Is Physical
+                </label>
+                <label className="flex items-center gap-2 pt-6 text-sm font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={addValues.IsDigital}
+                    onChange={(event) => setAddValues((current) => ({ ...current, IsDigital: event.target.checked }))}
+                  />
+                  Is Digital
+                </label>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Publisher Name</label>
                   <select
@@ -1841,7 +2010,7 @@ export default function InventoryLookupPage() {
                     required
                   >
                     <option value="">Select publisher</option>
-                    {publisherSelectOptions.map((option: { value: string | number; label: string }) => (
+                    {addPublisherSelectOptions.map((option: { value: string | number; label: string }) => (
                       <option key={option.value} value={String(option.value)}>
                         {option.label}
                       </option>
@@ -2004,6 +2173,39 @@ export default function InventoryLookupPage() {
                       ))}
                     </select>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Version</label>
+                    <Input
+                      value={bulkValues.ItemVersion}
+                      onChange={(event) => handleBulkFieldChange('ItemVersion', event.target.value)}
+                      placeholder="Leave unchanged"
+                      maxLength={ITEM_VERSION_MAX_LENGTH}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Is Physical</label>
+                    <select
+                      value={bulkValues.IsPhysical}
+                      onChange={(event) => handleBulkBooleanFieldChange('IsPhysical', event.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    >
+                      <option value="">Leave unchanged</option>
+                      <option value="true">Yes</option>
+                      <option value="false">No</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Is Digital</label>
+                    <select
+                      value={bulkValues.IsDigital}
+                      onChange={(event) => handleBulkBooleanFieldChange('IsDigital', event.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    >
+                      <option value="">Leave unchanged</option>
+                      <option value="true">Yes</option>
+                      <option value="false">No</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
@@ -2042,9 +2244,21 @@ export default function InventoryLookupPage() {
                       .map(([field, value]) => (
                         <div key={field} className="flex items-center justify-between gap-4">
                           <span className="font-medium text-gray-600">
-                            {field === 'PublisherID' ? 'Publisher' : field === 'CollectionID' ? 'Collection' : field === 'CategoryID' ? 'Category' : 'Sub Category'}
+                            {field === 'PublisherID'
+                              ? 'Publisher'
+                              : field === 'CollectionID'
+                                ? 'Collection'
+                                : field === 'CategoryID'
+                                  ? 'Category'
+                                  : field === 'SubTypeID'
+                                    ? 'Sub Category'
+                                    : field === 'IsPhysical'
+                                      ? 'Is Physical'
+                                      : field === 'IsDigital'
+                                        ? 'Is Digital'
+                                        : 'Version'}
                           </span>
-                          <span className="text-right">{getBulkFieldLabel(field as 'PublisherID' | 'CollectionID' | 'CategoryID' | 'SubTypeID', value)}</span>
+                          <span className="text-right">{getBulkFieldLabel(field as 'PublisherID' | 'CollectionID' | 'CategoryID' | 'SubTypeID' | 'ItemVersion' | 'IsPhysical' | 'IsDigital', value)}</span>
                         </div>
                       ))}
                     {!Object.values(bulkValues).some((value) => value) ? (

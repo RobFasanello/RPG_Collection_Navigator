@@ -69,6 +69,9 @@ export const tablesAPI = {
     CollectionID?: number;
     CategoryID?: number;
     SubTypeID?: number;
+    ItemVersion?: string;
+    IsPhysical?: boolean;
+    IsDigital?: boolean;
   }) => api.patch('/tables/items/bulk-update', data),
 
   bulkCreateItems: (data: {
@@ -77,6 +80,7 @@ export const tablesAPI = {
       Publisher: string;
       Collection: string;
       ItemName: string;
+      ItemVersion?: string | null;
       Category: string;
       SubCategory: string;
       ProductID: string;

@@ -11,7 +11,7 @@ interface PublisherCollection {
 }
 
 type SortDirection = 'asc' | 'desc' | null;
-type SortColumn = 'publisher' | 'collection' | null;
+type SortColumn = 'publisher' | 'collection' | 'itemCount' | null;
 
 async function getAllTableRows(tableName: string): Promise<any[]> {
   const pageSize = 500;
@@ -240,6 +240,15 @@ export default function PublisherCollectionsPage() {
     }
 
     const sorted = [...filteredRecords].sort((a, b) => {
+      if (sortColumn === 'itemCount') {
+        const countA = itemCountByPublisherCollection[`${Number(a.PublisherID)}:${Number(a.CollectionID)}`] || 0;
+        const countB = itemCountByPublisherCollection[`${Number(b.PublisherID)}:${Number(b.CollectionID)}`] || 0;
+
+        if (countA < countB) return sortDirection === 'asc' ? -1 : 1;
+        if (countA > countB) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      }
+
       const valueA =
         sortColumn === 'publisher'
           ? (publisherNameById[a.PublisherID] ?? String(a.PublisherID))
@@ -280,7 +289,7 @@ export default function PublisherCollectionsPage() {
   };
 
   return (
-    <AdminLayout title="Publisher Collections">
+    <AdminLayout title="Publisher / Collections">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -489,7 +498,16 @@ export default function PublisherCollectionsPage() {
                     {getSortIcon('collection')}
                   </div>
                 </th>
-                <th className="px-6 py-3 text-right text-sm font-semibold">Item Count</th>
+                <th
+                  className="px-6 py-3 text-right text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
+                  onClick={() => handleSort('itemCount')}
+                  tabIndex={7}
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Item Count
+                    {getSortIcon('itemCount')}
+                  </div>
+                </th>
                 <th className="px-6 py-3 text-right text-sm font-semibold">Actions</th>
               </tr>
             </thead>

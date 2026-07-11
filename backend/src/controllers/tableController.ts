@@ -18,6 +18,63 @@ function parsePositiveInt(value: unknown): number | null {
   return null;
 }
 
+function parseOptionalTrimmedText(value: unknown): string | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  const normalized = String(value).trim();
+  return normalized ? normalized : undefined;
+}
+
+function parseOptionalBoolean(value: unknown): boolean | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+  if (['true', '1', 'yes', 'y'].includes(normalized)) {
+    return true;
+  }
+  if (['false', '0', 'no', 'n'].includes(normalized)) {
+    return false;
+  }
+
+  return null;
+}
+
+const ITEM_VERSION_MAX_LENGTH = 15;
+
+function normalizeItemVersion(value: unknown): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+  return normalized ? normalized : null;
+}
+
+function validateItemVersion(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  if (value.length > ITEM_VERSION_MAX_LENGTH) {
+    return `ItemVersion must be ${ITEM_VERSION_MAX_LENGTH} characters or fewer.`;
+  }
+
+  return null;
+}
+
 async function recordExists(
   transaction: sql.Transaction,
   tableName: string,
@@ -62,13 +119,20 @@ export async function bulkUpdateItemRecords(req: Request, res: Response): Promis
   const collectionId = parsePositiveInt(req.body?.CollectionID);
   const categoryId = parsePositiveInt(req.body?.CategoryID);
   const subTypeId = parsePositiveInt(req.body?.SubTypeID);
+  const itemVersion = parseOptionalTrimmedText(req.body?.ItemVersion);
+  const isPhysical = parseOptionalBoolean(req.body?.IsPhysical);
+  const isDigital = parseOptionalBoolean(req.body?.IsDigital);
+  const itemVersionError = validateItemVersion(itemVersion ?? null);
 
   const updateFields = [
-    { column: 'PublisherID', value: publisherId },
-    { column: 'CollectionID', value: collectionId },
-    { column: 'CategoryID', value: categoryId },
-    { column: 'SubTypeID', value: subTypeId },
-  ].filter((field): field is { column: string; value: number } => field.value !== null && field.value !== undefined);
+    { column: 'PublisherID', value: publisherId, type: sql.Int },
+    { column: 'CollectionID', value: collectionId, type: sql.Int },
+    { column: 'CategoryID', value: categoryId, type: sql.Int },
+    { column: 'SubTypeID', value: subTypeId, type: sql.Int },
+    { column: 'ItemVersion', value: itemVersion, type: sql.NVarChar(sql.MAX) },
+    { column: 'IsPhysical', value: isPhysical, type: sql.Bit },
+    { column: 'IsDigital', value: isDigital, type: sql.Bit },
+  ].filter((field) => field.value !== null && field.value !== undefined);
 
   if (uniqueItemIds.length === 0) {
     res.status(400).json({ error: 'At least one itemId is required.' });
@@ -76,7 +140,12 @@ export async function bulkUpdateItemRecords(req: Request, res: Response): Promis
   }
 
   if (updateFields.length === 0) {
-    res.status(400).json({ error: 'At least one of PublisherID, CollectionID, CategoryID, or SubTypeID is required.' });
+    res.status(400).json({ error: 'At least one updatable field is required.' });
+    return;
+  }
+
+  if (itemVersionError) {
+    res.status(400).json({ error: itemVersionError });
     return;
   }
 
@@ -183,7 +252,7 @@ export async function bulkUpdateItemRecords(req: Request, res: Response): Promis
 
       const updateRequest = new sql.Request(transaction);
       updateFields.forEach((field) => {
-        updateRequest.input(field.column, sql.Int, field.value);
+        updateRequest.input(field.column, field.type as any, field.value);
       });
 
       uniqueItemIds.forEach((itemId, index) => {
@@ -218,6 +287,7 @@ interface BulkCreateItemInputRow {
   Publisher?: unknown;
   Collection?: unknown;
   ItemName?: unknown;
+  ItemVersion?: unknown;
   Category?: unknown;
   SubCategory?: unknown;
   ProductID?: unknown;
@@ -229,6 +299,7 @@ interface BulkCreateItemNormalizedRow {
   Publisher: string;
   Collection: string;
   ItemName: string;
+  ItemVersion: string;
   Category: string;
   SubCategory: string;
   ProductID: string;
@@ -328,6 +399,7 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
     const publisher = normalizeBulkText(row?.Publisher);
     const collection = normalizeBulkText(row?.Collection);
     const itemName = normalizeBulkText(row?.ItemName);
+    const itemVersion = normalizeBulkText(row?.ItemVersion);
     const category = normalizeBulkText(row?.Category);
     const subCategory = normalizeBulkText(row?.SubCategory);
     const productId = normalizeBulkText(row?.ProductID);
@@ -356,12 +428,18 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
       rowResults[index].errors.push(releaseDateParse.error);
     }
 
+    const itemVersionError = validateItemVersion(itemVersion || null);
+    if (itemVersionError) {
+      rowResults[index].errors.push(itemVersionError);
+    }
+
     if (rowResults[index].errors.length === 0) {
       normalizedRows.push({
         rowNumber,
         Publisher: publisher,
         Collection: collection,
         ItemName: itemName,
+        ItemVersion: itemVersion,
         Category: category,
         SubCategory: subCategory,
         ProductID: productId,
@@ -430,6 +508,7 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
       type PreparedInsert = {
         rowNumber: number;
         ItemName: string;
+        ItemVersion: string;
         ProductID: string;
         ReleaseDate: Date | null;
         PublisherID: number;
@@ -495,6 +574,7 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
           preparedRows.push({
             rowNumber: row.rowNumber,
             ItemName: row.ItemName,
+            ItemVersion: row.ItemVersion,
             ProductID: row.ProductID,
             ReleaseDate: row.ReleaseDate,
             PublisherID: publisherId as number,
@@ -510,6 +590,7 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
       for (const row of preparedRows) {
         const insertRequest = new sql.Request(transaction);
         insertRequest.input('ItemName', sql.NVarChar(255), row.ItemName);
+        insertRequest.input('ItemVersion', sql.NVarChar(sql.MAX), row.ItemVersion || null);
         insertRequest.input('ProductID', sql.NVarChar(255), row.ProductID);
         insertRequest.input('ReleaseDate', sql.Date, row.ReleaseDate);
         insertRequest.input('PublisherID', sql.Int, row.PublisherID);
@@ -518,8 +599,8 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
         insertRequest.input('SubTypeID', sql.Int, row.SubTypeID);
 
         await insertRequest.query(`
-          INSERT INTO [Item] ([ItemName], [ProductID], [ReleaseDate], [PublisherID], [CollectionID], [CategoryID], [SubTypeID])
-          VALUES (@ItemName, @ProductID, @ReleaseDate, @PublisherID, @CollectionID, @CategoryID, @SubTypeID)
+          INSERT INTO [Item] ([ItemName], [ItemVersion], [ProductID], [ReleaseDate], [PublisherID], [CollectionID], [CategoryID], [SubTypeID])
+          VALUES (@ItemName, @ItemVersion, @ProductID, @ReleaseDate, @PublisherID, @CollectionID, @CategoryID, @SubTypeID)
         `);
 
         const rowIndex = rowResultIndexByRowNumber.get(row.rowNumber);
@@ -707,7 +788,7 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
     const sortBy = (req.query.sortBy as string) || 'ItemName';
     const sortOrder = (req.query.sortOrder as string)?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
-    const validColumns = ['ItemName', 'PublisherName', 'CollectionName', 'CategoryName', 'SubTypeName', 'ProductID', 'ReleaseDate'];
+    const validColumns = ['ItemName', 'ItemVersion', 'PublisherName', 'CollectionName', 'CategoryName', 'SubTypeName', 'ProductID', 'ReleaseDate'];
     const column = validColumns.includes(sortBy) ? sortBy : 'ItemName';
 
     const filters: string[] = [];
@@ -820,6 +901,19 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
         filters.push('[SubType].[SubTypeName] LIKE @subTypeName');
       }
     }
+
+    const isPhysical = parseOptionalBoolean(req.query.isPhysical);
+    if (isPhysical !== null) {
+      request.input('isPhysical', sql.Bit, isPhysical);
+      filters.push('[Item].[IsPhysical] = @isPhysical');
+    }
+
+    const isDigital = parseOptionalBoolean(req.query.isDigital);
+    if (isDigital !== null) {
+      request.input('isDigital', sql.Bit, isDigital);
+      filters.push('[Item].[IsDigital] = @isDigital');
+    }
+
     const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
 
     const countQuery = `
@@ -839,8 +933,11 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
       SELECT
         [Item].[ItemID],
         [Item].[ItemName],
+        [Item].[ItemVersion],
         [Item].[ProductID],
         [Item].[ReleaseDate],
+        [Item].[IsPhysical],
+        [Item].[IsDigital],
         [Item].[PublisherID],
         [Item].[CollectionID],
         [Item].[CategoryID],
@@ -1006,6 +1103,18 @@ export async function getInventoryExportRows(req: Request, res: Response): Promi
       }
     }
 
+    const isPhysical = parseOptionalBoolean(req.query.isPhysical);
+    if (isPhysical !== null) {
+      request.input('isPhysical', sql.Bit, isPhysical);
+      filters.push('[Item].[IsPhysical] = @isPhysical');
+    }
+
+    const isDigital = parseOptionalBoolean(req.query.isDigital);
+    if (isDigital !== null) {
+      request.input('isDigital', sql.Bit, isDigital);
+      filters.push('[Item].[IsDigital] = @isDigital');
+    }
+
     const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
 
     const query = `
@@ -1013,10 +1122,13 @@ export async function getInventoryExportRows(req: Request, res: Response): Promi
         [Publisher].[PublisherName] AS [Publisher],
         [Collection].[CollectionName] AS [Collection],
         [Item].[ItemName] AS [Item],
+        [Item].[ItemVersion] AS [Version],
         [Category].[CategoryName] AS [Category],
         [SubType].[SubTypeName] AS [SubType],
         [Item].[ProductID] AS [ProductID],
         [Item].[ReleaseDate] AS [ReleaseDate],
+        [Item].[IsPhysical] AS [IsPhysical],
+        [Item].[IsDigital] AS [IsDigital],
         [ExportPO].[StoreName] AS [Store],
         [ExportPO].[InvoiceNumber] AS [InvoiceNumber],
         [ExportPO].[PurchaseDate] AS [PurchaseDate],
@@ -1503,6 +1615,16 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    if (tableName === 'Item') {
+      const normalizedItemVersion = normalizeItemVersion(data.ItemVersion);
+      const itemVersionError = validateItemVersion(normalizedItemVersion);
+      if (itemVersionError) {
+        res.status(400).json({ error: itemVersionError });
+        return;
+      }
+      data.ItemVersion = normalizedItemVersion;
+    }
+
     const request = pool.request();
 
     const columns = Object.keys(data);
@@ -1741,14 +1863,91 @@ export async function deleteRecordByQuery(req: Request, res: Response): Promise<
 export async function updateRecord(req: Request, res: Response): Promise<void> {
   try {
     const { tableName, id } = req.params;
-    const data = req.body;
+    const data = { ...req.body };
     const pool = await getPool();
     const primaryKey = getPrimaryKeyColumn(tableName);
 
-    if (tableName === 'Item' && Object.prototype.hasOwnProperty.call(data, 'StatusID')) {
-      res.status(400).json({
-        error: 'StatusID can no longer be set on Item. Update PurchaseOrder.StatusID instead.',
-      });
+    if (tableName === 'Item') {
+      if (Object.prototype.hasOwnProperty.call(data, 'StatusID')) {
+        res.status(400).json({
+          error: 'StatusID can no longer be set on Item. Update PurchaseOrder.StatusID instead.',
+        });
+        return;
+      }
+
+      const request = pool.request();
+      const updates: string[] = [];
+
+      if (Object.prototype.hasOwnProperty.call(data, 'ItemName')) {
+        request.input('ItemName', sql.NVarChar(255), data.ItemName);
+        updates.push('[ItemName] = @ItemName');
+      }
+
+      if (Object.prototype.hasOwnProperty.call(data, 'ItemVersion')) {
+        const normalizedItemVersion = normalizeItemVersion(data.ItemVersion);
+        const itemVersionError = validateItemVersion(normalizedItemVersion);
+        if (itemVersionError) {
+          res.status(400).json({ error: itemVersionError });
+          return;
+        }
+        request.input('ItemVersion', sql.NVarChar(sql.MAX), normalizedItemVersion);
+        updates.push('[ItemVersion] = @ItemVersion');
+      }
+
+      if (Object.prototype.hasOwnProperty.call(data, 'ProductID')) {
+        request.input('ProductID', sql.NVarChar(50), data.ProductID ?? null);
+        updates.push('[ProductID] = @ProductID');
+      }
+
+      if (Object.prototype.hasOwnProperty.call(data, 'ReleaseDate')) {
+        request.input('ReleaseDate', sql.Date, data.ReleaseDate ?? null);
+        updates.push('[ReleaseDate] = @ReleaseDate');
+      }
+
+      if (Object.prototype.hasOwnProperty.call(data, 'IsPhysical')) {
+        request.input('IsPhysical', sql.Bit, parseOptionalBoolean(data.IsPhysical));
+        updates.push('[IsPhysical] = @IsPhysical');
+      }
+
+      if (Object.prototype.hasOwnProperty.call(data, 'IsDigital')) {
+        request.input('IsDigital', sql.Bit, parseOptionalBoolean(data.IsDigital));
+        updates.push('[IsDigital] = @IsDigital');
+      }
+
+      if (Object.prototype.hasOwnProperty.call(data, 'PublisherID')) {
+        request.input('PublisherID', sql.Int, data.PublisherID ?? null);
+        updates.push('[PublisherID] = @PublisherID');
+      }
+
+      if (Object.prototype.hasOwnProperty.call(data, 'CollectionID')) {
+        request.input('CollectionID', sql.Int, data.CollectionID ?? null);
+        updates.push('[CollectionID] = @CollectionID');
+      }
+
+      if (Object.prototype.hasOwnProperty.call(data, 'CategoryID')) {
+        request.input('CategoryID', sql.Int, data.CategoryID ?? null);
+        updates.push('[CategoryID] = @CategoryID');
+      }
+
+      if (Object.prototype.hasOwnProperty.call(data, 'SubTypeID')) {
+        request.input('SubTypeID', sql.Int, data.SubTypeID ?? null);
+        updates.push('[SubTypeID] = @SubTypeID');
+      }
+
+      if (updates.length === 0) {
+        res.status(400).json({ error: 'At least one updatable field is required.' });
+        return;
+      }
+
+      request.input('id', sql.Int, id);
+
+      await request.query(`
+        UPDATE [Item]
+        SET ${updates.join(', ')}
+        WHERE [${primaryKey}] = @id
+      `);
+
+      res.json({ success: true, message: 'Record updated' });
       return;
     } else if (tableName === 'PurchaseOrder' && (data.StoreID || data.InvoiceNumber)) {
       // Validate unique constraint for StoreID + InvoiceNumber combination

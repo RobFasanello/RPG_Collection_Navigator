@@ -31,6 +31,7 @@ export default function CategorySubTypesPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingRecord, setEditingRecord] = useState<CategorySubType | null>(null);
+  const [sortColumn, setSortColumn] = useState<'CategoryName' | 'SubTypeName' | 'ItemCount'>('CategoryName');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [filterInputs, setFilterInputs] = useState({ categoryName: '', subTypeName: '' });
   const [activeFilters, setActiveFilters] = useState({ categoryName: '', subTypeName: '' });
@@ -169,7 +170,13 @@ export default function CategorySubTypesPage() {
     setFormError('');
   };
 
-  const handleCategorySort = () => {
+  const handleSort = (column: 'CategoryName' | 'SubTypeName' | 'ItemCount') => {
+    if (sortColumn !== column) {
+      setSortColumn(column);
+      setSortDirection('asc');
+      return;
+    }
+
     if (sortDirection === 'asc') {
       setSortDirection('desc');
     } else if (sortDirection === 'desc') {
@@ -202,6 +209,24 @@ export default function CategorySubTypesPage() {
     }
 
     const sorted = [...filteredRecords].sort((a, b) => {
+      if (sortColumn === 'ItemCount') {
+        const countA = itemCountByCategorySubType[`${Number(a.CategoryID)}:${Number(a.SubTypeID)}`] || 0;
+        const countB = itemCountByCategorySubType[`${Number(b.CategoryID)}:${Number(b.SubTypeID)}`] || 0;
+
+        if (countA < countB) return sortDirection === 'asc' ? -1 : 1;
+        if (countA > countB) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      }
+
+      if (sortColumn === 'SubTypeName') {
+        const nameA = (subTypeNameById[a.SubTypeID] ?? String(a.SubTypeID)).toLowerCase();
+        const nameB = (subTypeNameById[b.SubTypeID] ?? String(b.SubTypeID)).toLowerCase();
+
+        if (nameA < nameB) return sortDirection === 'asc' ? -1 : 1;
+        if (nameA > nameB) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      }
+
       const nameA = (categoryNameById[a.CategoryID] ?? String(a.CategoryID)).toLowerCase();
       const nameB = (categoryNameById[b.CategoryID] ?? String(b.CategoryID)).toLowerCase();
 
@@ -225,14 +250,15 @@ export default function CategorySubTypesPage() {
     setActiveFilters({ categoryName: '', subTypeName: '' });
   };
 
-  const getSortIcon = () => {
+  const getSortIcon = (column: 'CategoryName' | 'SubTypeName' | 'ItemCount') => {
+    if (sortColumn !== column) return null;
     if (sortDirection === 'asc') return <ChevronUp className="w-4 h-4" />;
     if (sortDirection === 'desc') return <ChevronDown className="w-4 h-4" />;
     return null;
   };
 
   return (
-    <AdminLayout title="Category Subtypes">
+    <AdminLayout title="Category / Sub Categories">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -273,7 +299,7 @@ export default function CategorySubTypesPage() {
               tabIndex={999}
             >
               <Plus className="w-4 h-4" />
-              Add New Category Subtype
+              Add New Category / Sub Category
             </Button>
             <Button onClick={applyFilters} tabIndex={3} disabled={!hasFilterChanges}>Apply Filters</Button>
             <Button
@@ -423,16 +449,34 @@ export default function CategorySubTypesPage() {
               <tr>
                 <th 
                   className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
-                  onClick={handleCategorySort}
+                  onClick={() => handleSort('CategoryName')}
                   tabIndex={5}
                 >
                   <div className="flex items-center gap-2">
                     Category Name
-                    {getSortIcon()}
+                    {getSortIcon('CategoryName')}
                   </div>
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold">SubType Name</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold">Item Count</th>
+                <th
+                  className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
+                  onClick={() => handleSort('SubTypeName')}
+                  tabIndex={6}
+                >
+                  <div className="flex items-center gap-2">
+                    Sub Category Name
+                    {getSortIcon('SubTypeName')}
+                  </div>
+                </th>
+                <th
+                  className="px-6 py-3 text-right text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
+                  onClick={() => handleSort('ItemCount')}
+                  tabIndex={7}
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Item Count
+                    {getSortIcon('ItemCount')}
+                  </div>
+                </th>
                 <th className="px-6 py-3 text-right text-sm font-semibold">Actions</th>
               </tr>
             </thead>
