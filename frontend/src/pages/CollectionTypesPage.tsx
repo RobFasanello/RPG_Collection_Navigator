@@ -78,7 +78,7 @@ export default function CollectionTypesPage() {
   };
 
   return (
-    <AdminLayout title="Collection Types">
+    <AdminLayout title="Collection Types" subtitle="Use this screen to view, add, remove and modify the collection types used by your collection.">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
           <Button

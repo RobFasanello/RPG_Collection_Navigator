@@ -85,7 +85,7 @@ export default function StoresPage() {
   };
 
   return (
-    <AdminLayout title="Stores">
+    <AdminLayout title="Stores" subtitle="Use this screen to view, add, remove and modify the stores associated with your collection.">
       <div className="max-w-7xl mx-auto">
         {errorMessage && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">

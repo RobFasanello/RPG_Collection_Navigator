@@ -86,7 +86,7 @@ export default function SubTypesPage() {
   };
 
   return (
-    <AdminLayout title="Subtypes">
+    <AdminLayout title="Sub Categories" subtitle="Use this screen to view, add, remove and modify the sub categories in your collection.">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
           <Button

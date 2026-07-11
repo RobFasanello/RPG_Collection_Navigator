@@ -258,7 +258,7 @@ export default function CategorySubTypesPage() {
   };
 
   return (
-    <AdminLayout title="Category / Sub Categories">
+    <AdminLayout title="Category / Sub Categories" subtitle="Use this screen to view, add, remove and modify the category and sub category relationships used by your collection.">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

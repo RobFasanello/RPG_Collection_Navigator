@@ -147,7 +147,7 @@ export default function CollectionsPage() {
   }));
 
   return (
-    <AdminLayout title="Collections">
+    <AdminLayout title="Collections" subtitle="Use this screen to view, add, remove and modify the collections in your collection.">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
           <Button

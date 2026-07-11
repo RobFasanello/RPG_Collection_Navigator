@@ -81,7 +81,7 @@ export default function PublishersPage() {
   };
 
   return (
-    <AdminLayout title="Publishers">
+    <AdminLayout title="Publishers" subtitle="Use this screen to view, add, remove and modify the publishers in your collection.">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
           <Button

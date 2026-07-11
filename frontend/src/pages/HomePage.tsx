@@ -561,7 +561,7 @@ export default function HomePage() {
   });
 
   return (
-    <AdminLayout title="Home">
+    <AdminLayout>
       <div className="max-w-[1800px] mx-auto space-y-6">
         <section className="bg-white rounded-lg shadow p-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-3">Welcome to Arcane Repository</h2>

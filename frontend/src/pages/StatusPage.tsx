@@ -78,7 +78,7 @@ export default function StatusPage() {
   };
 
   return (
-    <AdminLayout title="Status">
+    <AdminLayout title="Status" subtitle="Use this screen to view, add, remove and modify the statuses used by your collection.">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
           <Button

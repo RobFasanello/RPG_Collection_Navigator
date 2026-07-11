@@ -890,6 +890,10 @@ export default function InventoryLookupPage() {
     keepPreviousData: true,
   });
 
+  const gridRowTabIndexStart = 29;
+  const gridRowCount = Array.isArray(data?.data) ? data.data.length : 0;
+  const pagerTabIndexStart = gridRowTabIndexStart + gridRowCount * 3;
+
   const currentPageItems: InventoryItem[] = Array.isArray(data?.data) ? data.data : [];
   const selectedItemIdSet = useMemo(() => new Set(selectedItemIds), [selectedItemIds]);
   const selectedCurrentPageItems = useMemo(
@@ -1160,7 +1164,7 @@ export default function InventoryLookupPage() {
       setNextCreateOrderDetailRowId(2);
       setSelectedItemIds([]);
 
-      navigate(`/admin/order-master?purchaseOrderId=${newOrderId}`);
+      navigate(`/home/orders?purchaseOrderId=${newOrderId}`);
     },
     onError: (error: any) => {
       setCreateOrderError(error.response?.data?.error || error.message || 'Failed to create order');
@@ -1183,6 +1187,22 @@ export default function InventoryLookupPage() {
   const openCreateOrderModal = () => {
     if (!selectedCurrentPageItems.length) {
       return;
+    }
+
+    const selectedItemsHavePurchaseOrder = selectedCurrentPageItems.some((item) =>
+      typeof item.HasPurchaseOrder === 'boolean'
+        ? item.HasPurchaseOrder
+        : Boolean(fallbackHasPurchaseOrder[item.ItemID])
+    );
+
+    if (selectedItemsHavePurchaseOrder) {
+      const confirmed = window.confirm(
+        'A purchase order already exists for one or more of the selected items.  Are you sure you want to continue?'
+      );
+
+      if (!confirmed) {
+        return;
+      }
     }
 
     const today = new Date();
@@ -1521,7 +1541,7 @@ export default function InventoryLookupPage() {
 
   const handleOpenLinkedOrder = (order: LinkedPurchaseOrder) => {
     setIsRelatedOrdersModalOpen(false);
-    navigate(`/admin/order-master?purchaseOrderId=${order.PurchaseOrderID}`);
+    navigate(`/home/orders?purchaseOrderId=${order.PurchaseOrderID}`);
   };
 
   useEffect(() => {
@@ -1751,7 +1771,7 @@ export default function InventoryLookupPage() {
   };
 
   return (
-    <AdminLayout title="Item Master" subtitle="Manage your collection items">
+    <AdminLayout title="Item Master" subtitle="Use this screen to view, add, remove and modify the items in your collection.">
       <div className="max-w-7xl mx-auto space-y-6">
         <section className="bg-white shadow rounded-lg p-6">
           <form
@@ -1909,7 +1929,7 @@ export default function InventoryLookupPage() {
               <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={17}>
                 {isDownloading ? 'Downloading...' : 'Download CSV'}
               </Button>
-              <Button type="submit" disabled={!hasFilterCriteria} tabIndex={18}>Apply Filters</Button>
+              <Button type="submit" disabled={!hasFilterCriteria} tabIndex={18}>Apply Filter</Button>
               <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={19}>
                 Clear
               </Button>
@@ -1939,45 +1959,46 @@ export default function InventoryLookupPage() {
                           checked={areAllCurrentPageItemsSelected}
                           onChange={toggleSelectAllCurrentPage}
                           aria-label="Select all items on this page"
+                          tabIndex={28}
                         />
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('PublisherName')} className="flex items-center hover:text-blue-600" tabIndex={12}>
+                        <button onClick={() => handleSort('PublisherName')} className="flex items-center hover:text-blue-600" tabIndex={20}>
                           Publisher <SortIndicator column="PublisherName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-blue-600" tabIndex={13}>
+                        <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-blue-600" tabIndex={21}>
                           Collection <SortIndicator column="CollectionName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-blue-600" tabIndex={14}>
+                        <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-blue-600" tabIndex={22}>
                           Item <SortIndicator column="ItemName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ItemVersion')} className="flex items-center hover:text-blue-600" tabIndex={15}>
+                        <button onClick={() => handleSort('ItemVersion')} className="flex items-center hover:text-blue-600" tabIndex={23}>
                           Version <SortIndicator column="ItemVersion" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('CategoryName')} className="flex items-center hover:text-blue-600" tabIndex={16}>
+                        <button onClick={() => handleSort('CategoryName')} className="flex items-center hover:text-blue-600" tabIndex={24}>
                           Category <SortIndicator column="CategoryName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-blue-600" tabIndex={17}>
+                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-blue-600" tabIndex={25}>
                           Sub Category <SortIndicator column="SubTypeName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ProductID')} className="flex items-center hover:text-blue-600" tabIndex={18}>
+                        <button onClick={() => handleSort('ProductID')} className="flex items-center hover:text-blue-600" tabIndex={26}>
                           Product ID <SortIndicator column="ProductID" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ReleaseDate')} className="flex items-center hover:text-blue-600" tabIndex={19}>
+                        <button onClick={() => handleSort('ReleaseDate')} className="flex items-center hover:text-blue-600" tabIndex={27}>
                           Release Date <SortIndicator column="ReleaseDate" />
                         </button>
                       </TableHead>
@@ -1988,66 +2009,79 @@ export default function InventoryLookupPage() {
                   </TableHeader>
                   <TableBody>
                     {Array.isArray(data?.data) && data.data.length ? (
-                      data.data.map((item: InventoryItem) => (
-                        <TableRow
-                          key={item.ItemID}
-                          className="cursor-pointer hover:bg-gray-50"
-                          onClick={() => openEditModal(item)}
-                        >
-                          <TableCell className="w-px whitespace-nowrap px-2 text-center" onClick={(event) => event.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              checked={selectedItemIdSet.has(item.ItemID)}
-                              onChange={() => toggleItemSelection(item.ItemID)}
-                              aria-label={`Select ${item.ItemName}`}
-                            />
-                          </TableCell>
-                          <TableCell>{item.PublisherName}</TableCell>
-                          <TableCell>{collectionLabelById[item.CollectionID] ?? item.CollectionName}</TableCell>
-                          <TableCell>{item.ItemName}</TableCell>
-                          <TableCell>{item.ItemVersion || '-'}</TableCell>
-                          <TableCell>{item.CategoryName}</TableCell>
-                          <TableCell>{item.SubTypeName}</TableCell>
-                          <TableCell>{item.ProductID || '-'}</TableCell>
-                          <TableCell>{formatReleaseDate(item.ReleaseDate)}</TableCell>
-                          <TableCell className="text-center" onClick={(event) => event.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              checked={Boolean(item.IsPhysical)}
-                              disabled
-                              aria-label="Is Physical (read only)"
-                              className="cursor-not-allowed accent-gray-400"
-                              tabIndex={-1}
-                            />
-                          </TableCell>
-                          <TableCell className="text-center" onClick={(event) => event.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              checked={Boolean(item.IsDigital)}
-                              disabled
-                              aria-label="Is Digital (read only)"
-                              className="cursor-not-allowed accent-gray-400"
-                              tabIndex={-1}
-                            />
-                          </TableCell>
-                          <TableCell className="w-px whitespace-nowrap px-2 text-center" onClick={(event) => event.stopPropagation()}>
-                            {(typeof item.HasPurchaseOrder === 'boolean'
-                              ? item.HasPurchaseOrder
-                              : fallbackHasPurchaseOrder[item.ItemID]) ? (
-                              <button
-                                type="button"
-                                className="inline-flex items-center justify-center text-blue-600 hover:text-blue-700"
-                                onClick={(event) => handleOpenRelatedOrders(item, event)}
-                                title="Open related purchase orders"
-                                aria-label={`Open related purchase orders for ${item.ItemName}`}
-                                tabIndex={0}
-                              >
-                                <Link2 className="w-5 h-5" />
-                              </button>
-                            ) : null}
-                          </TableCell>
-                        </TableRow>
-                      ))
+                      data.data.map((item: InventoryItem, rowIndex: number) => {
+                        const rowTabIndex = gridRowTabIndexStart + rowIndex * 3;
+
+                        return (
+                          <TableRow
+                            key={item.ItemID}
+                            className="cursor-pointer hover:bg-gray-50"
+                            onClick={() => openEditModal(item)}
+                            tabIndex={rowTabIndex + 2}
+                            aria-label={`Edit item ${item.ItemName}`}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' && event.target === event.currentTarget) {
+                                event.preventDefault();
+                                openEditModal(item);
+                              }
+                            }}
+                          >
+                            <TableCell className="w-px whitespace-nowrap px-2 text-center" onClick={(event) => event.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={selectedItemIdSet.has(item.ItemID)}
+                                onChange={() => toggleItemSelection(item.ItemID)}
+                                aria-label={`Select ${item.ItemName}`}
+                                tabIndex={rowTabIndex}
+                              />
+                            </TableCell>
+                            <TableCell>{item.PublisherName}</TableCell>
+                            <TableCell>{collectionLabelById[item.CollectionID] ?? item.CollectionName}</TableCell>
+                            <TableCell>{item.ItemName}</TableCell>
+                            <TableCell>{item.ItemVersion || '-'}</TableCell>
+                            <TableCell>{item.CategoryName}</TableCell>
+                            <TableCell>{item.SubTypeName}</TableCell>
+                            <TableCell>{item.ProductID || '-'}</TableCell>
+                            <TableCell>{formatReleaseDate(item.ReleaseDate)}</TableCell>
+                            <TableCell className="text-center" onClick={(event) => event.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={Boolean(item.IsPhysical)}
+                                disabled
+                                aria-label="Is Physical (read only)"
+                                className="cursor-not-allowed accent-gray-400"
+                                tabIndex={-1}
+                              />
+                            </TableCell>
+                            <TableCell className="text-center" onClick={(event) => event.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={Boolean(item.IsDigital)}
+                                disabled
+                                aria-label="Is Digital (read only)"
+                                className="cursor-not-allowed accent-gray-400"
+                                tabIndex={-1}
+                              />
+                            </TableCell>
+                            <TableCell className="w-px whitespace-nowrap px-2 text-center" onClick={(event) => event.stopPropagation()}>
+                              {(typeof item.HasPurchaseOrder === 'boolean'
+                                ? item.HasPurchaseOrder
+                                : fallbackHasPurchaseOrder[item.ItemID]) ? (
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center justify-center text-blue-600 hover:text-blue-700"
+                                  onClick={(event) => handleOpenRelatedOrders(item, event)}
+                                  title="Open related purchase orders"
+                                  aria-label={`Open related purchase orders for ${item.ItemName}`}
+                                  tabIndex={rowTabIndex + 1}
+                                >
+                                  <Link2 className="w-5 h-5" />
+                                </button>
+                              ) : null}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     ) : (
                       <TableRow>
                         <TableCell colSpan={12} className="text-center py-10 text-gray-500">
@@ -2071,24 +2105,27 @@ export default function InventoryLookupPage() {
 
                     return (
                       <>
-                        <Button onClick={() => setPage(1)} disabled={!hasManyPages || page === 1}>
+                        <Button onClick={() => setPage(1)} disabled={!hasManyPages || page === 1} tabIndex={pagerTabIndexStart}>
                           First
                         </Button>
                         <Button
                           onClick={() => setPage(Math.max(1, page - 1))}
                           disabled={page === 1}
+                          tabIndex={pagerTabIndexStart + 1}
                         >
                           Previous
                         </Button>
                         <Button
                           onClick={() => setPage(page + 1)}
                           disabled={page >= (data?.totalPages ?? 1)}
+                          tabIndex={pagerTabIndexStart + 2}
                         >
                           Next
                         </Button>
                         <Button
                           onClick={() => setPage(totalPages)}
                           disabled={!hasManyPages || page >= totalPages}
+                          tabIndex={pagerTabIndexStart + 3}
                         >
                           Last
                         </Button>
@@ -2478,6 +2515,8 @@ export default function InventoryLookupPage() {
                     onChange={(e) => handleAddChange('ItemName', e.target.value)}
                     placeholder="Item name"
                     required
+                    autoFocus
+                    tabIndex={1}
                   />
                 </div>
                 <div>
@@ -2487,6 +2526,7 @@ export default function InventoryLookupPage() {
                     onChange={(e) => handleAddChange('ItemVersion', e.target.value)}
                     placeholder="Version"
                     maxLength={ITEM_VERSION_MAX_LENGTH}
+                    tabIndex={2}
                   />
                 </div>
                 <div>
@@ -2495,6 +2535,7 @@ export default function InventoryLookupPage() {
                     value={addValues.ProductID}
                     onChange={(e) => handleAddChange('ProductID', e.target.value)}
                     placeholder="Product ID"
+                    tabIndex={3}
                   />
                 </div>
                 <div>
@@ -2504,6 +2545,7 @@ export default function InventoryLookupPage() {
                     value={addValues.ReleaseDate}
                     onChange={(e) => handleAddChange('ReleaseDate', e.target.value)}
                     placeholder="Release date"
+                    tabIndex={4}
                   />
                 </div>
                 <label className="flex items-center gap-2 pt-6 text-sm font-medium text-gray-700">
@@ -2511,6 +2553,7 @@ export default function InventoryLookupPage() {
                     type="checkbox"
                     checked={addValues.IsPhysical}
                     onChange={(event) => setAddValues((current) => ({ ...current, IsPhysical: event.target.checked }))}
+                    tabIndex={5}
                   />
                   Is Physical
                 </label>
@@ -2519,6 +2562,7 @@ export default function InventoryLookupPage() {
                     type="checkbox"
                     checked={addValues.IsDigital}
                     onChange={(event) => setAddValues((current) => ({ ...current, IsDigital: event.target.checked }))}
+                    tabIndex={6}
                   />
                   Is Digital
                 </label>
@@ -2529,6 +2573,7 @@ export default function InventoryLookupPage() {
                     onChange={(e) => handleAddChange('PublisherID', e.target.value)}
                     className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     required
+                    tabIndex={7}
                   >
                     <option value="">Select publisher</option>
                     {addPublisherSelectOptions.map((option: { value: string | number; label: string }) => (
@@ -2545,6 +2590,7 @@ export default function InventoryLookupPage() {
                     onChange={(e) => handleAddChange('CollectionID', e.target.value)}
                     className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     required
+                    tabIndex={8}
                   >
                     <option value="">Select collection</option>
                     {addCollectionSelectOptions.map((option: { value: string | number; label: string }) => (
@@ -2561,6 +2607,7 @@ export default function InventoryLookupPage() {
                     onChange={(e) => handleAddChange('CategoryID', e.target.value)}
                     className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     required
+                    tabIndex={9}
                   >
                     <option value="">Select category</option>
                     {categorySelectOptions.map((option: { value: string | number; label: string }) => (
@@ -2577,6 +2624,7 @@ export default function InventoryLookupPage() {
                     onChange={(e) => handleAddChange('SubTypeID', e.target.value)}
                     className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     required
+                    tabIndex={10}
                   >
                     <option value="">Select sub category</option>
                     {addSubTypeSelectOptions.map((option: { value: string | number; label: string }) => (
@@ -2593,10 +2641,11 @@ export default function InventoryLookupPage() {
                   type="button"
                   className="bg-gray-200 text-gray-800 hover:bg-gray-300"
                   onClick={closeAddModal}
+                  tabIndex={11}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={addMutation.isLoading}>
+                <Button type="submit" disabled={addMutation.isLoading} tabIndex={12}>
                   {addMutation.isLoading ? 'Saving...' : 'Add Item'}
                 </Button>
               </div>

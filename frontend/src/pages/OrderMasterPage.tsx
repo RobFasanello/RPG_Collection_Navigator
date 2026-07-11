@@ -852,7 +852,7 @@ export default function OrderMasterPage() {
   };
 
   return (
-    <AdminLayout title="Order Master">
+    <AdminLayout title="Order Master" subtitle="Use this screen to view, add, remove and modify the purchase orders associated with your collection.">
       <div className="max-w-7xl mx-auto space-y-6">
         <section className="bg-white shadow rounded-lg p-6">
           <form
@@ -945,32 +945,32 @@ export default function OrderMasterPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>
-                        <button onClick={() => handleSort('PurchaseDate')} className="flex items-center hover:text-blue-600">
+                        <button onClick={() => handleSort('PurchaseDate')} className="flex items-center hover:text-blue-600" tabIndex={9}>
                           Purchase Date <SortIndicator column="PurchaseDate" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('InvoiceNumber')} className="flex items-center hover:text-blue-600">
+                        <button onClick={() => handleSort('InvoiceNumber')} className="flex items-center hover:text-blue-600" tabIndex={10}>
                           Invoice Number <SortIndicator column="InvoiceNumber" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('StoreName')} className="flex items-center hover:text-blue-600">
+                        <button onClick={() => handleSort('StoreName')} className="flex items-center hover:text-blue-600" tabIndex={11}>
                           Store Name <SortIndicator column="StoreName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('StatusName')} className="flex items-center hover:text-blue-600">
+                        <button onClick={() => handleSort('StatusName')} className="flex items-center hover:text-blue-600" tabIndex={12}>
                           Order Status <SortIndicator column="StatusName" />
                         </button>
                       </TableHead>
                       <TableHead className="text-right">
-                        <button onClick={() => handleSort('ItemCount')} className="flex items-center justify-end hover:text-blue-600 w-full">
+                        <button onClick={() => handleSort('ItemCount')} className="flex items-center justify-end hover:text-blue-600 w-full" tabIndex={13}>
                           Item Count <SortIndicator column="ItemCount" />
                         </button>
                       </TableHead>
                       <TableHead className="text-right">
-                        <button onClick={() => handleSort('TotalAmount')} className="flex items-center justify-end hover:text-blue-600 w-full">
+                        <button onClick={() => handleSort('TotalAmount')} className="flex items-center justify-end hover:text-blue-600 w-full" tabIndex={14}>
                           Total Amount <SortIndicator column="TotalAmount" />
                         </button>
                       </TableHead>
@@ -1015,24 +1015,27 @@ export default function OrderMasterPage() {
 
                     return (
                       <>
-                        <Button onClick={() => setPage(1)} disabled={!hasManyPages || page === 1}>
+                        <Button onClick={() => setPage(1)} disabled={!hasManyPages || page === 1} tabIndex={15}>
                           First
                         </Button>
                         <Button
                           onClick={() => setPage(Math.max(1, page - 1))}
                           disabled={page === 1}
+                          tabIndex={16}
                         >
                           Previous
                         </Button>
                         <Button
                           onClick={() => setPage(page + 1)}
                           disabled={page >= (data?.totalPages ?? 1)}
+                          tabIndex={17}
                         >
                           Next
                         </Button>
                         <Button
                           onClick={() => setPage(totalPages)}
                           disabled={!hasManyPages || page >= totalPages}
+                          tabIndex={18}
                         >
                           Last
                         </Button>
