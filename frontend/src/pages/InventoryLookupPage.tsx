@@ -6,6 +6,7 @@ import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import ComboMultiSelect from '../components/ui/ComboMultiSelect';
+import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
 import LinkedOrderDetailModal, { type LinkedPurchaseOrder } from '../components/order/LinkedOrderDetailModal';
 import BulkItemUploadDialog from '../components/inventory/BulkItemUploadDialog';
@@ -52,6 +53,19 @@ interface InventoryExportRow {
   POStatus?: string | null;
 }
 
+interface ItemLookup {
+  ItemID: number;
+  ItemName: string;
+  ProductID: string;
+}
+
+interface CreateOrderDetailDraft {
+  id: number;
+  ItemID: string;
+  Quantity: string;
+  Price: string;
+}
+
 export default function InventoryLookupPage() {
   const navigate = useNavigate();
   const [urlSearchParams] = useSearchParams();
@@ -60,7 +74,10 @@ export default function InventoryLookupPage() {
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('ASC');
   const [filterValues, setFilterValues] = useState({
     itemName: '',
+    itemVersion: '',
     productID: '',
+    releaseDateFrom: '',
+    releaseDateTo: '',
     // publisherName is now an array of selected publisher names
     publisherName: [] as string[],
     collectionName: [] as string[],
@@ -126,6 +143,18 @@ export default function InventoryLookupPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+  const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
+  const [createOrderError, setCreateOrderError] = useState<string | null>(null);
+  const [createOrderValues, setCreateOrderValues] = useState({
+    InvoiceNumber: '',
+    StoreID: '',
+    StatusID: '',
+    PurchaseDate: '',
+  });
+  const [createOrderDetails, setCreateOrderDetails] = useState<CreateOrderDetailDraft[]>([
+    { id: 1, ItemID: '', Quantity: '1', Price: '' },
+  ]);
+  const [nextCreateOrderDetailRowId, setNextCreateOrderDetailRowId] = useState(2);
 
   const queryClient = useQueryClient();
 
@@ -148,18 +177,23 @@ export default function InventoryLookupPage() {
     const publisher = (urlSearchParams.get('publisher') || '').trim();
     const collection = (urlSearchParams.get('collection') || '').trim();
     const item = (urlSearchParams.get('item') || '').trim();
+    const category = (urlSearchParams.get('category') || '').trim();
+    const subType = (urlSearchParams.get('subType') || '').trim();
 
-    if (!publisher && !collection && !item) {
+    if (!publisher && !collection && !item && !category && !subType) {
       return;
     }
 
     const nextFilters = {
       itemName: item,
+      itemVersion: '',
       productID: '',
+      releaseDateFrom: '',
+      releaseDateTo: '',
       publisherName: publisher ? [publisher] : [],
       collectionName: collection ? [collection] : [],
-      categoryName: [] as string[],
-      subTypeName: [] as string[],
+      categoryName: category ? [category] : [],
+      subTypeName: subType ? [subType] : [],
       isPhysical: undefined as boolean | undefined,
       isDigital: undefined as boolean | undefined,
     };
@@ -278,6 +312,50 @@ export default function InventoryLookupPage() {
     return resp.data;
   });
 
+  const { data: storesResp } = useQuery(['stores'], async () => {
+    const resp = await tablesAPI.getTableData('Store', 1, 100);
+    return resp.data;
+  });
+
+  const { data: statusesResp } = useQuery(['statuses'], async () => {
+    const resp = await tablesAPI.getTableData('Status', 1, 100);
+    return resp.data;
+  });
+
+  const { data: itemLookupResp, isLoading: itemLookupLoading } = useQuery([
+    'itemLookupForCreateOrderFromItemMaster',
+  ], async () => {
+    try {
+      const response = await tablesAPI.getItemsForLookup();
+      const items = response.data?.data;
+      if (Array.isArray(items) && items.length > 0) {
+        return { data: items };
+      }
+    } catch {
+      // Fall through to paginated fallback.
+    }
+
+    const allItems: ItemLookup[] = [];
+    let nextPage = 1;
+    while (true) {
+      const response = await tablesAPI.getInventoryItems({
+        page: nextPage,
+        pageSize: 100,
+        sortBy: 'ItemName',
+        sortOrder: 'ASC',
+      });
+      const rows: any[] = response.data?.data || [];
+      rows.forEach((item) =>
+        allItems.push({ ItemID: item.ItemID, ItemName: item.ItemName, ProductID: item.ProductID })
+      );
+      if (nextPage >= (response.data?.totalPages ?? 1)) {
+        break;
+      }
+      nextPage++;
+    }
+    return { data: allItems };
+  });
+
   // Load collection options for the multi-select
   const { data: collectionResp } = useQuery(['collections'], async () => {
     const resp = await tablesAPI.getTableData('Collection', 1, 500);
@@ -296,6 +374,9 @@ export default function InventoryLookupPage() {
   });
 
   const publishersData = publisherResp?.data || [];
+  const storesData = storesResp?.data || [];
+  const statusesData = statusesResp?.data || [];
+  const itemLookupData = (itemLookupResp?.data || []) as ItemLookup[];
   const collectionsData = collectionResp?.data || [];
   const collectionTypesData = collectionTypeResp?.data || [];
   const publisherCollectionLinks = publisherCollectionResp?.data || [];
@@ -415,6 +496,37 @@ export default function InventoryLookupPage() {
       .filter((c: any) => !allowedCollectionIds || allowedCollectionIds.has(c.CollectionID))
       .map((c: any) => ({ value: String(c.CollectionID), label: getCollectionLabel(c) }));
   }, [collectionsData, allowedCollectionIds, collectionTypeNameById]);
+
+  const defaultOnOrderStatusId = useMemo(() => {
+    const status = statusesData.find(
+      (s: any) => String(s.StatusName || '').trim().toLowerCase() === 'on order'
+    );
+    return status ? String(status.StatusID) : '';
+  }, [statusesData]);
+
+  const isOnOrderStatusMissing = statusesData.length > 0 && !defaultOnOrderStatusId;
+
+  const itemLookupOptions = useMemo(() => {
+    return itemLookupData.map((item) => ({
+      value: String(item.ItemID),
+      label: item.ProductID ? `${item.ItemName} (${item.ProductID})` : item.ItemName,
+    }));
+  }, [itemLookupData]);
+
+  const itemLookupById = useMemo(() => {
+    const map = new Map<number, ItemLookup>();
+    itemLookupData.forEach((item) => {
+      map.set(item.ItemID, item);
+    });
+    return map;
+  }, [itemLookupData]);
+
+  const formatCurrency = (amount?: number) => {
+    if (amount === null || amount === undefined) {
+      return '-';
+    }
+    return `$${amount.toFixed(2)}`;
+  };
 
   const publisherSelectOptions = publishersData.map((p: any) => ({ value: p.PublisherID, label: p.PublisherName }));
   const addPublisherSelectOptions = useMemo(() => {
@@ -863,7 +975,10 @@ export default function InventoryLookupPage() {
 
   const hasFilterCriteria =
     filterValues.itemName.trim().length > 0 ||
+    filterValues.itemVersion.trim().length > 0 ||
     filterValues.productID.trim().length > 0 ||
+    filterValues.releaseDateFrom.trim().length > 0 ||
+    filterValues.releaseDateTo.trim().length > 0 ||
     filterValues.publisherName.length > 0 ||
     filterValues.collectionName.length > 0 ||
     filterValues.categoryName.length > 0 ||
@@ -898,7 +1013,10 @@ export default function InventoryLookupPage() {
     setDownloadError('');
     setFilterValues({
       itemName: '',
+      itemVersion: '',
       productID: '',
+      releaseDateFrom: '',
+      releaseDateTo: '',
       publisherName: [],
       collectionName: [],
       categoryName: [],
@@ -908,7 +1026,10 @@ export default function InventoryLookupPage() {
     });
     setSearchParams({
       itemName: '',
+      itemVersion: '',
       productID: '',
+      releaseDateFrom: '',
+      releaseDateTo: '',
       publisherName: [],
       collectionName: [],
       categoryName: [],
@@ -968,6 +1089,164 @@ export default function InventoryLookupPage() {
       IsPhysical: '',
       IsDigital: '',
     });
+  };
+
+  const createOrderMutation = useMutation({
+    mutationFn: async () => {
+      const invoiceNumber = createOrderValues.InvoiceNumber.trim();
+      if (!invoiceNumber) {
+        throw new Error('Invoice Number is required.');
+      }
+
+      const storeId = parseInt(createOrderValues.StoreID, 10);
+      if (!Number.isInteger(storeId) || storeId <= 0) {
+        throw new Error('Store is required.');
+      }
+
+      const statusId = parseInt(createOrderValues.StatusID, 10);
+      if (!Number.isInteger(statusId) || statusId <= 0) {
+        throw new Error('Order Status is required.');
+      }
+
+      const purchaseDateParts = parseDateParts(createOrderValues.PurchaseDate);
+      if (!purchaseDateParts) {
+        throw new Error('Purchase Date is required.');
+      }
+
+      if (!createOrderDetails.length) {
+        throw new Error('At least one inventory item is required.');
+      }
+
+      const normalizedDetails = createOrderDetails.map((detail, i) => {
+        const itemId = parseInt(detail.ItemID, 10);
+        const quantity = Number(detail.Quantity);
+        const price = Number(detail.Price);
+        if (!Number.isInteger(itemId) || itemId <= 0) {
+          throw new Error(`Row ${i + 1}: Item Name is required.`);
+        }
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+          throw new Error(`Row ${i + 1}: Quantity must be greater than 0.`);
+        }
+        if (!Number.isFinite(price) || price < 0) {
+          throw new Error(`Row ${i + 1}: Price must be 0 or greater.`);
+        }
+        return { ItemID: itemId, Quantity: quantity, Price: price };
+      });
+
+      const purchasedDate = `${purchaseDateParts.year}-${String(purchaseDateParts.month).padStart(2, '0')}-${String(
+        purchaseDateParts.day
+      ).padStart(2, '0')}`;
+
+      const response = await tablesAPI.createPurchaseOrderWithDetails({
+        InvoiceNumber: invoiceNumber,
+        StoreID: storeId,
+        StatusID: statusId,
+        PurchasedDate: purchasedDate,
+        details: normalizedDetails,
+      });
+
+      return response.data.PurchaseOrderID as number;
+    },
+    onSuccess: (newOrderId: number) => {
+      setCreateOrderError(null);
+      setIsCreateOrderModalOpen(false);
+      setCreateOrderValues({
+        InvoiceNumber: '',
+        StoreID: '',
+        StatusID: '',
+        PurchaseDate: '',
+      });
+      setCreateOrderDetails([{ id: 1, ItemID: '', Quantity: '1', Price: '' }]);
+      setNextCreateOrderDetailRowId(2);
+      setSelectedItemIds([]);
+
+      navigate(`/admin/order-master?purchaseOrderId=${newOrderId}`);
+    },
+    onError: (error: any) => {
+      setCreateOrderError(error.response?.data?.error || error.message || 'Failed to create order');
+    },
+  });
+
+  const closeCreateOrderModal = () => {
+    setIsCreateOrderModalOpen(false);
+    setCreateOrderError(null);
+    setCreateOrderValues({
+      InvoiceNumber: '',
+      StoreID: '',
+      StatusID: '',
+      PurchaseDate: '',
+    });
+    setCreateOrderDetails([{ id: 1, ItemID: '', Quantity: '1', Price: '' }]);
+    setNextCreateOrderDetailRowId(2);
+  };
+
+  const openCreateOrderModal = () => {
+    if (!selectedCurrentPageItems.length) {
+      return;
+    }
+
+    const today = new Date();
+    const initialDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
+      today.getDate()
+    ).padStart(2, '0')}`;
+
+    const initialDetails = selectedCurrentPageItems.map((item, index) => ({
+      id: index + 1,
+      ItemID: String(item.ItemID),
+      Quantity: '1',
+      Price: '',
+    }));
+
+    setCreateOrderError(null);
+    setCreateOrderValues({
+      InvoiceNumber: '',
+      StoreID: '',
+      StatusID: defaultOnOrderStatusId,
+      PurchaseDate: initialDate,
+    });
+    setCreateOrderDetails(initialDetails.length ? initialDetails : [{ id: 1, ItemID: '', Quantity: '1', Price: '' }]);
+    setNextCreateOrderDetailRowId((initialDetails.length || 1) + 1);
+    setIsCreateOrderModalOpen(true);
+  };
+
+  const handleCreateOrderFieldChange = (
+    field: 'InvoiceNumber' | 'StoreID' | 'StatusID' | 'PurchaseDate',
+    value: string
+  ) => {
+    setCreateOrderValues((current) => ({ ...current, [field]: value }));
+  };
+
+  useEffect(() => {
+    if (!isCreateOrderModalOpen || createOrderValues.StatusID || !defaultOnOrderStatusId) {
+      return;
+    }
+
+    setCreateOrderValues((current) => ({ ...current, StatusID: defaultOnOrderStatusId }));
+  }, [isCreateOrderModalOpen, createOrderValues.StatusID, defaultOnOrderStatusId]);
+
+  const handleCreateOrderDetailChange = (rowId: number, field: 'ItemID' | 'Quantity' | 'Price', value: string) => {
+    setCreateOrderDetails((current) =>
+      current.map((detail) => (detail.id === rowId ? { ...detail, [field]: value } : detail))
+    );
+  };
+
+  const handleCreateOrderAddDetailRow = () => {
+    setCreateOrderDetails((current) => [...current, { id: nextCreateOrderDetailRowId, ItemID: '', Quantity: '1', Price: '' }]);
+    setNextCreateOrderDetailRowId((current) => current + 1);
+  };
+
+  const handleCreateOrderRemoveDetailRow = (rowId: number) => {
+    setCreateOrderDetails((current) => {
+      if (current.length <= 1) {
+        return current;
+      }
+      return current.filter((detail) => detail.id !== rowId);
+    });
+  };
+
+  const handleCreateOrderSubmit = () => {
+    setCreateOrderError(null);
+    createOrderMutation.mutate();
   };
 
   const toggleItemSelection = (itemId: number) => {
@@ -1475,8 +1754,14 @@ export default function InventoryLookupPage() {
     <AdminLayout title="Item Master" subtitle="Manage your collection items">
       <div className="max-w-7xl mx-auto space-y-6">
         <section className="bg-white shadow rounded-lg p-6">
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-8 gap-4">
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              applyFilters();
+            }}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
               <label className="space-y-2 min-w-0">
                 <span className="text-sm font-medium text-gray-700">Publisher</span>
                 <ComboMultiSelect
@@ -1510,11 +1795,11 @@ export default function InventoryLookupPage() {
                 />
               </label>
               <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Product ID</span>
+                <span className="text-sm font-medium text-gray-700">Version</span>
                 <Input
-                  value={filterValues.productID}
-                  onChange={(event) => handleFilterChange('productID', event.target.value)}
-                  placeholder="Product ID"
+                  value={filterValues.itemVersion}
+                  onChange={(event) => handleFilterChange('itemVersion', event.target.value)}
+                  placeholder="Version"
                   tabIndex={4}
                 />
               </label>
@@ -1540,19 +1825,48 @@ export default function InventoryLookupPage() {
                   tabIndex={6}
                 />
               </label>
-              <label className="space-y-2 flex items-center gap-2 pt-7">
+              <label className="space-y-2 min-w-0">
+                <span className="text-sm font-medium text-gray-700">Product ID</span>
+                <Input
+                  value={filterValues.productID}
+                  onChange={(event) => handleFilterChange('productID', event.target.value)}
+                  placeholder="Product ID"
+                  tabIndex={7}
+                />
+              </label>
+              <label className="space-y-2 min-w-0">
+                <span className="text-sm font-medium text-gray-700">Release Date From</span>
+                <Input
+                  type="date"
+                  value={filterValues.releaseDateFrom}
+                  onChange={(event) => handleFilterChange('releaseDateFrom', event.target.value)}
+                  tabIndex={8}
+                />
+              </label>
+              <label className="space-y-2 min-w-0">
+                <span className="text-sm font-medium text-gray-700">Release Date To</span>
+                <Input
+                  type="date"
+                  value={filterValues.releaseDateTo}
+                  onChange={(event) => handleFilterChange('releaseDateTo', event.target.value)}
+                  tabIndex={9}
+                />
+              </label>
+              <label className="flex items-center gap-2 self-end min-h-10">
                 <input
                   type="checkbox"
                   checked={Boolean(filterValues.isPhysical)}
                   onChange={(event) => handleBooleanFilterChange('isPhysical', event.target.checked)}
+                  tabIndex={10}
                 />
                 <span className="text-sm font-medium text-gray-700">Is Physical</span>
               </label>
-              <label className="space-y-2 flex items-center gap-2 pt-7">
+              <label className="flex items-center gap-2 self-end min-h-10">
                 <input
                   type="checkbox"
                   checked={Boolean(filterValues.isDigital)}
                   onChange={(event) => handleBooleanFilterChange('isDigital', event.target.checked)}
+                  tabIndex={11}
                 />
                 <span className="text-sm font-medium text-gray-700">Is Digital</span>
               </label>
@@ -1560,32 +1874,43 @@ export default function InventoryLookupPage() {
 
             <div className="flex justify-end gap-3">
               <Button
-                className="bg-amber-600 hover:bg-amber-700"
-                onClick={openBulkUpdateDialog}
-                disabled={selectedItemIds.length < 2}
-                tabIndex={7}
-              >
-                Bulk Update{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
-              </Button>
-              <Button
+                type="button"
                 className="bg-red-600 hover:bg-red-700"
                 onClick={openBulkDeleteDialog}
                 disabled={selectedItemIds.length < 2}
-                tabIndex={8}
+                tabIndex={12}
               >
                 Bulk Delete{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
               </Button>
-              <Button className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={8}>
+              <Button
+                type="button"
+                className="bg-green-600 hover:bg-green-700"
+                onClick={openCreateOrderModal}
+                disabled={selectedItemIds.length < 1}
+                tabIndex={13}
+              >
+                Create Order{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
+              </Button>
+              <Button
+                type="button"
+                className="bg-green-600 hover:bg-green-700"
+                onClick={openBulkUpdateDialog}
+                disabled={selectedItemIds.length < 2}
+                tabIndex={14}
+              >
+                Bulk Update{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
+              </Button>
+              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={15}>
                 Add Item
               </Button>
-              <Button className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={9}>
+              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={16}>
                 Bulk Upload
               </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={10}>
+              <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={17}>
                 {isDownloading ? 'Downloading...' : 'Download CSV'}
               </Button>
-              <Button onClick={applyFilters} disabled={!hasFilterCriteria} tabIndex={11}>Apply Filters</Button>
-              <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={12}>
+              <Button type="submit" disabled={!hasFilterCriteria} tabIndex={18}>Apply Filters</Button>
+              <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={19}>
                 Clear
               </Button>
             </div>
@@ -1595,7 +1920,7 @@ export default function InventoryLookupPage() {
                 {downloadError}
               </div>
             ) : null}
-          </div>
+          </form>
         </section>
 
         <section className="bg-white shadow rounded-lg p-6">
@@ -1686,10 +2011,24 @@ export default function InventoryLookupPage() {
                           <TableCell>{item.ProductID || '-'}</TableCell>
                           <TableCell>{formatReleaseDate(item.ReleaseDate)}</TableCell>
                           <TableCell className="text-center" onClick={(event) => event.stopPropagation()}>
-                            <input type="checkbox" checked={Boolean(item.IsPhysical)} readOnly tabIndex={-1} />
+                            <input
+                              type="checkbox"
+                              checked={Boolean(item.IsPhysical)}
+                              disabled
+                              aria-label="Is Physical (read only)"
+                              className="cursor-not-allowed accent-gray-400"
+                              tabIndex={-1}
+                            />
                           </TableCell>
                           <TableCell className="text-center" onClick={(event) => event.stopPropagation()}>
-                            <input type="checkbox" checked={Boolean(item.IsDigital)} readOnly tabIndex={-1} />
+                            <input
+                              type="checkbox"
+                              checked={Boolean(item.IsDigital)}
+                              disabled
+                              aria-label="Is Digital (read only)"
+                              className="cursor-not-allowed accent-gray-400"
+                              tabIndex={-1}
+                            />
                           </TableCell>
                           <TableCell className="w-px whitespace-nowrap px-2 text-center" onClick={(event) => event.stopPropagation()}>
                             {(typeof item.HasPurchaseOrder === 'boolean'
@@ -1762,6 +2101,188 @@ export default function InventoryLookupPage() {
           )}
         </section>
       </div>
+
+      <Dialog
+        open={isCreateOrderModalOpen}
+        onOpenChange={setIsCreateOrderModalOpen}
+        onClose={closeCreateOrderModal}
+        contentClassName="max-w-6xl"
+        title="Create Order"
+      >
+        <div className="space-y-6">
+          {isOnOrderStatusMissing ? (
+            <div className="p-4 bg-amber-50 border border-amber-300 rounded-md">
+              <p className="text-amber-900 font-medium">Default status not found</p>
+              <p className="text-amber-800 text-sm mt-1">
+                The Status table does not contain an "On Order" row, so a default order status cannot be applied.
+                Please choose an Order Status before creating the order.
+              </p>
+            </div>
+          ) : null}
+
+          {createOrderError ? (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-red-800">{createOrderError}</p>
+            </div>
+          ) : null}
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pb-4 border-b">
+            <label className="space-y-2">
+              <span className="text-sm text-gray-600">Invoice Number</span>
+              <Input
+                type="text"
+                value={createOrderValues.InvoiceNumber}
+                onChange={(event) => handleCreateOrderFieldChange('InvoiceNumber', event.target.value)}
+                placeholder="Invoice number"
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm text-gray-600">Store</span>
+              <select
+                value={createOrderValues.StoreID}
+                onChange={(event) => handleCreateOrderFieldChange('StoreID', event.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Select a store...</option>
+                {storesData.map((store: any) => (
+                  <option key={store.StoreID} value={store.StoreID}>
+                    {store.StoreName}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm text-gray-600">Order Status</span>
+              <select
+                value={createOrderValues.StatusID}
+                onChange={(event) => handleCreateOrderFieldChange('StatusID', event.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Select a status...</option>
+                {statusesData.map((status: any) => (
+                  <option key={status.StatusID} value={status.StatusID}>
+                    {status.StatusName}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm text-gray-600">Purchase Date</span>
+              <Input
+                type="date"
+                value={createOrderValues.PurchaseDate}
+                onChange={(event) => handleCreateOrderFieldChange('PurchaseDate', event.target.value)}
+              />
+            </label>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Inventory Items</h3>
+              <Button className="bg-green-600 hover:bg-green-700" onClick={handleCreateOrderAddDetailRow}>
+                Add Item
+              </Button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item Name</TableHead>
+                    <TableHead>Product ID</TableHead>
+                    <TableHead className="text-right">Quantity</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="text-right">Line Total</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {createOrderDetails.map((detail) => {
+                    const selectedItem = detail.ItemID ? itemLookupById.get(parseInt(detail.ItemID, 10)) : null;
+                    const quantity = Number(detail.Quantity) || 0;
+                    const price = Number(detail.Price) || 0;
+
+                    return (
+                      <TableRow key={detail.id}>
+                        <TableCell>
+                          <ComboSelect
+                            options={itemLookupOptions}
+                            value={detail.ItemID}
+                            onChange={(value) => handleCreateOrderDetailChange(detail.id, 'ItemID', value)}
+                            placeholder={itemLookupLoading ? 'Loading items...' : 'Search item or Product ID...'}
+                            disabled={itemLookupLoading}
+                            className="min-w-[280px]"
+                          />
+                        </TableCell>
+                        <TableCell>{selectedItem?.ProductID || '-'}</TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={detail.Quantity}
+                            onChange={(event) => handleCreateOrderDetailChange(detail.id, 'Quantity', event.target.value)}
+                            className="w-24 ml-auto text-right"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            pattern="[0-9]*[.,]?[0-9]*"
+                            value={detail.Price}
+                            onChange={(event) => handleCreateOrderDetailChange(detail.id, 'Price', event.target.value)}
+                            className="w-28 ml-auto text-right"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">{formatCurrency(quantity * price)}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            className="bg-gray-600 hover:bg-gray-700"
+                            onClick={() => handleCreateOrderRemoveDetailRow(detail.id)}
+                            disabled={createOrderDetails.length <= 1}
+                          >
+                            Remove
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  <TableRow className="bg-gray-50 font-semibold">
+                    <TableCell colSpan={4} className="text-right">Total:</TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(
+                        createOrderDetails.reduce((sum, detail) => {
+                          const quantity = Number(detail.Quantity) || 0;
+                          const price = Number(detail.Price) || 0;
+                          return sum + quantity * price;
+                        }, 0)
+                      )}
+                    </TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button className="bg-gray-600 hover:bg-gray-700" onClick={closeCreateOrderModal} disabled={createOrderMutation.isLoading}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700"
+              onClick={handleCreateOrderSubmit}
+              disabled={createOrderMutation.isLoading || (isOnOrderStatusMissing && !createOrderValues.StatusID)}
+            >
+              {createOrderMutation.isLoading ? 'Creating...' : 'Create Order'}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
 
       {editingItem ? (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">

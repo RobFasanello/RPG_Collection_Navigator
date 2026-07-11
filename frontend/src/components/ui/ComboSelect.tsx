@@ -29,6 +29,7 @@ const ComboSelect: React.FC<Props> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const ref = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -95,9 +96,25 @@ const ComboSelect: React.FC<Props> = ({
     o.label.toLowerCase().includes(search.toLowerCase())
   );
 
+  useEffect(() => {
+    if (!filtered.length) {
+      setActiveIndex(0);
+      return;
+    }
+
+    const selectedIndex = filtered.findIndex((opt) => opt.value === value);
+    if (selectedIndex >= 0) {
+      setActiveIndex(selectedIndex);
+      return;
+    }
+
+    setActiveIndex((current) => Math.min(current, filtered.length - 1));
+  }, [filtered, value]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
     setOpen(true);
+    setActiveIndex(0);
     // Clear the stored value when the user starts typing something new
     if (value && e.target.value !== selectedOption?.label) {
       onChange('');
@@ -116,6 +133,58 @@ const ComboSelect: React.FC<Props> = ({
       recalcPosition();
     }
     setOpen(true);
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+      }
+      if (filtered.length) {
+        setActiveIndex((current) => (current + 1) % filtered.length);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+      }
+      if (filtered.length) {
+        setActiveIndex((current) => (current - 1 + filtered.length) % filtered.length);
+      }
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      if (!open) {
+        return;
+      }
+      e.preventDefault();
+      const option = filtered[activeIndex] ?? filtered[0];
+      if (option) {
+        handleSelect(option);
+      }
+      return;
+    }
+
+    if (e.key === 'Tab') {
+      if (!open || !search.trim()) {
+        return;
+      }
+      const option = filtered[activeIndex] ?? filtered[0];
+      if (option) {
+        handleSelect(option);
+      }
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      setOpen(false);
+      setSearch(selectedOption?.label ?? '');
+    }
   };
 
   const handleClear = (e: React.MouseEvent) => {
@@ -142,13 +211,18 @@ const ComboSelect: React.FC<Props> = ({
         filtered.map((opt) => (
           <li
             key={opt.value}
+            onMouseEnter={() => setActiveIndex(filtered.findIndex((candidate) => candidate.value === opt.value))}
             onMouseDown={(e) => {
               // mousedown fires before blur so the dropdown doesn't close before we register the click
               e.preventDefault();
               handleSelect(opt);
             }}
             className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${
-              opt.value === value ? 'bg-blue-100 font-medium' : ''
+              opt.value === value
+                ? 'bg-blue-100 font-medium'
+                : filtered[activeIndex]?.value === opt.value
+                  ? 'bg-blue-50'
+                  : ''
             }`}
           >
             {opt.label}
@@ -166,6 +240,7 @@ const ComboSelect: React.FC<Props> = ({
           type="text"
           value={search}
           onChange={handleInputChange}
+          onKeyDown={handleInputKeyDown}
           onFocus={handleInputFocus}
           placeholder={disabled ? 'Loading...' : placeholder}
           disabled={disabled}

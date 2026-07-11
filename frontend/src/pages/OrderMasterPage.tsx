@@ -855,7 +855,13 @@ export default function OrderMasterPage() {
     <AdminLayout title="Order Master">
       <div className="max-w-7xl mx-auto space-y-6">
         <section className="bg-white shadow rounded-lg p-6">
-          <div className="space-y-4">
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              applyFilters();
+            }}
+          >
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <label className="space-y-2 min-w-0">
                 <span className="text-sm font-medium text-gray-700">Store Name</span>
@@ -915,17 +921,17 @@ export default function OrderMasterPage() {
             </div>
 
             <div className="flex justify-end gap-3">
-              <Button className="bg-green-600 hover:bg-green-700" onClick={openAddOrder} tabIndex={6}>
+              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddOrder} tabIndex={6}>
                 Add Order
               </Button>
-              <Button onClick={applyFilters} disabled={!hasFilterCriteria} tabIndex={7}>
+              <Button type="submit" disabled={!hasFilterCriteria} tabIndex={7}>
                 Apply Filter
               </Button>
-              <Button className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={8}>
+              <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={8}>
                 Clear
               </Button>
             </div>
-          </div>
+          </form>
         </section>
 
         <section className="bg-white shadow rounded-lg p-6">

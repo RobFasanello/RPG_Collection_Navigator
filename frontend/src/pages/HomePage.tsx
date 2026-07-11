@@ -386,7 +386,7 @@ function TopListCard({ title, loading, children }: { title: string; loading: boo
 }
 
 export default function HomePage() {
-  const [coverageView, setCoverageView] = useState<'publisher' | 'collection'>('publisher');
+  const [coverageView, setCoverageView] = useState<'publisher' | 'collection' | 'collectionDetail'>('publisher');
 
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery({
     queryKey: ['homeMetrics', 'dashboardOverview'],
@@ -413,6 +413,77 @@ export default function HomePage() {
   const { data: allCollectionTypeRows } = useQuery({
     queryKey: ['coverageCollectionTypesCatalog'],
     queryFn: async () => getAllTableRows('CollectionType'),
+  });
+
+  const { data: collectionDetailCounts, isLoading: collectionDetailLoading } = useQuery({
+    queryKey: ['coverageCollectionDetailCounts'],
+    queryFn: async () => {
+      const inventoryRows = await getAllInventoryRows();
+
+      const matrixMap = new Map<
+        string,
+        {
+          categoryName: string;
+          subTypeName: string;
+          itemCount: number;
+          itemsInPurchaseOrder: number;
+          publishers: Set<string>;
+          collections: Set<string>;
+        }
+      >();
+
+      inventoryRows.forEach((row) => {
+        const categoryName = String(row.CategoryName || '').trim() || 'Unspecified Category';
+        const subTypeName = String(row.SubTypeName || '').trim() || 'Unspecified Sub Category';
+        const publisherName = String(row.PublisherName || '').trim();
+        const collectionName = String(row.CollectionName || '').trim();
+        const hasPurchaseOrder = row.HasPurchaseOrder === true || row.HasPurchaseOrder === 1;
+
+        const key = `${categoryName}::${subTypeName}`;
+        const current =
+          matrixMap.get(key) ||
+          {
+            categoryName,
+            subTypeName,
+            itemCount: 0,
+            itemsInPurchaseOrder: 0,
+            publishers: new Set<string>(),
+            collections: new Set<string>(),
+          };
+
+        current.itemCount += 1;
+        if (hasPurchaseOrder) {
+          current.itemsInPurchaseOrder += 1;
+        }
+        if (publisherName) {
+          current.publishers.add(publisherName);
+        }
+        if (collectionName) {
+          current.collections.add(collectionName);
+        }
+
+        matrixMap.set(key, current);
+      });
+
+      const matrixRows = Array.from(matrixMap.values())
+        .map((row) => ({
+          categoryName: row.categoryName,
+          subTypeName: row.subTypeName,
+          itemCount: row.itemCount,
+          itemsInPurchaseOrder: row.itemsInPurchaseOrder,
+          coveragePercent: row.itemCount === 0 ? 0 : Number(((row.itemsInPurchaseOrder / row.itemCount) * 100).toFixed(2)),
+          publishers: Array.from(row.publishers).sort((a, b) => a.localeCompare(b)),
+          collections: Array.from(row.collections).sort((a, b) => a.localeCompare(b)),
+        }))
+        .sort(
+          (a, b) =>
+            b.itemCount - a.itemCount ||
+            a.categoryName.localeCompare(b.categoryName) ||
+            a.subTypeName.localeCompare(b.subTypeName)
+        );
+
+      return { matrixRows };
+    },
   });
 
   const totals = dashboardData?.totals || {
@@ -491,7 +562,7 @@ export default function HomePage() {
 
   return (
     <AdminLayout title="Home">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-[1800px] mx-auto space-y-6">
         <section className="bg-white rounded-lg shadow p-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-3">Welcome to Arcane Repository</h2>
           <p className="text-gray-700 mb-4">
@@ -607,7 +678,7 @@ export default function HomePage() {
         <section className="bg-white rounded-lg shadow p-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <h3 className="text-xl font-semibold text-gray-900">Coverage Dashboard</h3>
-            <div className="grid grid-cols-2 gap-2 bg-gray-100 rounded-lg p-1 w-full sm:w-auto">
+            <div className="grid grid-cols-3 gap-2 bg-gray-100 rounded-lg p-1 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => setCoverageView('publisher')}
@@ -629,6 +700,17 @@ export default function HomePage() {
                 }`}
               >
                 Collection View
+              </button>
+              <button
+                type="button"
+                onClick={() => setCoverageView('collectionDetail')}
+                className={`px-3 py-2 text-sm rounded-md transition ${
+                  coverageView === 'collectionDetail'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Collection Detail
               </button>
             </div>
           </div>
@@ -662,8 +744,9 @@ export default function HomePage() {
               </div>
             ) : (
               <p className="text-sm text-gray-500">No publishers found.</p>
-            )
-          ) : dashboardLoading && !collectionBoxes.length ? (
+              )
+            ) : coverageView === 'collection' ? (
+              dashboardLoading && !collectionBoxes.length ? (
             <p className="text-sm text-gray-500">Loading collection coverage...</p>
           ) : collectionsLoading && !collectionBoxes.length ? (
             <p className="text-sm text-gray-500">Loading collections...</p>
@@ -691,6 +774,73 @@ export default function HomePage() {
             </div>
           ) : (
             <p className="text-sm text-gray-500">No collections found.</p>
+          )
+          ) : collectionDetailLoading && !collectionDetailCounts ? (
+            <p className="text-sm text-gray-500">Loading collection detail counts...</p>
+          ) : (
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <h4 className="text-sm font-semibold text-gray-800">Category + Sub Category Detail</h4>
+              {collectionDetailCounts?.matrixRows?.length ? (
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4">
+                  {collectionDetailCounts.matrixRows.map((row) => {
+                    const inventoryBaseLink =
+                      `/admin/inventory?category=${encodeURIComponent(row.categoryName)}` +
+                      `&subType=${encodeURIComponent(row.subTypeName)}`;
+
+                    return (
+                      <div
+                        key={`${row.categoryName}:${row.subTypeName}`}
+                        className="rounded-xl border border-emerald-200 bg-emerald-50 p-5"
+                      >
+                        <Link
+                          to={inventoryBaseLink}
+                          className="block rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          title={`Open Item Master for ${row.categoryName} (${row.subTypeName})`}
+                        >
+                          <p
+                            className="text-sm font-medium truncate text-emerald-800"
+                            title={`${row.categoryName} (${row.subTypeName})`}
+                          >
+                            {row.categoryName} ({row.subTypeName})
+                          </p>
+                          <p className="mt-2 text-3xl font-bold text-emerald-900">
+                            {row.itemCount.toLocaleString()}
+                          </p>
+                          <p className="mt-2 text-sm text-emerald-700">
+                            Publisher Count: {row.publishers.length.toLocaleString()}
+                          </p>
+                          <p className="text-sm text-emerald-700">
+                            Collection Count: {row.collections.length.toLocaleString()}
+                          </p>
+                        </Link>
+
+                        <div className="mt-3 border-t border-green-200/70 pt-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-green-900/90 mb-2">Collections</p>
+                          {row.collections.length ? (
+                            <div className="flex flex-wrap gap-1.5">
+                              {row.collections.map((collectionName: string) => (
+                                <Link
+                                  key={collectionName}
+                                  to={`${inventoryBaseLink}&collection=${encodeURIComponent(collectionName)}`}
+                                  className="inline-flex items-center rounded-md bg-green-800 text-green-50 px-2 py-1 text-xs"
+                                  title={`Add collection filter: ${collectionName}`}
+                                >
+                                  {collectionName}
+                                </Link>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-green-900/80">No collections</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-gray-500">No matrix rows available.</p>
+              )}
+              </div>
           )}
         </section>
       </div>

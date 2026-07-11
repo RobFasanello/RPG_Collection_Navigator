@@ -26,8 +26,10 @@ const ComboMultiSelect: React.FC<Props> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
   const ref = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!autoFocus) {
@@ -46,6 +48,20 @@ const ComboMultiSelect: React.FC<Props> = ({
   }, []);
 
   const filtered = options.filter((o) => o.label.toLowerCase().includes(search.toLowerCase()));
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
+  }, [open]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [search]);
 
   const selectAllChecked = filtered.length > 0 && filtered.every((o) => selected.includes(o.value));
 
@@ -66,12 +82,70 @@ const ComboMultiSelect: React.FC<Props> = ({
 
   const selectedLabels = options.filter((o) => selected.includes(o.value)).map((o) => o.label);
 
+  const handleButtonKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setOpen(true);
+      return;
+    }
+
+    if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      setSearch(event.key);
+      setOpen(true);
+    }
+  };
+
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      if (filtered.length) {
+        setActiveIndex((current) => (current + 1) % filtered.length);
+      }
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (filtered.length) {
+        setActiveIndex((current) => (current - 1 + filtered.length) % filtered.length);
+      }
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const option = filtered[activeIndex] ?? filtered[0];
+      if (option) {
+        toggleOption(option.value);
+      }
+      return;
+    }
+
+    if (event.key === 'Tab') {
+      if (!search.trim()) {
+        return;
+      }
+      const option = filtered[activeIndex] ?? filtered[0];
+      if (option) {
+        toggleOption(option.value);
+        setOpen(false);
+      }
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      setOpen(false);
+      buttonRef.current?.focus();
+    }
+  };
+
   return (
     <div className={`${className ?? 'inline-block'} relative`} ref={ref}>
       <button
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
+        onKeyDown={handleButtonKeyDown}
         tabIndex={tabIndex}
         className={`${className === 'w-full' ? 'flex w-full' : 'inline-flex min-w-[10rem] max-w-full'} text-left border rounded-md p-2 items-center justify-between`}
       >
@@ -93,10 +167,12 @@ const ComboMultiSelect: React.FC<Props> = ({
         <div className="mt-1 z-50 bg-white border rounded-md shadow-lg w-full left-0 absolute max-h-64 overflow-auto">
           <div className="p-2">
             <input
+              ref={searchInputRef}
               className="w-full border rounded-md p-2 mb-2"
               placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
             />
 
             <label className="flex items-center gap-2 mb-2">
@@ -106,8 +182,12 @@ const ComboMultiSelect: React.FC<Props> = ({
 
             <div className="space-y-1">
               {filtered.length === 0 && <div className="text-sm text-gray-500 p-2">No options</div>}
-              {filtered.map((opt) => (
-                <label key={opt.value} className="flex items-center gap-2 p-2 hover:bg-gray-50 cursor-pointer">
+              {filtered.map((opt, index) => (
+                <label
+                  key={opt.value}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  className={`flex items-center gap-2 p-2 cursor-pointer ${activeIndex === index ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                >
                   <input
                     type="checkbox"
                     checked={selected.includes(opt.value)}

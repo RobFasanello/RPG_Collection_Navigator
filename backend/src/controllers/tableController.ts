@@ -816,6 +816,18 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
       request.input('productID', sql.NVarChar(255), `%${req.query.productID}%`);
       filters.push('[Item].[ProductID] LIKE @productID');
     }
+    if (req.query.itemVersion) {
+      request.input('itemVersion', sql.NVarChar(255), `%${req.query.itemVersion}%`);
+      filters.push('[Item].[ItemVersion] LIKE @itemVersion');
+    }
+    if (req.query.releaseDateFrom) {
+      request.input('releaseDateFrom', sql.Date, req.query.releaseDateFrom);
+      filters.push('[Item].[ReleaseDate] >= @releaseDateFrom');
+    }
+    if (req.query.releaseDateTo) {
+      request.input('releaseDateTo', sql.Date, req.query.releaseDateTo);
+      filters.push('[Item].[ReleaseDate] <= @releaseDateTo');
+    }
     if (req.query.publisherName) {
       // Support single value or multiple values (array) for publisherName
       if (Array.isArray(req.query.publisherName)) {
@@ -1016,6 +1028,21 @@ export async function getInventoryExportRows(req: Request, res: Response): Promi
     if (req.query.productID) {
       request.input('productID', sql.NVarChar(255), `%${req.query.productID}%`);
       filters.push('[Item].[ProductID] LIKE @productID');
+    }
+
+    if (req.query.itemVersion) {
+      request.input('itemVersion', sql.NVarChar(255), `%${req.query.itemVersion}%`);
+      filters.push('[Item].[ItemVersion] LIKE @itemVersion');
+    }
+
+    if (req.query.releaseDateFrom) {
+      request.input('releaseDateFrom', sql.Date, req.query.releaseDateFrom);
+      filters.push('[Item].[ReleaseDate] >= @releaseDateFrom');
+    }
+
+    if (req.query.releaseDateTo) {
+      request.input('releaseDateTo', sql.Date, req.query.releaseDateTo);
+      filters.push('[Item].[ReleaseDate] <= @releaseDateTo');
     }
 
     if (req.query.publisherName) {
