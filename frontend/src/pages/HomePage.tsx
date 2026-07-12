@@ -376,6 +376,34 @@ function buildCoverageBoxes({
   });
 }
 
+function buildInventoryLink(params: Record<string, string | number | boolean | undefined>) {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') {
+      return;
+    }
+
+    searchParams.set(key, String(value));
+  });
+
+  const query = searchParams.toString();
+  return query ? `/admin/inventory?${query}` : '/admin/inventory';
+}
+
+function UncollectedBadgeLink({ to }: { to: string }) {
+  return (
+    <Link
+      to={to}
+      className="absolute bottom-3 right-3 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-700 shadow-sm transition hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      title="View items without a purchase order"
+      aria-label="View items without a purchase order"
+    >
+      Uncollected
+    </Link>
+  );
+}
+
 function TopListCard({ title, loading, children }: { title: string; loading: boolean; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4">
@@ -721,21 +749,29 @@ export default function HomePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {publisherBoxes.map((publisher) => {
                   const coverageBand = getCoverageBandClasses(publisher.CoveragePercent);
+                  const baseInventoryLink = buildInventoryLink({ publisher: publisher.EntityName });
+                  const uncollectedInventoryLink = buildInventoryLink({ publisher: publisher.EntityName, hasPurchaseOrder: false });
 
                   return (
-                    <Link
+                    <div
                       key={publisher.EntityID || publisher.EntityName}
-                      to={`/admin/inventory?publisher=${encodeURIComponent(publisher.EntityName)}`}
-                      className={`block rounded-xl border p-5 transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${coverageBand.card}`}
+                      className={`relative overflow-hidden rounded-xl border p-5 transition ${coverageBand.card}`}
                     >
-                      <p className={`text-sm font-medium truncate ${coverageBand.title}`} title={publisher.EntityName}>
-                        {publisher.EntityName}
-                      </p>
-                      <p className={`mt-2 text-3xl font-bold ${coverageBand.value}`}>{formatPercent(publisher.CoveragePercent)}</p>
-                      <p className={`mt-2 text-sm ${coverageBand.detail}`}>
-                        {publisher.ItemsInPurchaseOrder.toLocaleString()} / {publisher.TotalItems.toLocaleString()} items in orders
-                      </p>
-                    </Link>
+                      <Link
+                        to={baseInventoryLink}
+                        className="block pr-24 pb-8 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
+                        title={`Open Item Master for ${publisher.EntityName}`}
+                      >
+                        <p className={`text-sm font-medium truncate ${coverageBand.title}`} title={publisher.EntityName}>
+                          {publisher.EntityName}
+                        </p>
+                        <p className={`mt-2 text-3xl font-bold ${coverageBand.value}`}>{formatPercent(publisher.CoveragePercent)}</p>
+                        <p className={`mt-2 text-sm ${coverageBand.detail}`}>
+                          {publisher.ItemsInPurchaseOrder.toLocaleString()} / {publisher.TotalItems.toLocaleString()} items in orders
+                        </p>
+                      </Link>
+                      <UncollectedBadgeLink to={uncollectedInventoryLink} />
+                    </div>
                   );
                 })}
               </div>
@@ -751,21 +787,32 @@ export default function HomePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {collectionBoxes.map((collection) => {
                 const coverageBand = getCoverageBandClasses(collection.CoveragePercent);
+                const baseInventoryLink = buildInventoryLink({ collection: String(collection.EntityID || collection.EntityName) });
+                const uncollectedInventoryLink = buildInventoryLink({
+                  collection: String(collection.EntityID || collection.EntityName),
+                  hasPurchaseOrder: false,
+                });
 
                 return (
-                  <Link
+                  <div
                     key={collection.EntityID || collection.EntityName}
-                    to={`/admin/inventory?collection=${encodeURIComponent(String(collection.EntityID || collection.EntityName))}`}
-                    className={`block rounded-xl border p-5 transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${coverageBand.card}`}
+                    className={`relative overflow-hidden rounded-xl border p-5 transition ${coverageBand.card}`}
                   >
-                    <p className={`text-sm font-medium truncate ${coverageBand.title}`} title={collection.EntityName}>
-                      {collection.EntityName}
-                    </p>
-                    <p className={`mt-2 text-3xl font-bold ${coverageBand.value}`}>{formatPercent(collection.CoveragePercent)}</p>
-                    <p className={`mt-2 text-sm ${coverageBand.detail}`}>
-                      {collection.ItemsInPurchaseOrder.toLocaleString()} / {collection.TotalItems.toLocaleString()} items in orders
-                    </p>
-                  </Link>
+                    <Link
+                      to={baseInventoryLink}
+                      className="block pr-24 pb-8 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
+                      title={`Open Item Master for ${collection.EntityName}`}
+                    >
+                      <p className={`text-sm font-medium truncate ${coverageBand.title}`} title={collection.EntityName}>
+                        {collection.EntityName}
+                      </p>
+                      <p className={`mt-2 text-3xl font-bold ${coverageBand.value}`}>{formatPercent(collection.CoveragePercent)}</p>
+                      <p className={`mt-2 text-sm ${coverageBand.detail}`}>
+                        {collection.ItemsInPurchaseOrder.toLocaleString()} / {collection.TotalItems.toLocaleString()} items in orders
+                      </p>
+                    </Link>
+                    <UncollectedBadgeLink to={uncollectedInventoryLink} />
+                  </div>
                 );
               })}
             </div>
@@ -783,15 +830,16 @@ export default function HomePage() {
                     const inventoryBaseLink =
                       `/admin/inventory?category=${encodeURIComponent(row.categoryName)}` +
                       `&subType=${encodeURIComponent(row.subTypeName)}`;
+                    const uncollectedInventoryLink = `${inventoryBaseLink}&hasPurchaseOrder=false`;
 
                     return (
                       <div
                         key={`${row.categoryName}:${row.subTypeName}`}
-                        className="rounded-xl border border-emerald-200 bg-emerald-50 p-5"
+                        className="relative overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50 p-5"
                       >
                         <Link
                           to={inventoryBaseLink}
-                          className="block rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="block pr-24 pb-8 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                           title={`Open Item Master for ${row.categoryName} (${row.subTypeName})`}
                         >
                           <p
@@ -810,6 +858,8 @@ export default function HomePage() {
                             Collection Count: {row.collections.length.toLocaleString()}
                           </p>
                         </Link>
+
+                        <UncollectedBadgeLink to={uncollectedInventoryLink} />
 
                         <div className="mt-3 border-t border-green-200/70 pt-3">
                           <p className="text-xs font-semibold uppercase tracking-wide text-green-900/90 mb-2">Collections</p>

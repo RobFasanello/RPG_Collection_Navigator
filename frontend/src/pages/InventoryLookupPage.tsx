@@ -66,6 +66,17 @@ interface CreateOrderDetailDraft {
   Price: string;
 }
 
+function parseHasPurchaseOrderQueryParam(value: string | null): boolean | undefined {
+  const normalized = (value || '').trim().toLowerCase();
+  if (['true', '1', 'yes', 'y'].includes(normalized)) {
+    return true;
+  }
+  if (['false', '0', 'no', 'n'].includes(normalized)) {
+    return false;
+  }
+  return undefined;
+}
+
 export default function InventoryLookupPage() {
   const navigate = useNavigate();
   const [urlSearchParams] = useSearchParams();
@@ -85,6 +96,7 @@ export default function InventoryLookupPage() {
     subTypeName: [] as string[],
     isPhysical: undefined as boolean | undefined,
     isDigital: undefined as boolean | undefined,
+    hasPurchaseOrder: undefined as boolean | undefined,
   });
   const [searchParams, setSearchParams] = useState(filterValues);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
@@ -179,8 +191,9 @@ export default function InventoryLookupPage() {
     const item = (urlSearchParams.get('item') || '').trim();
     const category = (urlSearchParams.get('category') || '').trim();
     const subType = (urlSearchParams.get('subType') || '').trim();
+    const hasPurchaseOrder = parseHasPurchaseOrderQueryParam(urlSearchParams.get('hasPurchaseOrder'));
 
-    if (!publisher && !collection && !item && !category && !subType) {
+    if (!publisher && !collection && !item && !category && !subType && typeof hasPurchaseOrder === 'undefined') {
       return;
     }
 
@@ -196,12 +209,28 @@ export default function InventoryLookupPage() {
       subTypeName: subType ? [subType] : [],
       isPhysical: undefined as boolean | undefined,
       isDigital: undefined as boolean | undefined,
+      hasPurchaseOrder,
     };
 
     setFilterValues(nextFilters);
     setSearchParams(nextFilters);
     setPage(1);
   }, [urlSearchParams]);
+
+  useEffect(() => {
+    if (filterValues.hasPurchaseOrder !== undefined) {
+      return;
+    }
+
+    const urlHasPurchaseOrder = parseHasPurchaseOrderQueryParam(urlSearchParams.get('hasPurchaseOrder'));
+    if (urlHasPurchaseOrder === undefined) {
+      return;
+    }
+
+    setFilterValues((current) => ({ ...current, hasPurchaseOrder: urlHasPurchaseOrder }));
+    setSearchParams((current) => ({ ...current, hasPurchaseOrder: urlHasPurchaseOrder }));
+    setPage(1);
+  }, [urlSearchParams, filterValues.hasPurchaseOrder]);
 
   const parseDateParts = (value?: string | Date | null) => {
     if (!value) {
@@ -890,7 +919,7 @@ export default function InventoryLookupPage() {
     keepPreviousData: true,
   });
 
-  const gridRowTabIndexStart = 29;
+  const gridRowTabIndexStart = 33;
   const gridRowCount = Array.isArray(data?.data) ? data.data.length : 0;
   const pagerTabIndexStart = gridRowTabIndexStart + gridRowCount * 3;
 
@@ -977,6 +1006,11 @@ export default function InventoryLookupPage() {
     setFilterValues((current) => ({ ...current, [field]: checked ? true : undefined }));
   };
 
+  const handleOwnedFilterChange = (checked: boolean) => {
+    setDownloadError('');
+    setFilterValues((current) => ({ ...current, hasPurchaseOrder: checked ? true : undefined }));
+  };
+
   const hasFilterCriteria =
     filterValues.itemName.trim().length > 0 ||
     filterValues.itemVersion.trim().length > 0 ||
@@ -988,7 +1022,8 @@ export default function InventoryLookupPage() {
     filterValues.categoryName.length > 0 ||
     filterValues.subTypeName.length > 0 ||
     filterValues.isPhysical === true ||
-    filterValues.isDigital === true;
+    filterValues.isDigital === true ||
+    filterValues.hasPurchaseOrder === true;
 
   const applyFilters = () => {
     setDownloadError('');
@@ -1027,6 +1062,7 @@ export default function InventoryLookupPage() {
       subTypeName: [],
       isPhysical: undefined,
       isDigital: undefined,
+      hasPurchaseOrder: undefined,
     });
     setSearchParams({
       itemName: '',
@@ -1040,6 +1076,7 @@ export default function InventoryLookupPage() {
       subTypeName: [],
       isPhysical: undefined,
       isDigital: undefined,
+      hasPurchaseOrder: undefined,
     });
     setPage(1);
   };
@@ -1890,6 +1927,15 @@ export default function InventoryLookupPage() {
                 />
                 <span className="text-sm font-medium text-gray-700">Is Digital</span>
               </label>
+              <label className="flex items-center gap-2 self-end min-h-10">
+                <input
+                  type="checkbox"
+                  checked={Boolean(filterValues.hasPurchaseOrder)}
+                  onChange={(event) => handleOwnedFilterChange(event.target.checked)}
+                  tabIndex={12}
+                />
+                <span className="text-sm font-medium text-gray-700">Owned</span>
+              </label>
             </div>
 
             <div className="flex justify-end gap-3">
@@ -1898,7 +1944,7 @@ export default function InventoryLookupPage() {
                 className="bg-red-600 hover:bg-red-700"
                 onClick={openBulkDeleteDialog}
                 disabled={selectedItemIds.length < 2}
-                tabIndex={12}
+                tabIndex={13}
               >
                 Bulk Delete{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
               </Button>
@@ -1907,7 +1953,7 @@ export default function InventoryLookupPage() {
                 className="bg-green-600 hover:bg-green-700"
                 onClick={openCreateOrderModal}
                 disabled={selectedItemIds.length < 1}
-                tabIndex={13}
+                tabIndex={14}
               >
                 Create Order{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
               </Button>
@@ -1916,21 +1962,21 @@ export default function InventoryLookupPage() {
                 className="bg-green-600 hover:bg-green-700"
                 onClick={openBulkUpdateDialog}
                 disabled={selectedItemIds.length < 2}
-                tabIndex={14}
+                tabIndex={15}
               >
                 Bulk Update{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
               </Button>
-              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={15}>
+              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={16}>
                 Add Item
               </Button>
-              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={16}>
+              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={17}>
                 Bulk Upload
               </Button>
-              <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={17}>
+              <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={18}>
                 {isDownloading ? 'Downloading...' : 'Download CSV'}
               </Button>
-              <Button type="submit" disabled={!hasFilterCriteria} tabIndex={18}>Apply Filter</Button>
-              <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={19}>
+              <Button type="submit" disabled={!hasFilterCriteria} tabIndex={19}>Apply Filter</Button>
+              <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={20}>
                 Clear
               </Button>
             </div>
@@ -1959,52 +2005,64 @@ export default function InventoryLookupPage() {
                           checked={areAllCurrentPageItemsSelected}
                           onChange={toggleSelectAllCurrentPage}
                           aria-label="Select all items on this page"
-                          tabIndex={28}
+                          tabIndex={32}
                         />
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('PublisherName')} className="flex items-center hover:text-blue-600" tabIndex={20}>
+                        <button onClick={() => handleSort('PublisherName')} className="flex items-center hover:text-blue-600" tabIndex={21}>
                           Publisher <SortIndicator column="PublisherName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-blue-600" tabIndex={21}>
+                        <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-blue-600" tabIndex={22}>
                           Collection <SortIndicator column="CollectionName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-blue-600" tabIndex={22}>
+                        <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-blue-600" tabIndex={23}>
                           Item <SortIndicator column="ItemName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ItemVersion')} className="flex items-center hover:text-blue-600" tabIndex={23}>
+                        <button onClick={() => handleSort('ItemVersion')} className="flex items-center hover:text-blue-600" tabIndex={24}>
                           Version <SortIndicator column="ItemVersion" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('CategoryName')} className="flex items-center hover:text-blue-600" tabIndex={24}>
+                        <button onClick={() => handleSort('CategoryName')} className="flex items-center hover:text-blue-600" tabIndex={25}>
                           Category <SortIndicator column="CategoryName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-blue-600" tabIndex={25}>
+                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-blue-600" tabIndex={26}>
                           Sub Category <SortIndicator column="SubTypeName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ProductID')} className="flex items-center hover:text-blue-600" tabIndex={26}>
+                        <button onClick={() => handleSort('ProductID')} className="flex items-center hover:text-blue-600" tabIndex={27}>
                           Product ID <SortIndicator column="ProductID" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ReleaseDate')} className="flex items-center hover:text-blue-600" tabIndex={27}>
+                        <button onClick={() => handleSort('ReleaseDate')} className="flex items-center hover:text-blue-600" tabIndex={28}>
                           Release Date <SortIndicator column="ReleaseDate" />
                         </button>
                       </TableHead>
-                      <TableHead className="text-center">Is Physical</TableHead>
-                      <TableHead className="text-center">Is Digital</TableHead>
-                      <TableHead className="w-px whitespace-nowrap px-2 text-center">PO Link</TableHead>
+                      <TableHead className="text-center">
+                        <button onClick={() => handleSort('IsPhysical')} className="flex items-center justify-center w-full hover:text-blue-600" tabIndex={29}>
+                          Is Physical <SortIndicator column="IsPhysical" />
+                        </button>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <button onClick={() => handleSort('IsDigital')} className="flex items-center justify-center w-full hover:text-blue-600" tabIndex={30}>
+                          Is Digital <SortIndicator column="IsDigital" />
+                        </button>
+                      </TableHead>
+                      <TableHead className="w-px whitespace-nowrap px-2 text-center">
+                        <button onClick={() => handleSort('HasPurchaseOrder')} className="flex items-center justify-center w-full hover:text-blue-600" tabIndex={31}>
+                          Is Owned <SortIndicator column="HasPurchaseOrder" />
+                        </button>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

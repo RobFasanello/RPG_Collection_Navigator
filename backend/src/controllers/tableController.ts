@@ -788,7 +788,19 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
     const sortBy = (req.query.sortBy as string) || 'ItemName';
     const sortOrder = (req.query.sortOrder as string)?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
-    const validColumns = ['ItemName', 'ItemVersion', 'PublisherName', 'CollectionName', 'CategoryName', 'SubTypeName', 'ProductID', 'ReleaseDate'];
+    const validColumns = [
+      'ItemName',
+      'ItemVersion',
+      'PublisherName',
+      'CollectionName',
+      'CategoryName',
+      'SubTypeName',
+      'ProductID',
+      'ReleaseDate',
+      'IsPhysical',
+      'IsDigital',
+      'HasPurchaseOrder',
+    ];
     const column = validColumns.includes(sortBy) ? sortBy : 'ItemName';
 
     const filters: string[] = [];
@@ -807,6 +819,25 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
             : sortColumn === 'SubTypeName'
               ? 'SubType'
               : 'Item';
+
+    const sortExpression =
+      sortColumn === 'IsPhysical'
+        ? '[Item].[IsPhysical]'
+        : sortColumn === 'IsDigital'
+          ? '[Item].[IsDigital]'
+          : sortColumn === 'HasPurchaseOrder'
+            ? `CASE
+                WHEN EXISTS (
+                  SELECT 1
+                  FROM [PurchaseOrderDetail] AS [pod]
+                  INNER JOIN [PurchaseOrder] AS [po]
+                    ON [po].[PurchaseOrderID] = [pod].[PurchaseOrderID]
+                  WHERE [pod].[ItemID] = [Item].[ItemID]
+                ) THEN CAST(1 AS bit)
+                ELSE CAST(0 AS bit)
+              END`
+            : `[${sortSource}].[${sortColumn}]`;
+    const secondarySortExpression = sortColumn === 'ItemName' ? '' : ', [Item].[ItemName] ASC';
 
     if (req.query.itemName) {
       request.input('itemName', sql.NVarChar(255), `%${req.query.itemName}%`);
@@ -926,6 +957,27 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
       filters.push('[Item].[IsDigital] = @isDigital');
     }
 
+    const hasPurchaseOrder = parseOptionalBoolean(req.query.hasPurchaseOrder);
+    if (hasPurchaseOrder !== null) {
+      if (hasPurchaseOrder) {
+        filters.push(`EXISTS (
+          SELECT 1
+          FROM [PurchaseOrderDetail] AS [pod]
+          INNER JOIN [PurchaseOrder] AS [po]
+            ON [po].[PurchaseOrderID] = [pod].[PurchaseOrderID]
+          WHERE [pod].[ItemID] = [Item].[ItemID]
+        )`);
+      } else {
+        filters.push(`NOT EXISTS (
+          SELECT 1
+          FROM [PurchaseOrderDetail] AS [pod]
+          INNER JOIN [PurchaseOrder] AS [po]
+            ON [po].[PurchaseOrderID] = [pod].[PurchaseOrderID]
+          WHERE [pod].[ItemID] = [Item].[ItemID]
+        )`);
+      }
+    }
+
     const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
 
     const countQuery = `
@@ -974,7 +1026,7 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
       INNER JOIN [Category] ON [Category].[CategoryID] = [Item].[CategoryID]
       INNER JOIN [SubType] ON [SubType].[SubTypeID] = [Item].[SubTypeID]
       ${whereClause}
-      ORDER BY [${sortSource}].[${sortColumn}] ${sortOrder}
+      ORDER BY ${sortExpression} ${sortOrder}${secondarySortExpression}
       OFFSET @offset ROWS
       FETCH NEXT @pageSize ROWS ONLY
     `;
