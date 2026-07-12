@@ -123,7 +123,9 @@ export default function PublisherCollectionsPage() {
   const publisherFilterOptions = (publisherRecords || []).map((publisher: any) => ({
     value: String(publisher.PublisherName || ''),
     label: String(publisher.PublisherName || ''),
-  }));
+  })).sort((a: { value: string; label: string }, b: { value: string; label: string }) =>
+    a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
+  );
 
   const collectionFilterOptions = (collectionRecords || []).map((collection: any) => ({
     value: String(collection.CollectionID || ''),
@@ -133,7 +135,9 @@ export default function PublisherCollectionsPage() {
   const publisherFormOptions = (publisherRecords || []).map((publisher: any) => ({
     value: String(publisher.PublisherID || ''),
     label: String(publisher.PublisherName || ''),
-  }));
+  })).sort((a: { value: string; label: string }, b: { value: string; label: string }) =>
+    a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
+  );
 
   const collectionFormOptions = (collectionRecords || []).map((collection: any) => ({
     value: String(collection.CollectionID || ''),

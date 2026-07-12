@@ -2141,6 +2141,23 @@ export async function deleteRecord(req: Request, res: Response): Promise<void> {
         await transaction.rollback();
         throw txError;
       }
+    } else if (tableName === 'Publisher') {
+      const transaction = new sql.Transaction(pool);
+      await transaction.begin();
+
+      try {
+        const request = new sql.Request(transaction);
+        request.input('id', sql.Int, id);
+
+        // Remove PublisherCollection links first so a publisher with no remaining items can be deleted.
+        await request.query(`DELETE FROM [PublisherCollection] WHERE [PublisherID] = @id`);
+        await request.query(`DELETE FROM [Publisher] WHERE [PublisherID] = @id`);
+
+        await transaction.commit();
+      } catch (txError) {
+        await transaction.rollback();
+        throw txError;
+      }
     } else {
       await pool.request()
         .input('id', sql.Int, id)

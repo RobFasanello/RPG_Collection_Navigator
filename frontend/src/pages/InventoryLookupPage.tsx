@@ -569,7 +569,13 @@ export default function InventoryLookupPage() {
     return `$${amount.toFixed(2)}`;
   };
 
-  const publisherSelectOptions = publishersData.map((p: any) => ({ value: p.PublisherID, label: p.PublisherName }));
+  const publisherSelectOptions = useMemo(() => {
+    return publishersData
+      .map((p: any) => ({ value: p.PublisherID, label: p.PublisherName }))
+      .sort((a: { value: string | number; label: string }, b: { value: string | number; label: string }) =>
+        a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
+      );
+  }, [publishersData]);
   const addPublisherSelectOptions = useMemo(() => {
     return [...publisherSelectOptions].sort((a: { value: string | number; label: string }, b: { value: string | number; label: string }) =>
       a.label.localeCompare(b.label)
