@@ -83,6 +83,7 @@ export default function InventoryLookupPage() {
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<string>('ItemName');
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('ASC');
+  const [ownedFilter, setOwnedFilter] = useState<'both' | 'yes' | 'no'>('both');
   const [filterValues, setFilterValues] = useState({
     itemName: '',
     itemVersion: '',
@@ -212,6 +213,7 @@ export default function InventoryLookupPage() {
       hasPurchaseOrder,
     };
 
+    setOwnedFilter(hasPurchaseOrder === true ? 'yes' : hasPurchaseOrder === false ? 'no' : 'both');
     setFilterValues(nextFilters);
     setSearchParams(nextFilters);
     setPage(1);
@@ -231,6 +233,16 @@ export default function InventoryLookupPage() {
     setSearchParams((current) => ({ ...current, hasPurchaseOrder: urlHasPurchaseOrder }));
     setPage(1);
   }, [urlSearchParams, filterValues.hasPurchaseOrder]);
+
+  useEffect(() => {
+    if (filterValues.hasPurchaseOrder === true) {
+      setOwnedFilter('yes');
+    } else if (filterValues.hasPurchaseOrder === false) {
+      setOwnedFilter('no');
+    } else {
+      setOwnedFilter('both');
+    }
+  }, [filterValues.hasPurchaseOrder]);
 
   const parseDateParts = (value?: string | Date | null) => {
     if (!value) {
@@ -1006,9 +1018,13 @@ export default function InventoryLookupPage() {
     setFilterValues((current) => ({ ...current, [field]: checked ? true : undefined }));
   };
 
-  const handleOwnedFilterChange = (checked: boolean) => {
+  const handleOwnedFilterChange = (value: 'both' | 'yes' | 'no') => {
     setDownloadError('');
-    setFilterValues((current) => ({ ...current, hasPurchaseOrder: checked ? true : undefined }));
+    setOwnedFilter(value);
+    setFilterValues((current) => ({
+      ...current,
+      hasPurchaseOrder: value === 'yes' ? true : value === 'no' ? false : undefined,
+    }));
   };
 
   const hasFilterCriteria =
@@ -1023,7 +1039,7 @@ export default function InventoryLookupPage() {
     filterValues.subTypeName.length > 0 ||
     filterValues.isPhysical === true ||
     filterValues.isDigital === true ||
-    filterValues.hasPurchaseOrder === true;
+    ownedFilter !== 'both';
 
   const applyFilters = () => {
     setDownloadError('');
@@ -1064,6 +1080,7 @@ export default function InventoryLookupPage() {
       isDigital: undefined,
       hasPurchaseOrder: undefined,
     });
+    setOwnedFilter('both');
     setSearchParams({
       itemName: '',
       itemVersion: '',
@@ -1809,7 +1826,7 @@ export default function InventoryLookupPage() {
 
   return (
     <AdminLayout title="Item Master" subtitle="Use this screen to view, add, remove and modify the items in your collection.">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-[1600px] mx-auto space-y-6">
         <section className="bg-white shadow rounded-lg p-6">
           <form
             className="space-y-4"
@@ -1818,7 +1835,7 @@ export default function InventoryLookupPage() {
               applyFilters();
             }}
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-4">
               <label className="space-y-2 min-w-0">
                 <span className="text-sm font-medium text-gray-700">Publisher</span>
                 <ComboMultiSelect
@@ -1909,12 +1926,27 @@ export default function InventoryLookupPage() {
                   tabIndex={9}
                 />
               </label>
+              <label className="space-y-2 min-w-0">
+                <span className="text-sm font-medium text-gray-700">Owned</span>
+                <ComboSelect
+                  options={[
+                    { value: 'both', label: 'Both' },
+                    { value: 'yes', label: 'Yes' },
+                    { value: 'no', label: 'No' },
+                  ]}
+                  value={ownedFilter}
+                  onChange={(value) => handleOwnedFilterChange(value as 'both' | 'yes' | 'no')}
+                  placeholder="Both"
+                  className="w-full"
+                  tabIndex={10}
+                />
+              </label>
               <label className="flex items-center gap-2 self-end min-h-10">
                 <input
                   type="checkbox"
                   checked={Boolean(filterValues.isPhysical)}
                   onChange={(event) => handleBooleanFilterChange('isPhysical', event.target.checked)}
-                  tabIndex={10}
+                  tabIndex={11}
                 />
                 <span className="text-sm font-medium text-gray-700">Is Physical</span>
               </label>
@@ -1923,18 +1955,9 @@ export default function InventoryLookupPage() {
                   type="checkbox"
                   checked={Boolean(filterValues.isDigital)}
                   onChange={(event) => handleBooleanFilterChange('isDigital', event.target.checked)}
-                  tabIndex={11}
-                />
-                <span className="text-sm font-medium text-gray-700">Is Digital</span>
-              </label>
-              <label className="flex items-center gap-2 self-end min-h-10">
-                <input
-                  type="checkbox"
-                  checked={Boolean(filterValues.hasPurchaseOrder)}
-                  onChange={(event) => handleOwnedFilterChange(event.target.checked)}
                   tabIndex={12}
                 />
-                <span className="text-sm font-medium text-gray-700">Owned</span>
+                <span className="text-sm font-medium text-gray-700">Is Digital</span>
               </label>
             </div>
 
@@ -1944,7 +1967,7 @@ export default function InventoryLookupPage() {
                 className="bg-red-600 hover:bg-red-700"
                 onClick={openBulkDeleteDialog}
                 disabled={selectedItemIds.length < 2}
-                tabIndex={13}
+                tabIndex={14}
               >
                 Bulk Delete{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
               </Button>
@@ -1953,7 +1976,7 @@ export default function InventoryLookupPage() {
                 className="bg-green-600 hover:bg-green-700"
                 onClick={openCreateOrderModal}
                 disabled={selectedItemIds.length < 1}
-                tabIndex={14}
+                tabIndex={15}
               >
                 Create Order{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
               </Button>
@@ -1962,21 +1985,21 @@ export default function InventoryLookupPage() {
                 className="bg-green-600 hover:bg-green-700"
                 onClick={openBulkUpdateDialog}
                 disabled={selectedItemIds.length < 2}
-                tabIndex={15}
+                tabIndex={16}
               >
                 Bulk Update{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
               </Button>
-              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={16}>
+              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={17}>
                 Add Item
               </Button>
-              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={17}>
+              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={18}>
                 Bulk Upload
               </Button>
-              <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={18}>
+              <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={19}>
                 {isDownloading ? 'Downloading...' : 'Download CSV'}
               </Button>
-              <Button type="submit" disabled={!hasFilterCriteria} tabIndex={19}>Apply Filter</Button>
-              <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={20}>
+              <Button type="submit" disabled={!hasFilterCriteria} tabIndex={20}>Apply Filter</Button>
+              <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={21}>
                 Clear
               </Button>
             </div>
@@ -1995,7 +2018,7 @@ export default function InventoryLookupPage() {
 
           {!isLoading && !error && (
             <>
-              <div className="overflow-x-auto">
+                  <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -2066,7 +2089,7 @@ export default function InventoryLookupPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {Array.isArray(data?.data) && data.data.length ? (
+                              {Array.isArray(data?.data) && data.data.length ? (
                       data.data.map((item: InventoryItem, rowIndex: number) => {
                         const rowTabIndex = gridRowTabIndexStart + rowIndex * 3;
 

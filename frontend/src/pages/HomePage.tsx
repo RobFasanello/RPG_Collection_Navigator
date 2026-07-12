@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import { tablesAPI } from '../services/api';
@@ -391,16 +391,26 @@ function buildInventoryLink(params: Record<string, string | number | boolean | u
   return query ? `/admin/inventory?${query}` : '/admin/inventory';
 }
 
-function UncollectedBadgeLink({ to }: { to: string }) {
+function CollectionStatusLinks({ uncollectedTo, collectedTo }: { uncollectedTo: string; collectedTo: string }) {
   return (
-    <Link
-      to={to}
-      className="absolute bottom-3 right-3 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-700 shadow-sm transition hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-      title="View items without a purchase order"
-      aria-label="View items without a purchase order"
-    >
-      Uncollected
-    </Link>
+    <div className="absolute bottom-3 right-3 flex flex-col gap-2 sm:flex-row">
+      <Link
+        to={collectedTo}
+        className="rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 shadow-sm transition hover:bg-emerald-50 hover:text-emerald-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        title="View collected items"
+        aria-label="View collected items"
+      >
+        Collected
+      </Link>
+      <Link
+        to={uncollectedTo}
+        className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-700 shadow-sm transition hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        title="View items without a purchase order"
+        aria-label="View items without a purchase order"
+      >
+        Uncollected
+      </Link>
+    </div>
   );
 }
 
@@ -413,8 +423,27 @@ function TopListCard({ title, loading, children }: { title: string; loading: boo
   );
 }
 
+const COVERAGE_VIEW_STORAGE_KEY = 'rpg-collection-navigator.coverageView';
+
+function getStoredCoverageView(): 'publisher' | 'collection' | 'collectionDetail' {
+  if (typeof window === 'undefined') {
+    return 'publisher';
+  }
+
+  const storedValue = window.localStorage.getItem(COVERAGE_VIEW_STORAGE_KEY);
+  if (storedValue === 'publisher' || storedValue === 'collection' || storedValue === 'collectionDetail') {
+    return storedValue;
+  }
+
+  return 'publisher';
+}
+
 export default function HomePage() {
-  const [coverageView, setCoverageView] = useState<'publisher' | 'collection' | 'collectionDetail'>('publisher');
+  const [coverageView, setCoverageView] = useState<'publisher' | 'collection' | 'collectionDetail'>(getStoredCoverageView);
+
+  useEffect(() => {
+    window.localStorage.setItem(COVERAGE_VIEW_STORAGE_KEY, coverageView);
+  }, [coverageView]);
 
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery({
     queryKey: ['homeMetrics', 'dashboardOverview'],
@@ -595,8 +624,10 @@ export default function HomePage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-3">Welcome to the Arcane Repository</h2>
           <p className="text-gray-700 mb-4">
             Within these pages lies your collection: rulebooks and tomes, dice worn smooth by fate, cards bearing hidden powers, miniatures cast in likeness of heroes and horrors, and terrain shaped for battles yet to come. 
-            Catalog your arcana. Master your library.
           </p>
+          <p className="text-gray-700 mb-4">
+            Catalog your arcana. Master your library.
+          </p>          
         </section>
 
         <section className="bg-white rounded-lg shadow p-8">
@@ -770,7 +801,10 @@ export default function HomePage() {
                           {publisher.ItemsInPurchaseOrder.toLocaleString()} / {publisher.TotalItems.toLocaleString()} items in orders
                         </p>
                       </Link>
-                      <UncollectedBadgeLink to={uncollectedInventoryLink} />
+                      <CollectionStatusLinks
+                        collectedTo={buildInventoryLink({ publisher: publisher.EntityName, hasPurchaseOrder: true })}
+                        uncollectedTo={uncollectedInventoryLink}
+                      />
                     </div>
                   );
                 })}
@@ -800,7 +834,7 @@ export default function HomePage() {
                   >
                     <Link
                       to={baseInventoryLink}
-                      className="block pr-24 pb-8 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
+                      className="block pr-36 pb-14 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
                       title={`Open Item Master for ${collection.EntityName}`}
                     >
                       <p className={`text-sm font-medium truncate ${coverageBand.title}`} title={collection.EntityName}>
@@ -811,7 +845,10 @@ export default function HomePage() {
                         {collection.ItemsInPurchaseOrder.toLocaleString()} / {collection.TotalItems.toLocaleString()} items in orders
                       </p>
                     </Link>
-                    <UncollectedBadgeLink to={uncollectedInventoryLink} />
+                    <CollectionStatusLinks
+                      collectedTo={buildInventoryLink({ collection: String(collection.EntityID || collection.EntityName), hasPurchaseOrder: true })}
+                      uncollectedTo={uncollectedInventoryLink}
+                    />
                   </div>
                 );
               })}
@@ -825,7 +862,7 @@ export default function HomePage() {
             <div className="rounded-xl border border-gray-200 bg-white p-4">
               <h4 className="text-sm font-semibold text-gray-800">Category + Sub Category Detail</h4>
               {collectionDetailCounts?.matrixRows?.length ? (
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4">
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                   {collectionDetailCounts.matrixRows.map((row) => {
                     const inventoryBaseLink =
                       `/admin/inventory?category=${encodeURIComponent(row.categoryName)}` +
@@ -839,11 +876,11 @@ export default function HomePage() {
                       >
                         <Link
                           to={inventoryBaseLink}
-                          className="block pr-24 pb-8 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="block pr-28 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
                           title={`Open Item Master for ${row.categoryName} (${row.subTypeName})`}
                         >
                           <p
-                            className="text-sm font-medium truncate text-emerald-800"
+                            className="text-sm font-medium whitespace-normal break-words leading-snug text-emerald-800"
                             title={`${row.categoryName} (${row.subTypeName})`}
                           >
                             {row.categoryName} ({row.subTypeName})
@@ -859,9 +896,7 @@ export default function HomePage() {
                           </p>
                         </Link>
 
-                        <UncollectedBadgeLink to={uncollectedInventoryLink} />
-
-                        <div className="mt-3 border-t border-green-200/70 pt-3">
+                        <div className="mt-3 border-t border-green-200/70 pt-3 pb-14">
                           <p className="text-xs font-semibold uppercase tracking-wide text-green-900/90 mb-2">Collections</p>
                           {row.collections.length ? (
                             <div className="flex flex-wrap gap-1.5">
@@ -880,6 +915,11 @@ export default function HomePage() {
                             <p className="text-xs text-green-900/80">No collections</p>
                           )}
                         </div>
+
+                        <CollectionStatusLinks
+                          collectedTo={`${inventoryBaseLink}&hasPurchaseOrder=true`}
+                          uncollectedTo={uncollectedInventoryLink}
+                        />
                       </div>
                     );
                   })}
