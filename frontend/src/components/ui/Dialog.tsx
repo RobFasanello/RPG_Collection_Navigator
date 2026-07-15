@@ -8,6 +8,8 @@ interface DialogProps {
   children: React.ReactNode;
   onClose?: () => void;
   contentClassName?: string;
+  onOpenAutoFocus?: RadixDialog.DialogContentProps['onOpenAutoFocus'];
+  closeButtonTabIndex?: number;
 }
 
 export const Dialog: React.FC<DialogProps> = ({
@@ -17,6 +19,8 @@ export const Dialog: React.FC<DialogProps> = ({
   children,
   onClose,
   contentClassName,
+  onOpenAutoFocus,
+  closeButtonTabIndex = 0,
 }) => {
   const isComboSelectPortalTarget = (target: EventTarget | null) => {
     if (!target) {
@@ -62,6 +66,7 @@ export const Dialog: React.FC<DialogProps> = ({
           onInteractOutside={preventDismissForComboSelectPortal}
           onPointerDownOutside={preventDismissForComboSelectPortal}
           onFocusOutside={preventDismissForComboSelectPortal}
+          onOpenAutoFocus={onOpenAutoFocus}
           className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-lg p-6 max-h-[90vh] overflow-y-auto z-50 w-[92vw] max-w-4xl ${contentClassName || ''}`}
         >
           <div className="flex items-center justify-between mb-4">
@@ -69,7 +74,11 @@ export const Dialog: React.FC<DialogProps> = ({
               {title}
             </RadixDialog.Title>
             <RadixDialog.Close asChild>
-              <button className="text-gray-400 hover:text-gray-600 text-2xl leading-none">
+              <button
+                type="button"
+                tabIndex={closeButtonTabIndex}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              >
                 ×
               </button>
             </RadixDialog.Close>

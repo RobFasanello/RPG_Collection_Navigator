@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -80,6 +80,7 @@ function parseHasPurchaseOrderQueryParam(value: string | null): boolean | undefi
 export default function InventoryLookupPage() {
   const navigate = useNavigate();
   const [urlSearchParams] = useSearchParams();
+  const addItemInputRef = useRef<HTMLInputElement>(null);
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<string>('ItemName');
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('ASC');
@@ -218,21 +219,6 @@ export default function InventoryLookupPage() {
     setSearchParams(nextFilters);
     setPage(1);
   }, [urlSearchParams]);
-
-  useEffect(() => {
-    if (filterValues.hasPurchaseOrder !== undefined) {
-      return;
-    }
-
-    const urlHasPurchaseOrder = parseHasPurchaseOrderQueryParam(urlSearchParams.get('hasPurchaseOrder'));
-    if (urlHasPurchaseOrder === undefined) {
-      return;
-    }
-
-    setFilterValues((current) => ({ ...current, hasPurchaseOrder: urlHasPurchaseOrder }));
-    setSearchParams((current) => ({ ...current, hasPurchaseOrder: urlHasPurchaseOrder }));
-    setPage(1);
-  }, [urlSearchParams, filterValues.hasPurchaseOrder]);
 
   useEffect(() => {
     if (filterValues.hasPurchaseOrder === true) {
@@ -1021,7 +1007,7 @@ export default function InventoryLookupPage() {
 
   const handleBooleanFilterChange = (field: 'isPhysical' | 'isDigital', checked: boolean) => {
     setDownloadError('');
-    setFilterValues((current) => ({ ...current, [field]: checked ? true : undefined }));
+    setFilterValues((current) => ({ ...current, [field]: checked }));
   };
 
   const handleOwnedFilterChange = (value: 'both' | 'yes' | 'no') => {
@@ -1043,8 +1029,8 @@ export default function InventoryLookupPage() {
     filterValues.collectionName.length > 0 ||
     filterValues.categoryName.length > 0 ||
     filterValues.subTypeName.length > 0 ||
-    filterValues.isPhysical === true ||
-    filterValues.isDigital === true ||
+    filterValues.isPhysical !== undefined ||
+    filterValues.isDigital !== undefined ||
     ownedFilter !== 'both';
 
   const applyFilters = () => {
@@ -2571,174 +2557,168 @@ export default function InventoryLookupPage() {
       ) : null}
 
       {isAddingItem ? (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6">
-            <div className="flex items-center justify-between mb-5">
+        <Dialog
+          open={isAddingItem}
+          onOpenChange={(open) => {
+            if (open) {
+              setIsAddingItem(true);
+              return;
+            }
+
+            closeAddModal();
+          }}
+          title="Add Item"
+          contentClassName="max-w-2xl"
+          closeButtonTabIndex={-1}
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            addItemInputRef.current?.focus();
+          }}
+        >
+          <div className="mb-5">
+            <p className="text-sm text-gray-500">Create a new item record.</p>
+          </div>
+
+          {addError ? (
+            <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+              {addError}
+            </div>
+          ) : null}
+
+          <form onSubmit={handleAddSubmit} className="space-y-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <h2 className="text-xl font-semibold">Add Item</h2>
-                <p className="text-sm text-gray-500">Create a new item record.</p>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item</label>
+                <Input
+                  ref={addItemInputRef}
+                  value={addValues.ItemName}
+                  onChange={(e) => handleAddChange('ItemName', e.target.value)}
+                  placeholder="Item name"
+                  required
+                />
               </div>
-              <button
-                type="button"
-                onClick={closeAddModal}
-                className="text-gray-400 hover:text-gray-700"
-              >
-                Close
-              </button>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Version</label>
+                <Input
+                  value={addValues.ItemVersion}
+                  onChange={(e) => handleAddChange('ItemVersion', e.target.value)}
+                  placeholder="Version"
+                  maxLength={ITEM_VERSION_MAX_LENGTH}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Product ID</label>
+                <Input
+                  value={addValues.ProductID}
+                  onChange={(e) => handleAddChange('ProductID', e.target.value)}
+                  placeholder="Product ID"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Release Date</label>
+                <Input
+                  type="date"
+                  value={addValues.ReleaseDate}
+                  onChange={(e) => handleAddChange('ReleaseDate', e.target.value)}
+                  placeholder="Release date"
+                />
+              </div>
+              <label className="flex items-center gap-2 pt-6 text-sm font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={addValues.IsPhysical}
+                  onChange={(event) => setAddValues((current) => ({ ...current, IsPhysical: event.target.checked }))}
+                />
+                Is Physical
+              </label>
+              <label className="flex items-center gap-2 pt-6 text-sm font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={addValues.IsDigital}
+                  onChange={(event) => setAddValues((current) => ({ ...current, IsDigital: event.target.checked }))}
+                />
+                Is Digital
+              </label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Publisher Name</label>
+                <select
+                  value={addValues.PublisherID}
+                  onChange={(e) => handleAddChange('PublisherID', e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
+                  required
+                >
+                  <option value="">Select publisher</option>
+                  {addPublisherSelectOptions.map((option: { value: string | number; label: string }) => (
+                    <option key={option.value} value={String(option.value)}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Collection Name</label>
+                <select
+                  value={addValues.CollectionID}
+                  onChange={(e) => handleAddChange('CollectionID', e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
+                  required
+                >
+                  <option value="">Select collection</option>
+                  {addCollectionSelectOptions.map((option: { value: string | number; label: string }) => (
+                    <option key={option.value} value={String(option.value)}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category Name</label>
+                <select
+                  value={addValues.CategoryID}
+                  onChange={(e) => handleAddChange('CategoryID', e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
+                  required
+                >
+                  <option value="">Select category</option>
+                  {categorySelectOptions.map((option: { value: string | number; label: string }) => (
+                    <option key={option.value} value={String(option.value)}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sub Category Name</label>
+                <select
+                  value={addValues.SubTypeID}
+                  onChange={(e) => handleAddChange('SubTypeID', e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
+                  required
+                >
+                  <option value="">Select sub category</option>
+                  {addSubTypeSelectOptions.map((option: { value: string | number; label: string }) => (
+                    <option key={option.value} value={String(option.value)}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {addError ? (
-              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
-                {addError}
-              </div>
-            ) : null}
-
-            <form onSubmit={handleAddSubmit} className="space-y-5">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Item</label>
-                  <Input
-                    value={addValues.ItemName}
-                    onChange={(e) => handleAddChange('ItemName', e.target.value)}
-                    placeholder="Item name"
-                    required
-                    autoFocus
-                    tabIndex={1}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Version</label>
-                  <Input
-                    value={addValues.ItemVersion}
-                    onChange={(e) => handleAddChange('ItemVersion', e.target.value)}
-                    placeholder="Version"
-                    maxLength={ITEM_VERSION_MAX_LENGTH}
-                    tabIndex={2}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Product ID</label>
-                  <Input
-                    value={addValues.ProductID}
-                    onChange={(e) => handleAddChange('ProductID', e.target.value)}
-                    placeholder="Product ID"
-                    tabIndex={3}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Release Date</label>
-                  <Input
-                    type="date"
-                    value={addValues.ReleaseDate}
-                    onChange={(e) => handleAddChange('ReleaseDate', e.target.value)}
-                    placeholder="Release date"
-                    tabIndex={4}
-                  />
-                </div>
-                <label className="flex items-center gap-2 pt-6 text-sm font-medium text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={addValues.IsPhysical}
-                    onChange={(event) => setAddValues((current) => ({ ...current, IsPhysical: event.target.checked }))}
-                    tabIndex={5}
-                  />
-                  Is Physical
-                </label>
-                <label className="flex items-center gap-2 pt-6 text-sm font-medium text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={addValues.IsDigital}
-                    onChange={(event) => setAddValues((current) => ({ ...current, IsDigital: event.target.checked }))}
-                    tabIndex={6}
-                  />
-                  Is Digital
-                </label>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Publisher Name</label>
-                  <select
-                    value={addValues.PublisherID}
-                    onChange={(e) => handleAddChange('PublisherID', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-                    required
-                    tabIndex={7}
-                  >
-                    <option value="">Select publisher</option>
-                    {addPublisherSelectOptions.map((option: { value: string | number; label: string }) => (
-                      <option key={option.value} value={String(option.value)}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Collection Name</label>
-                  <select
-                    value={addValues.CollectionID}
-                    onChange={(e) => handleAddChange('CollectionID', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-                    required
-                    tabIndex={8}
-                  >
-                    <option value="">Select collection</option>
-                    {addCollectionSelectOptions.map((option: { value: string | number; label: string }) => (
-                      <option key={option.value} value={String(option.value)}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category Name</label>
-                  <select
-                    value={addValues.CategoryID}
-                    onChange={(e) => handleAddChange('CategoryID', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-                    required
-                    tabIndex={9}
-                  >
-                    <option value="">Select category</option>
-                    {categorySelectOptions.map((option: { value: string | number; label: string }) => (
-                      <option key={option.value} value={String(option.value)}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Sub Category Name</label>
-                  <select
-                    value={addValues.SubTypeID}
-                    onChange={(e) => handleAddChange('SubTypeID', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-                    required
-                    tabIndex={10}
-                  >
-                    <option value="">Select sub category</option>
-                    {addSubTypeSelectOptions.map((option: { value: string | number; label: string }) => (
-                      <option key={option.value} value={String(option.value)}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                <Button
-                  type="button"
-                  className="bg-gray-200 text-gray-800 hover:bg-gray-300"
-                  onClick={closeAddModal}
-                  tabIndex={11}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={addMutation.isLoading} tabIndex={12}>
-                  {addMutation.isLoading ? 'Saving...' : 'Add Item'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                onClick={closeAddModal}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={addMutation.isLoading}>
+                {addMutation.isLoading ? 'Saving...' : 'Add Item'}
+              </Button>
+            </div>
+          </form>
+        </Dialog>
       ) : null}
 
       {isBulkUpdateOpen ? (
