@@ -176,14 +176,18 @@ export default function RecordForm({
               return null;
             }
 
+            const isSubTypeNameField = tableName === 'SubType' && col.COLUMN_NAME === 'SubTypeName';
+            const fieldLabel = isSubTypeNameField ? 'New Sub Category' : col.COLUMN_NAME;
+            const fieldPlaceholder = isSubTypeNameField ? 'Enter New Sub Category' : `Enter ${col.COLUMN_NAME}`;
+
             return (
               <div key={col.COLUMN_NAME}>
                 <label className="block text-sm font-medium mb-1">
-                  {col.COLUMN_NAME}
+                  {fieldLabel}
                 </label>
                 <Input
                   type={col.DATA_TYPE.includes('int') ? 'number' : 'text'}
-                  placeholder={`Enter ${col.COLUMN_NAME}`}
+                  placeholder={fieldPlaceholder}
                   value={formData[col.COLUMN_NAME] ?? ''}
                   onChange={(e) =>
                     handleChange(col.COLUMN_NAME, e.target.value)

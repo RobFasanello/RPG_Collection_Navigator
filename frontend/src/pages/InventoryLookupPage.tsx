@@ -1982,7 +1982,7 @@ export default function InventoryLookupPage() {
                 Bulk Update{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
               </Button>
               <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={17}>
-                Add Item
+                + Add Item
               </Button>
               <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={18}>
                 Bulk Upload

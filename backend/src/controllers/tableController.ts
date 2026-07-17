@@ -1934,7 +1934,32 @@ export async function deleteRecordByQuery(req: Request, res: Response): Promise<
     res.status(400).json({ error: 'Invalid delete parameters' });
   } catch (error) {
     console.error('Error deleting record by query:', error);
-    res.status(500).json({ error: 'Failed to delete record' });
+
+    const dbError = error as any;
+    const dbMessage = String(dbError?.message || dbError?.originalError?.message || '').toLowerCase();
+    const isConstraintViolation =
+      dbError?.number === 547 ||
+      dbMessage.includes('reference constraint') ||
+      dbMessage.includes('foreign key') ||
+      dbMessage.includes('conflicted with the reference');
+
+    if (req.params.tableName === 'PublisherCollection' && isConstraintViolation) {
+      res.status(409).json({
+        error:
+          'Delete failed. This publisher/collection pair is still referenced by one or more items. Reassign or remove the linked items first, then try again.',
+      });
+      return;
+    }
+
+    if (req.params.tableName === 'CategorySubType' && isConstraintViolation) {
+      res.status(409).json({
+        error:
+          'Delete failed. The category/sub-category pair is still references by one or more items. Reassign or remove the linked items first, then try again.',
+      });
+      return;
+    }
+
+    res.status(500).json({ error: dbError?.message || 'Failed to delete record' });
   }
 }
 

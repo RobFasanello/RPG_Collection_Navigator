@@ -4,6 +4,7 @@ import { Plus, Trash2, X, ChevronUp, ChevronDown, Edit2 } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import ComboSelect from '../components/ui/ComboSelect';
+import { Dialog } from '../components/ui/Dialog';
 import { tableAPI } from '../services/api';
 
 interface CategorySubType {
@@ -37,6 +38,7 @@ export default function CategorySubTypesPage() {
   const [activeFilters, setActiveFilters] = useState({ categoryName: '', subTypeName: '' });
   const [formValues, setFormValues] = useState({ CategoryID: '', SubTypeID: '' });
   const [formError, setFormError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const queryClient = useQueryClient();
   const tableName = 'CategorySubType';
@@ -132,7 +134,27 @@ export default function CategorySubTypesPage() {
       return await tableAPI.deleteRecord(tableName, payload);
     },
     onSuccess: () => {
+      setDeleteError('');
       queryClient.invalidateQueries({ queryKey: ['table', tableName] });
+    },
+    onError: (error: any) => {
+      const backendError = String(error?.response?.data?.error || error?.message || '').trim();
+      const backendMessage = backendError.toLowerCase();
+      const referentialIntegrityConflict =
+        backendMessage.includes('reference constraint') ||
+        backendMessage.includes('foreign key') ||
+        backendMessage.includes('conflicted with the reference') ||
+        backendMessage.includes('still referenced');
+
+      if (referentialIntegrityConflict) {
+        setDeleteError(
+          backendError ||
+            'Delete failed. The category/sub-category pair is still references by one or more items. Reassign or remove the linked items first, then try again.'
+        );
+        return;
+      }
+
+      setDeleteError(backendError || 'Delete failed. Please try again.');
     },
   });
 
@@ -140,6 +162,8 @@ export default function CategorySubTypesPage() {
     if (!confirm('Are you sure you want to delete this record?')) {
       return;
     }
+
+    setDeleteError('');
 
     if (record.CategorySubTypeID != null) {
       deleteMutation.mutate(record.CategorySubTypeID);
@@ -509,6 +533,27 @@ export default function CategorySubTypesPage() {
             </tbody>
           </table>
         </div>
+
+        <Dialog
+          open={!!deleteError}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteError('');
+            }
+          }}
+          title="Delete Failed"
+          onClose={() => setDeleteError('')}
+          contentClassName="max-w-lg"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-red-700">{deleteError}</p>
+            <div className="flex justify-end">
+              <Button onClick={() => setDeleteError('')} className="bg-red-600 hover:bg-red-700">
+                OK
+              </Button>
+            </div>
+          </div>
+        </Dialog>
       </div>
     </AdminLayout>
   );

@@ -922,7 +922,7 @@ export default function OrderMasterPage() {
 
             <div className="flex justify-end gap-3">
               <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddOrder} tabIndex={6}>
-                Add Order
+                + Add Order
               </Button>
               <Button type="submit" disabled={!hasFilterCriteria} tabIndex={7}>
                 Apply Filter

@@ -5,6 +5,7 @@ import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import ComboSelect from '../components/ui/ComboSelect';
+import { Dialog } from '../components/ui/Dialog';
 import { tableAPI } from '../services/api';
 
 interface Collection {
@@ -21,6 +22,7 @@ export default function CollectionsPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
   const [formValues, setFormValues] = useState({
     CollectionName: '',
     CollectionTypeID: '',
@@ -49,12 +51,32 @@ export default function CollectionsPage() {
       return await tableAPI.deleteRecord(tableName, recordId);
     },
     onSuccess: () => {
+      setDeleteError('');
       queryClient.invalidateQueries({ queryKey: ['table', tableName] });
+    },
+    onError: (error: any) => {
+      const backendError = String(error?.response?.data?.error || error?.message || '').trim();
+      const backendMessage = backendError.toLowerCase();
+      const referentialIntegrityConflict =
+        backendMessage.includes('reference constraint') ||
+        backendMessage.includes('foreign key') ||
+        backendMessage.includes('conflicted with the reference') ||
+        backendMessage.includes('still referenced');
+
+      if (referentialIntegrityConflict) {
+        setDeleteError(
+          'Delete failed. This collection is still referenced by one or more publisher/collection links or linked items. Reassign or remove the linked records first, then try again.'
+        );
+        return;
+      }
+
+      setDeleteError(backendError || 'Delete failed. Please try again.');
     },
   });
 
   const handleDelete = (recordId: string) => {
     if (confirm('Are you sure you want to delete this record?')) {
+      setDeleteError('');
       deleteMutation.mutate(recordId);
     }
   };
@@ -157,7 +179,7 @@ export default function CollectionsPage() {
               setFormValues({ CollectionName: '', CollectionTypeID: '' });
               setFormError('');
             }}
-            className="gap-2"
+            className="gap-2 bg-green-600 hover:bg-green-700 text-white"
           >
             <Plus className="w-4 h-4" />
             New Collection
@@ -323,6 +345,27 @@ export default function CollectionsPage() {
             </tbody>
           </table>
         </div>
+
+        <Dialog
+          open={!!deleteError}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteError('');
+            }
+          }}
+          title="Delete Failed"
+          onClose={() => setDeleteError('')}
+          contentClassName="max-w-lg"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-red-700">{deleteError}</p>
+            <div className="flex justify-end">
+              <Button onClick={() => setDeleteError('')} className="bg-red-600 hover:bg-red-700">
+                OK
+              </Button>
+            </div>
+          </div>
+        </Dialog>
       </div>
     </AdminLayout>
   );

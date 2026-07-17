@@ -4,6 +4,7 @@ import { Plus, Edit2, Trash2, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
+import { Dialog } from '../components/ui/Dialog';
 import RecordForm from '../components/RecordForm';
 import { tableAPI } from '../services/api';
 
@@ -121,18 +122,21 @@ export default function PublishersPage() {
       queryClient.invalidateQueries({ queryKey: ['table', tableName] });
     },
     onError: (error: any) => {
-      const backendMessage = String(error?.response?.data?.error || error?.message || '').toLowerCase();
+      const backendError = String(error?.response?.data?.error || error?.message || '').trim();
+      const backendMessage = backendError.toLowerCase();
       const referentialIntegrityConflict =
         backendMessage.includes('reference constraint') ||
         backendMessage.includes('foreign key') ||
         backendMessage.includes('conflicted with the reference');
 
       if (referentialIntegrityConflict) {
-        setDeleteError('The selected publisher cannot be deleted due to the existence of an item linked to this publisher.');
+        setDeleteError(
+          'Delete failed. This publisher is still referenced by one or more publisher/collection links and linked items. Reassign or remove the linked items first, then try again.'
+        );
         return;
       }
 
-      setDeleteError('Failed to delete publisher.');
+      setDeleteError(backendError || 'Delete failed. Please try again.');
     },
   });
 
@@ -215,7 +219,7 @@ export default function PublishersPage() {
               setIsAdding(true);
               setEditingId(null);
             }}
-            className="gap-2"
+            className="gap-2 bg-green-600 hover:bg-green-700 text-white"
           >
             <Plus className="w-4 h-4" />
             New Publisher
@@ -256,12 +260,6 @@ export default function PublishersPage() {
 
         {isLoading && <p className="text-gray-500">Loading...</p>}
         {error && <p className="text-red-600">Error loading records</p>}
-        {deleteError ? (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {deleteError}
-          </div>
-        ) : null}
-
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="w-full">
             <thead className="bg-gray-100 border-b">
@@ -363,6 +361,27 @@ export default function PublishersPage() {
             </tbody>
           </table>
         </div>
+
+        <Dialog
+          open={!!deleteError}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteError('');
+            }
+          }}
+          title="Delete Failed"
+          onClose={() => setDeleteError('')}
+          contentClassName="max-w-lg"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-red-700">{deleteError}</p>
+            <div className="flex justify-end">
+              <Button onClick={() => setDeleteError('')} className="bg-red-600 hover:bg-red-700">
+                OK
+              </Button>
+            </div>
+          </div>
+        </Dialog>
       </div>
     </AdminLayout>
   );

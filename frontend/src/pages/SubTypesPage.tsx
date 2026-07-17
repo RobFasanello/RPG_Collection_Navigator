@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Edit2, Trash2, X, ChevronUp, ChevronDown } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
+import { Dialog } from '../components/ui/Dialog';
 import RecordForm from '../components/RecordForm';
 import { tableAPI } from '../services/api';
 
@@ -15,6 +16,7 @@ type SortDirection = 'asc' | 'desc' | null;
 export default function SubTypesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const queryClient = useQueryClient();
   const tableName = 'SubType';
@@ -40,12 +42,32 @@ export default function SubTypesPage() {
       return await tableAPI.deleteRecord(tableName, recordId);
     },
     onSuccess: () => {
+      setDeleteError('');
       queryClient.invalidateQueries({ queryKey: ['table', tableName] });
+    },
+    onError: (error: any) => {
+      const backendError = String(error?.response?.data?.error || error?.message || '').trim();
+      const backendMessage = backendError.toLowerCase();
+      const referentialIntegrityConflict =
+        backendMessage.includes('reference constraint') ||
+        backendMessage.includes('foreign key') ||
+        backendMessage.includes('conflicted with the reference') ||
+        backendMessage.includes('still referenced');
+
+      if (referentialIntegrityConflict) {
+        setDeleteError(
+          'Delete failed. This sub category is still referenced by one or more category/sub category links or linked items. Reassign or remove the linked records first, then try again.'
+        );
+        return;
+      }
+
+      setDeleteError(backendError || 'Delete failed. Please try again.');
     },
   });
 
   const handleDelete = (recordId: string) => {
     if (confirm('Are you sure you want to delete this record?')) {
+      setDeleteError('');
       deleteMutation.mutate(recordId);
     }
   };
@@ -94,10 +116,10 @@ export default function SubTypesPage() {
               setIsAdding(true);
               setEditingId(null);
             }}
-            className="gap-2"
+            className="gap-2 bg-green-600 hover:bg-green-700 text-white"
           >
             <Plus className="w-4 h-4" />
-            New Subtype
+            New Sub Category
           </Button>
         </div>
 
@@ -105,7 +127,7 @@ export default function SubTypesPage() {
           <div className="mb-8 bg-white p-6 rounded-lg shadow">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">
-                {editingId !== null ? 'Edit Subtype' : 'New Subtype'}
+                {editingId !== null ? 'Edit Sub Category' : 'New Sub Category'}
               </h2>
               <button
                 onClick={() => {
@@ -181,6 +203,27 @@ export default function SubTypesPage() {
             </tbody>
           </table>
         </div>
+
+        <Dialog
+          open={!!deleteError}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteError('');
+            }
+          }}
+          title="Delete Failed"
+          onClose={() => setDeleteError('')}
+          contentClassName="max-w-lg"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-red-700">{deleteError}</p>
+            <div className="flex justify-end">
+              <Button onClick={() => setDeleteError('')} className="bg-red-600 hover:bg-red-700">
+                OK
+              </Button>
+            </div>
+          </div>
+        </Dialog>
       </div>
     </AdminLayout>
   );

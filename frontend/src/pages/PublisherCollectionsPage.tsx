@@ -4,6 +4,7 @@ import { Plus, Trash2, X, ChevronUp, ChevronDown, Edit2 } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import ComboSelect from '../components/ui/ComboSelect';
+import { Dialog } from '../components/ui/Dialog';
 import { tableAPI } from '../services/api';
 
 interface PublisherCollection {
@@ -38,6 +39,7 @@ export default function PublisherCollectionsPage() {
   const [filterInputs, setFilterInputs] = useState({ publisherName: '', collectionName: '' });
   const [activeFilters, setActiveFilters] = useState({ publisherName: '', collectionName: '' });
   const [formError, setFormError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const queryClient = useQueryClient();
   const tableName = 'PublisherCollection';
@@ -166,7 +168,27 @@ export default function PublisherCollectionsPage() {
       return await tableAPI.deleteRecord(tableName, payload);
     },
     onSuccess: () => {
+      setDeleteError('');
       queryClient.invalidateQueries({ queryKey: ['table', tableName] });
+    },
+    onError: (error: any) => {
+      const backendError = String(error?.response?.data?.error || error?.message || '').trim();
+      const backendMessage = backendError.toLowerCase();
+      const referentialIntegrityConflict =
+        backendMessage.includes('reference constraint') ||
+        backendMessage.includes('foreign key') ||
+        backendMessage.includes('conflicted with the reference') ||
+        backendMessage.includes('still referenced');
+
+      if (referentialIntegrityConflict) {
+        setDeleteError(
+          backendError ||
+            'Delete failed. This publisher/collection pair is still referenced by one or more items. Reassign or remove the linked items first, then try again.'
+        );
+        return;
+      }
+
+      setDeleteError(backendError || 'Delete failed. Please try again.');
     },
   });
 
@@ -174,6 +196,8 @@ export default function PublisherCollectionsPage() {
     if (!confirm('Are you sure you want to delete this record?')) {
       return;
     }
+
+    setDeleteError('');
 
     if (record.PublisherCollectionID != null) {
       deleteMutation.mutate(record.PublisherCollectionID);
@@ -544,6 +568,27 @@ export default function PublisherCollectionsPage() {
             </tbody>
           </table>
         </div>
+
+        <Dialog
+          open={!!deleteError}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteError('');
+            }
+          }}
+          title="Delete Failed"
+          onClose={() => setDeleteError('')}
+          contentClassName="max-w-lg"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-red-700">{deleteError}</p>
+            <div className="flex justify-end">
+              <Button onClick={() => setDeleteError('')} className="bg-red-600 hover:bg-red-700">
+                OK
+              </Button>
+            </div>
+          </div>
+        </Dialog>
       </div>
     </AdminLayout>
   );
