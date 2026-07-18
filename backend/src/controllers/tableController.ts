@@ -1749,6 +1749,31 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
       data.ItemVersion = normalizedItemVersion;
     }
 
+    if (tableName === 'RPGSystem') {
+      const rpgSystemName = normalizeBulkText(data.RPGSystemName);
+      const rpgSystemUrl = normalizeItemVersion(data.RPGSystemURL);
+      const rpgSystemDescription = normalizeItemVersion(data.RPGSystemDescription);
+
+      if (!rpgSystemName) {
+        res.status(400).json({ error: 'RPGSystemName is required.' });
+        return;
+      }
+
+      const request = pool.request();
+      request.input('RPGSystemName', sql.NVarChar(255), rpgSystemName);
+      request.input('RPGSystemURL', sql.NVarChar(sql.MAX), rpgSystemUrl);
+      request.input('RPGSystemDescription', sql.NVarChar(sql.MAX), rpgSystemDescription);
+
+      await request.query(`
+        INSERT INTO [RPGSystem] ([RPGSystemID], [RPGSystemName], [RPGSystemURL], [RPGSystemDescription])
+        SELECT ISNULL(MAX([RPGSystemID]), 0) + 1, @RPGSystemName, @RPGSystemURL, @RPGSystemDescription
+        FROM [RPGSystem] WITH (UPDLOCK, HOLDLOCK)
+      `);
+
+      res.status(201).json({ success: true, message: 'Record created' });
+      return;
+    }
+
     const request = pool.request();
 
     const columns = Object.keys(data);
@@ -1972,6 +1997,22 @@ export async function deleteRecordByQuery(req: Request, res: Response): Promise<
       request.input('publisherId', sql.Int, publisherId);
       request.input('collectionId', sql.Int, collectionId);
       await request.query(`DELETE FROM [${tableName}] WHERE [PublisherID] = @publisherId AND [CollectionID] = @collectionId`);
+      res.json({ success: true, message: 'Record deleted' });
+      return;
+    }
+
+    if (tableName === 'CollectionRPGSystem') {
+      const collectionId = parseInt(req.query.collectionId as string, 10);
+      const rpgSystemId = parseInt(req.query.rpgSystemId as string, 10);
+
+      if (!Number.isInteger(collectionId) || !Number.isInteger(rpgSystemId)) {
+        res.status(400).json({ error: 'collectionId and rpgSystemId are required' });
+        return;
+      }
+
+      request.input('collectionId', sql.Int, collectionId);
+      request.input('rpgSystemId', sql.Int, rpgSystemId);
+      await request.query(`DELETE FROM [${tableName}] WHERE [CollectionID] = @collectionId AND [RPGSystemID] = @rpgSystemId`);
       res.json({ success: true, message: 'Record deleted' });
       return;
     }

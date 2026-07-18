@@ -12,10 +12,12 @@ const CollectionTypesPage = lazy(() => import('./pages/CollectionTypesPage'));
 const CategoriesPage = lazy(() => import('./pages/CategoriesPage'));
 const SubTypesPage = lazy(() => import('./pages/SubTypesPage'));
 const PublishersPage = lazy(() => import('./pages/PublishersPage'));
+const RPGSystemsPage = lazy(() => import('./pages/RPGSystemsPage'));
 const StatusPage = lazy(() => import('./pages/StatusPage'));
 const StoresPage = lazy(() => import('./pages/StoresPage'));
 const CategorySubTypesPage = lazy(() => import('./pages/CategorySubTypesPage'));
 const PublisherCollectionsPage = lazy(() => import('./pages/PublisherCollectionsPage'));
+const CollectionRPGSystemsPage = lazy(() => import('./pages/CollectionRPGSystemsPage'));
 const InventoryLookupPage = lazy(() => import('./pages/InventoryLookupPage'));
 const OrderMasterPage = lazy(() => import('./pages/OrderMasterPage'));
 const ManageSetupPage = lazy(() => import('./home/ManageSetupPage'));
@@ -39,8 +41,10 @@ function App() {
               <Route path="orders" element={<OrderMasterPage />} />
               <Route path="setup" element={<ManageSetupPage />}>
                 <Route path="publishers" element={<PublishersPage />} />
+                <Route path="rpg-systems" element={<RPGSystemsPage />} />
                 <Route path="collections" element={<CollectionsPage />} />
                 <Route path="publisher-collections" element={<PublisherCollectionsPage />} />
+                <Route path="collection-rpg-systems" element={<CollectionRPGSystemsPage />} />
                 <Route path="collection-types" element={<CollectionTypesPage />} />
                 <Route path="categories" element={<CategoriesPage />} />
                 <Route path="sub-categories" element={<SubTypesPage />} />
@@ -55,10 +59,12 @@ function App() {
             <Route path="/admin/categories" element={<Navigate to="/home/setup/categories" replace />} />
             <Route path="/admin/subtypes" element={<Navigate to="/home/setup/sub-categories" replace />} />
             <Route path="/admin/publishers" element={<Navigate to="/home/setup/publishers" replace />} />
+            <Route path="/admin/rpg-systems" element={<Navigate to="/home/setup/rpg-systems" replace />} />
             <Route path="/admin/status" element={<Navigate to="/home/setup/status" replace />} />
             <Route path="/admin/stores" element={<Navigate to="/home/setup/stores" replace />} />
             <Route path="/admin/category-subtypes" element={<Navigate to="/home/setup/category-sub-categories" replace />} />
             <Route path="/admin/publisher-collections" element={<Navigate to="/home/setup/publisher-collections" replace />} />
+            <Route path="/admin/collection-rpg-systems" element={<Navigate to="/home/setup/collection-rpg-systems" replace />} />
             <Route path="/admin/inventory" element={<RedirectWithSearch to="/home/inventory" />} />
             <Route path="/admin/order-master" element={<RedirectWithSearch to="/home/orders" />} />
             <Route path="*" element={<Navigate to="/" />} />

@@ -7,8 +7,10 @@ type SetupNavItem = {
 
 const SETUP_NAV_ITEMS: SetupNavItem[] = [
   { label: 'Publishers', path: '/home/setup/publishers' },
+  { label: 'RPG Systems', path: '/home/setup/rpg-systems' },
   { label: 'Collections', path: '/home/setup/collections' },
   { label: 'Publisher / Collections', path: '/home/setup/publisher-collections' },
+  { label: 'Collection / RPG Systems', path: '/home/setup/collection-rpg-systems' },
   { label: 'Collection Types', path: '/home/setup/collection-types' },
   { label: 'Categories', path: '/home/setup/categories' },
   { label: 'Sub Categories', path: '/home/setup/sub-categories' },
