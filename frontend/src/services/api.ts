@@ -80,11 +80,13 @@ export const tablesAPI = {
       Publisher: string;
       Collection: string;
       ItemName: string;
-      ItemVersion?: string | null;
+      ItemVersion: string;
       Category: string;
       SubCategory: string;
       ProductID: string;
       ReleaseDate?: string | null;
+      IsPhysical: boolean;
+      IsDigital: boolean;
     }>;
   }) => api.post('/tables/items/bulk-create', data),
   

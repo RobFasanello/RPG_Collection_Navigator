@@ -363,7 +363,7 @@ export default function PublisherCollectionsPage() {
             <Button onClick={applyFilters} tabIndex={3} disabled={!hasFilterChanges}>Apply Filters</Button>
             <Button
               onClick={clearFilters}
-              className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+              className="bg-gray-600 hover:bg-gray-700"
               tabIndex={4}
               disabled={!hasFilterChanges}
             >

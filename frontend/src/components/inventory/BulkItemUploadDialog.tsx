@@ -8,14 +8,26 @@ import { Input } from '../ui/Input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table';
 import { tablesAPI } from '../../services/api';
 
-type BulkField = 'Publisher' | 'Collection' | 'ItemName' | 'ItemVersion' | 'Category' | 'SubCategory' | 'ProductID' | 'ReleaseDate';
+type BulkField =
+  | 'Publisher'
+  | 'Collection'
+  | 'ItemName'
+  | 'ItemVersion'
+  | 'Category'
+  | 'SubCategory'
+  | 'ProductID'
+  | 'ReleaseDate'
+  | 'IsPhysical'
+  | 'IsDigital';
 
 interface UploadRow {
   id: number;
   rowNumber: number;
   values: Record<BulkField, string>;
   errors: string[];
+  warnings: string[];
   success: boolean;
+  isManual: boolean;
   duplicateCheckRequested: boolean;
 }
 
@@ -36,6 +48,8 @@ interface BulkItemUploadDialogProps {
   collectionOptions: OptionItem[];
   categoryOptions: OptionItem[];
   subTypeOptions: OptionItem[];
+  publisherCollectionLinks: Array<{ PublisherID: number; CollectionID: number }>;
+  categorySubTypeLinks: Array<{ CategoryID: number; SubTypeID: number }>;
   onItemsAdded?: () => void;
 }
 
@@ -49,7 +63,7 @@ interface BulkCreateResult {
   }>;
 }
 
-const REQUIRED_FIELDS: BulkField[] = ['Publisher', 'Collection', 'ItemName', 'Category', 'SubCategory', 'ProductID'];
+const REQUIRED_ROW_FIELDS: BulkField[] = ['Publisher', 'Collection', 'ItemName', 'ItemVersion', 'Category', 'SubCategory', 'ProductID'];
 const ALL_FIELDS: BulkField[] = [
   'Publisher',
   'Collection',
@@ -59,6 +73,8 @@ const ALL_FIELDS: BulkField[] = [
   'SubCategory',
   'ProductID',
   'ReleaseDate',
+  'IsPhysical',
+  'IsDigital',
 ];
 
 const HEADER_ALIASES: Record<string, BulkField> = {
@@ -68,6 +84,7 @@ const HEADER_ALIASES: Record<string, BulkField> = {
   collections: 'Collection',
   itemname: 'ItemName',
   item: 'ItemName',
+  'item name': 'ItemName',
   itemnames: 'ItemName',
   itemversion: 'ItemVersion',
   version: 'ItemVersion',
@@ -79,15 +96,27 @@ const HEADER_ALIASES: Record<string, BulkField> = {
   subcat: 'SubCategory',
   'sub type': 'SubCategory',
   productid: 'ProductID',
+  'product id': 'ProductID',
   product: 'ProductID',
   sku: 'ProductID',
   releasedate: 'ReleaseDate',
   release: 'ReleaseDate',
   'release date': 'ReleaseDate',
+  isphysical: 'IsPhysical',
+  'is physical': 'IsPhysical',
+  physical: 'IsPhysical',
+  isdigital: 'IsDigital',
+  'is digital': 'IsDigital',
+  digital: 'IsDigital',
 };
 
 const BULK_UPLOAD_TEMPLATE_URL = '/templates/Bulk%20Upload%20Template.xlsx';
 const ITEM_VERSION_MAX_LENGTH = 15;
+const POSITIVE_FLAG_VALUES = new Set(['y', 'yes', 't', 'true', 'x', '1']);
+const NEGATIVE_FLAG_VALUES = new Set(['n', 'no', 'f', 'false', '0']);
+const BASE_SELECT_CLASS_NAME = 'mt-1 block w-full border rounded-md p-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500';
+const ERROR_FIELD_CLASS_NAME = 'border-red-500 bg-red-50 focus:ring-red-500';
+const WARNING_FIELD_CLASS_NAME = 'border-amber-400 bg-amber-50 focus:ring-amber-500';
 
 function normalizeHeader(value: unknown): string {
   return String(value ?? '')
@@ -151,16 +180,50 @@ function parseDateForUpload(value: string): { normalized: string; error?: string
   return { normalized: raw, error: 'Release Date must be YYYY-MM-DD or MM/DD/YYYY.' };
 }
 
+function parseBooleanFlagForUpload(
+  value: string,
+  label: string
+): { normalized: string; booleanValue: boolean | null; error?: string } {
+  const raw = value.trim();
+  if (!raw) {
+    return { normalized: '', booleanValue: null };
+  }
+
+  const normalized = raw.toLowerCase();
+  if (POSITIVE_FLAG_VALUES.has(normalized)) {
+    return { normalized: 'true', booleanValue: true };
+  }
+
+  if (NEGATIVE_FLAG_VALUES.has(normalized)) {
+    return { normalized: 'false', booleanValue: false };
+  }
+
+  return {
+    normalized: raw,
+    booleanValue: null,
+    error: `${label} must be one of Y, Yes, T, True, X, 1, N, No, F, False, or 0.`,
+  };
+}
+
 function buildRowValidation(
   rows: UploadRow[],
   publisherOptions: OptionItem[],
   collectionOptions: OptionItem[],
   categoryOptions: OptionItem[],
-  subTypeOptions: OptionItem[]
+  subTypeOptions: OptionItem[],
+  publisherCollectionLinks: Array<{ PublisherID: number; CollectionID: number }>,
+  categorySubTypeLinks: Array<{ CategoryID: number; SubTypeID: number }>
 ): UploadRow[] {
-  const publisherNames = new Set(publisherOptions.map((option) => normalizeKey(option.label)));
-  const collectionLookup = new Map<string, string[]>();
-  const addCollectionLookup = (key: string, value: string) => {
+  const publisherByName = new Map<string, number>();
+  publisherOptions.forEach((option) => {
+    const publisherId = Number(option.value);
+    if (Number.isFinite(publisherId)) {
+      publisherByName.set(normalizeKey(option.label), publisherId);
+    }
+  });
+
+  const collectionLookup = new Map<string, number[]>();
+  const addCollectionLookup = (key: string, value: number) => {
     if (!key) {
       return;
     }
@@ -174,50 +237,80 @@ function buildRowValidation(
     }
   };
   collectionOptions.forEach((option) => {
-    const optionValue = String(option.value ?? option.label);
+    const optionValue = Number(option.value ?? option.label);
     const optionLabel = String(option.label ?? option.value);
-    addCollectionLookup(normalizeKey(optionValue), optionValue);
+    if (!Number.isFinite(optionValue)) {
+      return;
+    }
+    addCollectionLookup(normalizeKey(String(optionValue)), optionValue);
     addCollectionLookup(normalizeKey(optionLabel), optionValue);
     addCollectionLookup(normalizeKey(stripCollectionTypeSuffix(optionLabel)), optionValue);
   });
-  const categoryNames = new Set(categoryOptions.map((option) => normalizeKey(option.label)));
-  const subTypeNames = new Set(subTypeOptions.map((option) => normalizeKey(option.label)));
-  const duplicateMap = new Map<string, number>();
+  const categoryByName = new Map<string, number>();
+  categoryOptions.forEach((option) => {
+    const categoryId = Number(option.value);
+    if (Number.isFinite(categoryId)) {
+      categoryByName.set(normalizeKey(option.label), categoryId);
+    }
+  });
+  const subTypeByName = new Map<string, number>();
+  subTypeOptions.forEach((option) => {
+    const subTypeId = Number(option.value);
+    if (Number.isFinite(subTypeId)) {
+      subTypeByName.set(normalizeKey(option.label), subTypeId);
+    }
+  });
+  const publisherCollectionSet = new Set(
+    publisherCollectionLinks.map((link) => `${Number(link.PublisherID)}:${Number(link.CollectionID)}`)
+  );
+  const categorySubTypeSet = new Set(
+    categorySubTypeLinks.map((link) => `${Number(link.CategoryID)}:${Number(link.SubTypeID)}`)
+  );
+  const duplicateItemProductMap = new Map<string, number>();
+  const duplicateItemNameMap = new Map<string, number>();
 
   rows.forEach((row) => {
     if (row.success) {
       return;
     }
-    const itemKey = `${normalizeKey(row.values.ItemName)}::${normalizeKey(row.values.ProductID)}`;
-    if (!itemKey || itemKey === '::') {
-      return;
+    const itemNameKey = normalizeKey(row.values.ItemName);
+    if (itemNameKey) {
+      duplicateItemNameMap.set(itemNameKey, (duplicateItemNameMap.get(itemNameKey) || 0) + 1);
     }
-    duplicateMap.set(itemKey, (duplicateMap.get(itemKey) || 0) + 1);
+
+    const itemProductKey = `${itemNameKey}::${normalizeKey(row.values.ProductID)}`;
+    if (itemProductKey && itemProductKey !== '::') {
+      duplicateItemProductMap.set(itemProductKey, (duplicateItemProductMap.get(itemProductKey) || 0) + 1);
+    }
   });
 
   return rows.map((row) => {
     if (row.success) {
-      return { ...row, errors: [] };
+      return { ...row, errors: [], warnings: [] };
     }
 
     const nextErrors: string[] = [];
+    const nextWarnings: string[] = [];
 
-    REQUIRED_FIELDS.forEach((field) => {
+    REQUIRED_ROW_FIELDS.forEach((field) => {
       if (!row.values[field].trim()) {
         nextErrors.push(`${field} is required.`);
       }
     });
 
-    if (row.values.Publisher.trim() && !publisherNames.has(normalizeKey(row.values.Publisher))) {
+    const publisherId = publisherByName.get(normalizeKey(row.values.Publisher));
+    if (row.values.Publisher.trim() && !publisherId) {
       nextErrors.push(`Publisher "${row.values.Publisher}" was not found.`);
     }
 
     const rawCollection = row.values.Collection.trim();
     let normalizedCollection = rawCollection;
+    let collectionId: number | undefined;
     if (rawCollection) {
       const matches = collectionLookup.get(normalizeKey(rawCollection)) || [];
       if (matches.length === 1) {
-        normalizedCollection = matches[0];
+        collectionId = matches[0];
+        normalizedCollection = String(matches[0]);
       } else if (matches.length === 0) {
         nextErrors.push(`Collection "${row.values.Collection}" was not found.`);
       } else {
@@ -225,12 +318,22 @@ function buildRowValidation(
       }
     }
 
-    if (row.values.Category.trim() && !categoryNames.has(normalizeKey(row.values.Category))) {
+    const categoryId = categoryByName.get(normalizeKey(row.values.Category));
+    if (row.values.Category.trim() && !categoryId) {
       nextErrors.push(`Category "${row.values.Category}" was not found.`);
     }
 
-    if (row.values.SubCategory.trim() && !subTypeNames.has(normalizeKey(row.values.SubCategory))) {
+    const subTypeId = subTypeByName.get(normalizeKey(row.values.SubCategory));
+    if (row.values.SubCategory.trim() && !subTypeId) {
       nextErrors.push(`SubCategory "${row.values.SubCategory}" was not found.`);
+    }
+
+    if (publisherId && collectionId && !publisherCollectionSet.has(`${publisherId}:${collectionId}`)) {
+      nextErrors.push('Publisher and Collection are not a valid combination.');
+    }
+
+    if (categoryId && subTypeId && !categorySubTypeSet.has(`${categoryId}:${subTypeId}`)) {
+      nextErrors.push('Category and SubCategory are not a valid combination.');
     }
 
     const dateParse = parseDateForUpload(row.values.ReleaseDate);
@@ -238,13 +341,32 @@ function buildRowValidation(
       nextErrors.push(dateParse.error);
     }
 
+    const physicalParse = parseBooleanFlagForUpload(row.values.IsPhysical, 'Is Physical');
+    if (physicalParse.error) {
+      nextErrors.push(physicalParse.error);
+    }
+
+    const digitalParse = parseBooleanFlagForUpload(row.values.IsDigital, 'Is Digital');
+    if (digitalParse.error) {
+      nextErrors.push(digitalParse.error);
+    }
+
+    if (physicalParse.booleanValue !== true && digitalParse.booleanValue !== true) {
+      nextErrors.push('At least one of Is Physical or Is Digital must be positive.');
+    }
+
     if (row.values.ItemVersion.trim().length > ITEM_VERSION_MAX_LENGTH) {
       nextErrors.push(`ItemVersion must be ${ITEM_VERSION_MAX_LENGTH} characters or fewer.`);
     }
 
     const duplicateKey = `${normalizeKey(row.values.ItemName)}::${normalizeKey(row.values.ProductID)}`;
-    if (duplicateKey !== '::' && (duplicateMap.get(duplicateKey) || 0) > 1) {
+    if (duplicateKey !== '::' && (duplicateItemProductMap.get(duplicateKey) || 0) > 1) {
       nextErrors.push('Duplicate ItemName and ProductID exists in this upload file.');
+    }
+
+    const duplicateItemNameKey = normalizeKey(row.values.ItemName);
+    if (duplicateItemNameKey && (duplicateItemNameMap.get(duplicateItemNameKey) || 0) > 1) {
+      nextWarnings.push('Duplicate Item Name exists in this upload file.');
     }
 
     return {
@@ -253,8 +375,11 @@ function buildRowValidation(
         ...row.values,
         Collection: normalizedCollection,
         ReleaseDate: dateParse.normalized,
+        IsPhysical: physicalParse.normalized,
+        IsDigital: digitalParse.normalized,
       },
       errors: nextErrors,
+      warnings: nextWarnings,
     };
   });
 }
@@ -269,7 +394,46 @@ function emptyRowValues(): Record<BulkField, string> {
     SubCategory: '',
     ProductID: '',
     ReleaseDate: '',
+    IsPhysical: '',
+    IsDigital: '',
   };
+}
+
+function getErrorFields(row: UploadRow): Set<BulkField> {
+  const fields = new Set<BulkField>();
+
+  row.errors.forEach((error) => {
+    if (error.startsWith('Publisher ')) fields.add('Publisher');
+    if (error.startsWith('Collection ')) fields.add('Collection');
+    if (error.startsWith('ItemName ') || error.startsWith('An item with') || error.startsWith('Duplicate ItemName')) fields.add('ItemName');
+    if (error.startsWith('ItemVersion ')) fields.add('ItemVersion');
+    if (error.startsWith('Category ')) fields.add('Category');
+    if (error.startsWith('SubCategory ')) fields.add('SubCategory');
+    if (error.startsWith('ProductID ') || error.startsWith('An item with') || error.startsWith('Duplicate ItemName')) fields.add('ProductID');
+    if (error.startsWith('Release Date') || error.startsWith('ReleaseDate')) fields.add('ReleaseDate');
+    if (error.startsWith('Is Physical') || error.startsWith('At least one of')) fields.add('IsPhysical');
+    if (error.startsWith('Is Digital') || error.startsWith('At least one of')) fields.add('IsDigital');
+    if (error.startsWith('Publisher and Collection')) {
+      fields.add('Publisher');
+      fields.add('Collection');
+    }
+    if (error.startsWith('Category and SubCategory')) {
+      fields.add('Category');
+      fields.add('SubCategory');
+    }
+  });
+
+  return fields;
+}
+
+function getWarningFields(row: UploadRow): Set<BulkField> {
+  const fields = new Set<BulkField>();
+
+  row.warnings.forEach((warning) => {
+    if (warning.startsWith('Duplicate Item Name')) fields.add('ItemName');
+  });
+
+  return fields;
 }
 
 export default function BulkItemUploadDialog({
@@ -279,12 +443,15 @@ export default function BulkItemUploadDialog({
   collectionOptions,
   categoryOptions,
   subTypeOptions,
+  publisherCollectionLinks,
+  categorySubTypeLinks,
   onItemsAdded,
 }: BulkItemUploadDialogProps) {
   const [rows, setRows] = useState<UploadRow[]>([]);
   const [parseError, setParseError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [removedCount, setRemovedCount] = useState(0);
+  const [addedCount, setAddedCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const publisherSelectOptions = useMemo<SelectOption[]>(
@@ -311,8 +478,123 @@ export default function BulkItemUploadDialog({
     [subTypeOptions]
   );
 
+  const publisherIdByName = useMemo(() => {
+    const map = new Map<string, number>();
+    publisherOptions.forEach((option) => {
+      const publisherId = Number(option.value);
+      if (Number.isFinite(publisherId)) {
+        map.set(normalizeKey(option.label), publisherId);
+      }
+    });
+    return map;
+  }, [publisherOptions]);
+
+  const categoryIdByName = useMemo(() => {
+    const map = new Map<string, number>();
+    categoryOptions.forEach((option) => {
+      const categoryId = Number(option.value);
+      if (Number.isFinite(categoryId)) {
+        map.set(normalizeKey(option.label), categoryId);
+      }
+    });
+    return map;
+  }, [categoryOptions]);
+
+  const subTypeIdByName = useMemo(() => {
+    const map = new Map<string, number>();
+    subTypeOptions.forEach((option) => {
+      const subTypeId = Number(option.value);
+      if (Number.isFinite(subTypeId)) {
+        map.set(normalizeKey(option.label), subTypeId);
+      }
+    });
+    return map;
+  }, [subTypeOptions]);
+
+  const collectionIdsByPublisherId = useMemo(() => {
+    const map = new Map<number, Set<number>>();
+    publisherCollectionLinks.forEach((link) => {
+      const publisherId = Number(link.PublisherID);
+      const collectionId = Number(link.CollectionID);
+      if (!Number.isFinite(publisherId) || !Number.isFinite(collectionId)) {
+        return;
+      }
+      const existing = map.get(publisherId) || new Set<number>();
+      existing.add(collectionId);
+      map.set(publisherId, existing);
+    });
+    return map;
+  }, [publisherCollectionLinks]);
+
+  const subTypeIdsByCategoryId = useMemo(() => {
+    const map = new Map<number, Set<number>>();
+    categorySubTypeLinks.forEach((link) => {
+      const categoryId = Number(link.CategoryID);
+      const subTypeId = Number(link.SubTypeID);
+      if (!Number.isFinite(categoryId) || !Number.isFinite(subTypeId)) {
+        return;
+      }
+      const existing = map.get(categoryId) || new Set<number>();
+      existing.add(subTypeId);
+      map.set(categoryId, existing);
+    });
+    return map;
+  }, [categorySubTypeLinks]);
+
+  const getFieldClassName = (errorFields: Set<BulkField>, warningFields: Set<BulkField>, field: BulkField) => {
+    if (errorFields.has(field)) {
+      return ERROR_FIELD_CLASS_NAME;
+    }
+
+    return warningFields.has(field) ? WARNING_FIELD_CLASS_NAME : '';
+  };
+
+  const getSelectClassName = (errorFields: Set<BulkField>, warningFields: Set<BulkField>, field: BulkField) =>
+    `${BASE_SELECT_CLASS_NAME} ${getFieldClassName(errorFields, warningFields, field)}`;
+
+  const getCollectionOptionsForRow = (row: UploadRow) => {
+    const publisherId = publisherIdByName.get(normalizeKey(row.values.Publisher));
+    if (!publisherId) {
+      return collectionSelectOptions;
+    }
+
+    const allowedCollectionIds = collectionIdsByPublisherId.get(publisherId);
+    if (!allowedCollectionIds) {
+      return [];
+    }
+
+    return collectionSelectOptions.filter((option) => allowedCollectionIds.has(Number(option.value)));
+  };
+
+  const getSubTypeOptionsForRow = (row: UploadRow) => {
+    const categoryId = categoryIdByName.get(normalizeKey(row.values.Category));
+    if (!categoryId) {
+      return subTypeSelectOptions;
+    }
+
+    const allowedSubTypeIds = subTypeIdsByCategoryId.get(categoryId);
+    if (!allowedSubTypeIds) {
+      return [];
+    }
+
+    return subTypeSelectOptions.filter((option) => {
+      const subTypeId = subTypeIdByName.get(normalizeKey(option.label));
+      return subTypeId !== undefined && allowedSubTypeIds.has(subTypeId);
+    });
+  };
+
   const recalculateRows = (nextRows: UploadRow[]) => {
-    setRows(buildRowValidation(nextRows, publisherOptions, collectionOptions, categoryOptions, subTypeOptions));
+    setRows(
+      buildRowValidation(
+        nextRows,
+        publisherOptions,
+        collectionOptions,
+        categoryOptions,
+        subTypeOptions,
+        publisherCollectionLinks,
+        categorySubTypeLinks
+      )
+    );
   };
 
   useEffect(() => {
@@ -321,6 +603,7 @@ export default function BulkItemUploadDialog({
       setParseError('');
       setIsDragging(false);
       setRemovedCount(0);
+      setAddedCount(0);
     }
   }, [open]);
 
@@ -329,7 +612,6 @@ export default function BulkItemUploadDialog({
   }, [rows]);
 
   const invalidRows = useMemo(() => rows.filter((row) => !row.success && row.errors.length > 0), [rows]);
-  const successRows = useMemo(() => rows.filter((row) => row.success), [rows]);
 
   const bulkAddMutation = useMutation({
     mutationFn: async (payloadRows: UploadRow[]) => {
@@ -338,21 +620,28 @@ export default function BulkItemUploadDialog({
         Publisher: row.values.Publisher.trim(),
         Collection: row.values.Collection.trim(),
         ItemName: row.values.ItemName.trim(),
-        ItemVersion: row.values.ItemVersion.trim() || null,
+        ItemVersion: row.values.ItemVersion.trim(),
         Category: row.values.Category.trim(),
         SubCategory: row.values.SubCategory.trim(),
         ProductID: row.values.ProductID.trim(),
         ReleaseDate: row.values.ReleaseDate.trim() || null,
+        IsPhysical: row.values.IsPhysical === 'true',
+        IsDigital: row.values.IsDigital === 'true',
       }));
 
       const response = await tablesAPI.bulkCreateItems({ rows: payload });
       return response.data as BulkCreateResult;
     },
-    onSuccess: (result) => {
+    onSuccess: (result, payloadRows) => {
       const byRowNumber = new Map<number, { success: boolean; errors: string[] }>();
       result.rowResults.forEach((entry) => {
         byRowNumber.set(entry.rowNumber, { success: entry.success, errors: entry.errors || [] });
       });
+
+      const manualInsertedCount = payloadRows.filter((row) => {
+        const serverResult = byRowNumber.get(row.rowNumber);
+        return row.isManual && serverResult?.success;
+      }).length;
 
       setRows((current) =>
         current.map((row) => {
@@ -369,11 +658,15 @@ export default function BulkItemUploadDialog({
             ...row,
             success: serverResult.success,
             errors: serverResult.success ? [] : [...new Set([...row.errors, ...serverResult.errors])],
+            warnings: serverResult.success ? [] : row.warnings,
           };
         })
       );
 
       if (result.insertedCount > 0) {
+        if (manualInsertedCount > 0) {
+          setAddedCount((current) => current + manualInsertedCount);
+        }
         onItemsAdded?.();
       }
     },
@@ -400,6 +693,7 @@ export default function BulkItemUploadDialog({
       }
 
       setRemovedCount(0);
+    setAddedCount(0);
 
       const rawRows: string[][] = sourceRows.map((row: unknown[]) =>
         row.map((value: unknown) => normalizeText(value))
@@ -420,7 +714,7 @@ export default function BulkItemUploadDialog({
         }
       });
 
-      const missingRequired = REQUIRED_FIELDS.filter((field) => !columnIndexByField.has(field));
+      const missingRequired = ALL_FIELDS.filter((field) => !columnIndexByField.has(field));
       if (missingRequired.length > 0) {
         setParseError(`Missing required column${missingRequired.length === 1 ? '' : 's'}: ${missingRequired.join(', ')}.`);
         return;
@@ -450,7 +744,9 @@ export default function BulkItemUploadDialog({
           rowNumber: i,
           values,
           errors: [],
+          warnings: [],
           success: false,
+          isManual: false,
           duplicateCheckRequested: false,
         });
       }
@@ -523,6 +819,10 @@ export default function BulkItemUploadDialog({
 
   const handleRemoveRow = (rowId: number) => {
     setParseError('');
+    const removedRow = rows.find((row) => row.id === rowId);
+    if (removedRow?.isManual && removedRow.success) {
+      setAddedCount((current) => Math.max(0, current - 1));
+    }
     const nextRows = rows.filter((row) => row.id !== rowId);
     setRemovedCount((current) => current + 1);
     recalculateRows(nextRows);
@@ -540,7 +840,9 @@ export default function BulkItemUploadDialog({
         rowNumber: nextRowNumber,
         values: emptyRowValues(),
         errors: [],
+        warnings: [],
         success: false,
+        isManual: true,
         duplicateCheckRequested: false,
       },
     ];
@@ -564,6 +866,7 @@ export default function BulkItemUploadDialog({
       onOpenChange={onOpenChange}
       title="Bulk Upload Item Master"
       contentClassName="max-w-[95vw]"
+      showCloseButton={false}
     >
       <div className="space-y-5">
         <div
@@ -597,9 +900,9 @@ export default function BulkItemUploadDialog({
         </div>
 
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-          Required columns: Publisher, Collection, ItemName, Category, SubCategory, ProductID. Optional: ItemVersion, ReleaseDate.
-          ItemVersion supports up to 15 characters.
-          Aliases supported: Item, Item Name, Version, Item Version, Sub Type, Sub Category, Release Date.
+          Required columns: Publisher, Collection, Item Name, Version, Category,
+          Sub Category, Product ID, Is Physical, and Is Digital.
+          Release Date is not required.  Data validation will be performed on all rows, and any errors or warnings will be displayed in the table below.
           <div className="mt-2">
             <a
               href={BULK_UPLOAD_TEMPLATE_URL}
@@ -621,12 +924,12 @@ export default function BulkItemUploadDialog({
           <span>Total rows: {rows.length}</span>
           <span>Ready: {readyRows.length}</span>
           <span>Invalid: {invalidRows.length}</span>
-          <span>Added: {successRows.length}</span>
+          <span>Added: {addedCount}</span>
           <span>Removed: {removedCount}</span>
         </div>
 
         <div className="max-h-[50vh] overflow-auto rounded-lg border border-gray-200">
-          <Table className="min-w-[1200px]">
+          <Table className="min-w-[1450px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Row</TableHead>
@@ -638,6 +941,8 @@ export default function BulkItemUploadDialog({
                 <TableHead>Sub Category</TableHead>
                 <TableHead>Product ID</TableHead>
                 <TableHead>Release Date</TableHead>
+                <TableHead>Is Physical</TableHead>
+                <TableHead>Is Digital</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Action</TableHead>
               </TableRow>
@@ -645,12 +950,18 @@ export default function BulkItemUploadDialog({
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="py-10 text-center text-gray-500">
+                  <TableCell colSpan={13} className="py-10 text-center text-gray-500">
                     Upload a file to preview and validate rows.
                   </TableCell>
                 </TableRow>
               ) : (
-                rows.map((row) => (
+                rows.map((row) => {
+                  const errorFields = getErrorFields(row);
+                  const warningFields = getWarningFields(row);
+                  const rowCollectionOptions = getCollectionOptionsForRow(row);
+                  const rowSubTypeOptions = getSubTypeOptionsForRow(row);
+
+                  return (
                   <TableRow key={row.id} className={row.success ? 'bg-green-50' : ''}>
                     <TableCell className="whitespace-nowrap align-top">{row.rowNumber}</TableCell>
                     <TableCell className="align-top">
@@ -658,7 +969,7 @@ export default function BulkItemUploadDialog({
                         value={row.values.Publisher}
                         onChange={(event) => handleCellChange(row.id, 'Publisher', event.target.value)}
                         disabled={row.success}
-                        className="mt-1 block w-full border rounded-md p-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={getSelectClassName(errorFields, warningFields, 'Publisher')}
                       >
                         <option value="">Select publisher</option>
                         {publisherSelectOptions.map((option) => (
@@ -673,10 +984,10 @@ export default function BulkItemUploadDialog({
                         value={row.values.Collection}
                         onChange={(event) => handleCellChange(row.id, 'Collection', event.target.value)}
                         disabled={row.success}
-                        className="mt-1 block w-full border rounded-md p-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={getSelectClassName(errorFields, warningFields, 'Collection')}
                       >
                         <option value="">Select collection</option>
-                        {collectionSelectOptions.map((option) => (
+                        {rowCollectionOptions.map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
                           </option>
@@ -690,6 +1001,7 @@ export default function BulkItemUploadDialog({
                         onBlur={() => handleDuplicateFieldBlur(row.id)}
                         disabled={row.success}
                         placeholder="Item name"
+                        className={getFieldClassName(errorFields, warningFields, 'ItemName')}
                       />
                     </TableCell>
                     <TableCell className="align-top">
@@ -699,6 +1011,7 @@ export default function BulkItemUploadDialog({
                         disabled={row.success}
                         placeholder="Version"
                         maxLength={ITEM_VERSION_MAX_LENGTH}
+                        className={getFieldClassName(errorFields, warningFields, 'ItemVersion')}
                       />
                     </TableCell>
                     <TableCell className="align-top">
@@ -706,7 +1019,7 @@ export default function BulkItemUploadDialog({
                         value={row.values.Category}
                         onChange={(event) => handleCellChange(row.id, 'Category', event.target.value)}
                         disabled={row.success}
-                        className="mt-1 block w-full border rounded-md p-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={getSelectClassName(errorFields, warningFields, 'Category')}
                       >
                         <option value="">Select category</option>
                         {categorySelectOptions.map((option) => (
@@ -721,10 +1034,10 @@ export default function BulkItemUploadDialog({
                         value={row.values.SubCategory}
                         onChange={(event) => handleCellChange(row.id, 'SubCategory', event.target.value)}
                         disabled={row.success}
-                        className="mt-1 block w-full border rounded-md p-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={getSelectClassName(errorFields, warningFields, 'SubCategory')}
                       >
                         <option value="">Select sub category</option>
-                        {subTypeSelectOptions.map((option) => (
+                        {rowSubTypeOptions.map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
                           </option>
@@ -737,6 +1050,7 @@ export default function BulkItemUploadDialog({
                         onChange={(event) => handleCellChange(row.id, 'ProductID', event.target.value)}
                         onBlur={() => handleDuplicateFieldBlur(row.id)}
                         disabled={row.success}
+                        className={getFieldClassName(errorFields, warningFields, 'ProductID')}
                       />
                     </TableCell>
                     <TableCell className="align-top">
@@ -745,19 +1059,52 @@ export default function BulkItemUploadDialog({
                         value={row.values.ReleaseDate}
                         onChange={(event) => handleCellChange(row.id, 'ReleaseDate', event.target.value)}
                         disabled={row.success}
+                        className={getFieldClassName(errorFields, warningFields, 'ReleaseDate')}
                       />
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <select
+                        value={row.values.IsPhysical}
+                        onChange={(event) => handleCellChange(row.id, 'IsPhysical', event.target.value)}
+                        disabled={row.success}
+                        className={getSelectClassName(errorFields, warningFields, 'IsPhysical')}
+                      >
+                        <option value="">Blank</option>
+                        <option value="true">Yes</option>
+                        <option value="false">No</option>
+                      </select>
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <select
+                        value={row.values.IsDigital}
+                        onChange={(event) => handleCellChange(row.id, 'IsDigital', event.target.value)}
+                        disabled={row.success}
+                        className={getSelectClassName(errorFields, warningFields, 'IsDigital')}
+                      >
+                        <option value="">Blank</option>
+                        <option value="true">Yes</option>
+                        <option value="false">No</option>
+                      </select>
                     </TableCell>
                     <TableCell className="align-top">
                       {row.success ? (
                         <span className="text-green-700">Added</span>
                       ) : row.errors.length > 0 ? (
-                        <div className="space-y-1 text-xs text-red-700">
+                        <div className="space-y-1 text-xs">
                           {row.errors.map((errorMessage) => (
-                            <div key={`${row.id}-${errorMessage}`}>{errorMessage}</div>
+                            <div key={`${row.id}-${errorMessage}`} className="text-red-700">{errorMessage}</div>
+                          ))}
+                          {row.warnings.map((warningMessage) => (
+                            <div key={`${row.id}-${warningMessage}`} className="text-amber-700">{warningMessage}</div>
                           ))}
                         </div>
                       ) : (
-                        <span className="text-amber-700">Ready</span>
+                        <div className="space-y-1 text-xs">
+                          <div className="font-medium text-green-700">Ready</div>
+                          {row.warnings.map((warningMessage) => (
+                            <div key={`${row.id}-${warningMessage}`} className="text-amber-700">{warningMessage}</div>
+                          ))}
+                        </div>
                       )}
                     </TableCell>
                     <TableCell className="align-top text-right">
@@ -771,7 +1118,8 @@ export default function BulkItemUploadDialog({
                       </button>
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -799,7 +1147,7 @@ export default function BulkItemUploadDialog({
 
           <Button
             type="button"
-            className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+            className="bg-gray-600 hover:bg-gray-700"
             onClick={() => onOpenChange(false)}
             disabled={bulkAddMutation.isLoading}
           >

@@ -42,10 +42,10 @@ function parseOptionalBoolean(value: unknown): boolean | null {
   }
 
   const normalized = String(value).trim().toLowerCase();
-  if (['true', '1', 'yes', 'y'].includes(normalized)) {
+  if (['true', '1', 'yes', 'y', 't', 'x'].includes(normalized)) {
     return true;
   }
-  if (['false', '0', 'no', 'n'].includes(normalized)) {
+  if (['false', '0', 'no', 'n', 'f'].includes(normalized)) {
     return false;
   }
 
@@ -292,6 +292,8 @@ interface BulkCreateItemInputRow {
   SubCategory?: unknown;
   ProductID?: unknown;
   ReleaseDate?: unknown;
+  IsPhysical?: unknown;
+  IsDigital?: unknown;
 }
 
 interface BulkCreateItemNormalizedRow {
@@ -304,6 +306,8 @@ interface BulkCreateItemNormalizedRow {
   SubCategory: string;
   ProductID: string;
   ReleaseDate: Date | null;
+  IsPhysical: boolean;
+  IsDigital: boolean;
 }
 
 interface BulkCreateItemRowResult {
@@ -372,6 +376,22 @@ function parseBulkReleaseDate(value: unknown): { date: Date | null; error?: stri
   return { date: null, error: 'ReleaseDate must be YYYY-MM-DD or MM/DD/YYYY.' };
 }
 
+function parseBulkFlag(
+  value: unknown,
+  label: string
+): { value: boolean | null; error?: string } {
+  if (value === null || value === undefined || String(value).trim() === '') {
+    return { value: null };
+  }
+
+  const parsed = parseOptionalBoolean(value);
+  if (parsed === null) {
+    return { value: null, error: `${label} must be one of Y, Yes, T, True, X, 1, N, No, F, False, or 0.` };
+  }
+
+  return { value: parsed };
+}
+
 export async function bulkCreateItems(req: Request, res: Response): Promise<void> {
   const rawRows: BulkCreateItemInputRow[] = Array.isArray(req.body?.rows) ? req.body.rows : [];
 
@@ -403,6 +423,8 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
     const category = normalizeBulkText(row?.Category);
     const subCategory = normalizeBulkText(row?.SubCategory);
     const productId = normalizeBulkText(row?.ProductID);
+    const isPhysicalParse = parseBulkFlag(row?.IsPhysical, 'Is Physical');
+    const isDigitalParse = parseBulkFlag(row?.IsDigital, 'Is Digital');
 
     if (!publisher) {
       rowResults[index].errors.push('Publisher is required.');
@@ -412,6 +434,9 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
     }
     if (!itemName) {
       rowResults[index].errors.push('ItemName is required.');
+    }
+    if (!itemVersion) {
+      rowResults[index].errors.push('ItemVersion is required.');
     }
     if (!category) {
       rowResults[index].errors.push('Category is required.');
@@ -426,6 +451,18 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
     const releaseDateParse = parseBulkReleaseDate(row?.ReleaseDate);
     if (releaseDateParse.error) {
       rowResults[index].errors.push(releaseDateParse.error);
+    }
+
+    if (isPhysicalParse.error) {
+      rowResults[index].errors.push(isPhysicalParse.error);
+    }
+
+    if (isDigitalParse.error) {
+      rowResults[index].errors.push(isDigitalParse.error);
+    }
+
+    if (isPhysicalParse.value !== true && isDigitalParse.value !== true) {
+      rowResults[index].errors.push('At least one of Is Physical or Is Digital must be positive.');
     }
 
     const itemVersionError = validateItemVersion(itemVersion || null);
@@ -444,6 +481,8 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
         SubCategory: subCategory,
         ProductID: productId,
         ReleaseDate: releaseDateParse.date,
+        IsPhysical: isPhysicalParse.value === true,
+        IsDigital: isDigitalParse.value === true,
       });
     }
   });
@@ -515,6 +554,8 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
         CollectionID: number;
         CategoryID: number;
         SubTypeID: number;
+        IsPhysical: boolean;
+        IsDigital: boolean;
       };
 
       const preparedRows: PreparedInsert[] = [];
@@ -581,6 +622,8 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
             CollectionID: collectionId as number,
             CategoryID: categoryId as number,
             SubTypeID: subTypeId as number,
+            IsPhysical: row.IsPhysical,
+            IsDigital: row.IsDigital,
           });
         }
       });
@@ -597,10 +640,12 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
         insertRequest.input('CollectionID', sql.Int, row.CollectionID);
         insertRequest.input('CategoryID', sql.Int, row.CategoryID);
         insertRequest.input('SubTypeID', sql.Int, row.SubTypeID);
+        insertRequest.input('IsPhysical', sql.Bit, row.IsPhysical);
+        insertRequest.input('IsDigital', sql.Bit, row.IsDigital);
 
         await insertRequest.query(`
-          INSERT INTO [Item] ([ItemName], [ItemVersion], [ProductID], [ReleaseDate], [PublisherID], [CollectionID], [CategoryID], [SubTypeID])
-          VALUES (@ItemName, @ItemVersion, @ProductID, @ReleaseDate, @PublisherID, @CollectionID, @CategoryID, @SubTypeID)
+          INSERT INTO [Item] ([ItemName], [ItemVersion], [ProductID], [ReleaseDate], [PublisherID], [CollectionID], [CategoryID], [SubTypeID], [IsPhysical], [IsDigital])
+          VALUES (@ItemName, @ItemVersion, @ProductID, @ReleaseDate, @PublisherID, @CollectionID, @CategoryID, @SubTypeID, @IsPhysical, @IsDigital)
         `);
 
         const rowIndex = rowResultIndexByRowNumber.get(row.rowNumber);

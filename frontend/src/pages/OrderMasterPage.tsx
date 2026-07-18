@@ -1055,6 +1055,7 @@ export default function OrderMasterPage() {
         onOpenChange={setIsModalOpen}
         title="Edit Order"
         onClose={handleCloseModal}
+        showCloseButton={false}
       >
         {selectedOrder && (
           <div className="space-y-6">
@@ -1454,6 +1455,7 @@ export default function OrderMasterPage() {
         onClose={closeAddOrderModal}
         contentClassName="max-w-6xl"
         title="Add Order"
+        showCloseButton={false}
       >
         <div className="space-y-6">
           {isOnOrderStatusMissing && (

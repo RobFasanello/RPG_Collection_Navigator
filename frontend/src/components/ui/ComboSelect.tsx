@@ -135,6 +135,19 @@ const ComboSelect: React.FC<Props> = ({
     setOpen(true);
   };
 
+  const handleInputBlur = () => {
+    window.setTimeout(() => {
+      const activeElement = document.activeElement;
+      const focusInsideInput = !!ref.current && !!activeElement && ref.current.contains(activeElement);
+      const focusInsideDropdown = !!dropdownRef.current && !!activeElement && dropdownRef.current.contains(activeElement);
+
+      if (!focusInsideInput && !focusInsideDropdown) {
+        setOpen(false);
+        setSearch(selectedOption?.label ?? '');
+      }
+    }, 0);
+  };
+
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -242,6 +255,7 @@ const ComboSelect: React.FC<Props> = ({
           onChange={handleInputChange}
           onKeyDown={handleInputKeyDown}
           onFocus={handleInputFocus}
+          onBlur={handleInputBlur}
           placeholder={disabled ? 'Loading...' : placeholder}
           disabled={disabled}
           tabIndex={tabIndex}

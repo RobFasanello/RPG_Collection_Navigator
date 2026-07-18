@@ -81,6 +81,9 @@ export default function InventoryLookupPage() {
   const navigate = useNavigate();
   const [urlSearchParams] = useSearchParams();
   const addItemInputRef = useRef<HTMLInputElement>(null);
+  const editItemInputRef = useRef<HTMLInputElement>(null);
+  const firstRelatedOrderOpenButtonRef = useRef<HTMLButtonElement>(null);
+  const relatedOrdersCloseButtonRef = useRef<HTMLButtonElement>(null);
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<string>('ItemName');
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('ASC');
@@ -1567,6 +1570,44 @@ export default function InventoryLookupPage() {
     setEditError('');
   };
 
+  const originalEditValues = useMemo(() => {
+    if (!editingItem) {
+      return null;
+    }
+
+    return {
+      ItemName: editingItem.ItemName || '',
+      ItemVersion: editingItem.ItemVersion || '',
+      ProductID: editingItem.ProductID || '',
+      ReleaseDate: formatReleaseDateForModal(editingItem.ReleaseDate),
+      IsPhysical: Boolean(editingItem.IsPhysical),
+      IsDigital: Boolean(editingItem.IsDigital),
+      PublisherID: String(editingItem.PublisherID),
+      CollectionID: String(editingItem.CollectionID),
+      CategoryID: String(editingItem.CategoryID),
+      SubTypeID: String(editingItem.SubTypeID),
+    };
+  }, [editingItem]);
+
+  const isEditDirty = useMemo(() => {
+    if (!originalEditValues) {
+      return false;
+    }
+
+    return Object.keys(originalEditValues).some((key) => {
+      const field = key as keyof typeof originalEditValues;
+      return editValues[field] !== originalEditValues[field];
+    });
+  }, [editValues, originalEditValues]);
+
+  useEffect(() => {
+    if (!editingItem) {
+      return;
+    }
+
+    editItemInputRef.current?.focus();
+  }, [editingItem]);
+
   const handleOpenRelatedOrders = async (item: InventoryItem, event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     setSelectedItemForRelatedOrders(item);
@@ -1589,6 +1630,19 @@ export default function InventoryLookupPage() {
     setIsRelatedOrdersModalOpen(false);
     navigate(`/home/orders?purchaseOrderId=${order.PurchaseOrderID}`);
   };
+
+  useEffect(() => {
+    if (!isRelatedOrdersModalOpen || relatedOrdersLoading) {
+      return;
+    }
+
+    if (!relatedOrdersError && relatedOrders.length > 0) {
+      firstRelatedOrderOpenButtonRef.current?.focus();
+      return;
+    }
+
+    relatedOrdersCloseButtonRef.current?.focus();
+  }, [isRelatedOrdersModalOpen, relatedOrdersLoading, relatedOrdersError, relatedOrders.length]);
 
   useEffect(() => {
     const currentItems: InventoryItem[] = Array.isArray(data?.data) ? data.data : [];
@@ -1663,6 +1717,37 @@ export default function InventoryLookupPage() {
     });
     setEditError('');
   };
+
+  const requestCloseEditModal = () => {
+    if (isEditDirty) {
+      const confirmed = window.confirm('Changes have not been applied. Close without saving?');
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    closeEditModal();
+  };
+
+  useEffect(() => {
+    if (!editingItem) {
+      return;
+    }
+
+    const handleEditModalKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+
+      event.preventDefault();
+      requestCloseEditModal();
+    };
+
+    window.addEventListener('keydown', handleEditModalKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleEditModalKeyDown);
+    };
+  }, [editingItem, isEditDirty]);
 
   const openAddModal = () => {
     setIsAddingItem(true);
@@ -1752,6 +1837,10 @@ export default function InventoryLookupPage() {
     setEditError('');
 
     if (!editingItem) {
+      return;
+    }
+
+    if (!isEditDirty) {
       return;
     }
 
@@ -2402,13 +2491,6 @@ export default function InventoryLookupPage() {
                 <h2 className="text-xl font-semibold">Edit Item Detail</h2>
                 <p className="text-sm text-gray-500">Update item values and save changes.</p>
               </div>
-              <button
-                type="button"
-                onClick={closeEditModal}
-                className="text-gray-400 hover:text-gray-700"
-              >
-                Close
-              </button>
             </div>
 
             {editError ? (
@@ -2422,6 +2504,7 @@ export default function InventoryLookupPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Item</label>
                   <Input
+                    ref={editItemInputRef}
                     value={editValues.ItemName}
                     onChange={(e) => handleEditChange('ItemName', e.target.value)}
                     placeholder="Item name"
@@ -2452,28 +2535,12 @@ export default function InventoryLookupPage() {
                     placeholder="Release date"
                   />
                 </div>
-                <label className="flex items-center gap-2 pt-6 text-sm font-medium text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={editValues.IsPhysical}
-                    onChange={(event) => setEditValues((current) => ({ ...current, IsPhysical: event.target.checked }))}
-                  />
-                  Is Physical
-                </label>
-                <label className="flex items-center gap-2 pt-6 text-sm font-medium text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={editValues.IsDigital}
-                    onChange={(event) => setEditValues((current) => ({ ...current, IsDigital: event.target.checked }))}
-                  />
-                  Is Digital
-                </label>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Publisher</label>
                   <select
                     value={editValues.PublisherID}
                     onChange={(e) => handleEditChange('PublisherID', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-600 focus:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                   >
                     <option value="">Select publisher</option>
                     {addPublisherSelectOptions.map((option: { value: string | number; label: string }) => (
@@ -2488,7 +2555,7 @@ export default function InventoryLookupPage() {
                   <select
                     value={editValues.CollectionID}
                     onChange={(e) => handleEditChange('CollectionID', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-600 focus:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                   >
                     <option value="">Select collection</option>
                     {editCollectionSelectOptions.map((option: { value: string | number; label: string }) => (
@@ -2503,7 +2570,7 @@ export default function InventoryLookupPage() {
                   <select
                     value={editValues.CategoryID}
                     onChange={(e) => handleEditChange('CategoryID', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-600 focus:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                   >
                     <option value="">Select category</option>
                     {categorySelectOptions.map((option: { value: string | number; label: string }) => (
@@ -2518,7 +2585,7 @@ export default function InventoryLookupPage() {
                   <select
                     value={editValues.SubTypeID}
                     onChange={(e) => handleEditChange('SubTypeID', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-600 focus:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                   >
                     <option value="">Select sub category</option>
                     {editSubTypeSelectOptions.map((option: { value: string | number; label: string }) => (
@@ -2528,6 +2595,22 @@ export default function InventoryLookupPage() {
                     ))}
                   </select>
                 </div>
+                <label className="flex items-center gap-2 pt-2 text-sm font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={editValues.IsPhysical}
+                    onChange={(event) => setEditValues((current) => ({ ...current, IsPhysical: event.target.checked }))}
+                  />
+                  Is Physical
+                </label>
+                <label className="flex items-center gap-2 pt-2 text-sm font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={editValues.IsDigital}
+                    onChange={(event) => setEditValues((current) => ({ ...current, IsDigital: event.target.checked }))}
+                  />
+                  Is Digital
+                </label>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
@@ -2547,7 +2630,7 @@ export default function InventoryLookupPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={editMutation.isLoading || deleteMutation.isLoading}>
+                <Button type="submit" disabled={!isEditDirty || editMutation.isLoading || deleteMutation.isLoading}>
                   {editMutation.isLoading ? 'Saving...' : 'Save Changes'}
                 </Button>
               </div>
@@ -2570,6 +2653,7 @@ export default function InventoryLookupPage() {
           title="Add Item"
           contentClassName="max-w-2xl"
           closeButtonTabIndex={-1}
+          showCloseButton={false}
           onOpenAutoFocus={(event) => {
             event.preventDefault();
             addItemInputRef.current?.focus();
@@ -3000,6 +3084,16 @@ export default function InventoryLookupPage() {
             : 'Related Purchase Orders'
         }
         onClose={handleCloseRelatedOrdersModal}
+        showCloseButton={false}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          if (firstRelatedOrderOpenButtonRef.current) {
+            firstRelatedOrderOpenButtonRef.current.focus();
+            return;
+          }
+
+          relatedOrdersCloseButtonRef.current?.focus();
+        }}
       >
         <div className="space-y-4">
           {relatedOrdersLoading ? <p className="text-gray-500">Loading related purchase orders...</p> : null}
@@ -3028,7 +3122,7 @@ export default function InventoryLookupPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {relatedOrders.map((order) => (
+                  {relatedOrders.map((order, index) => (
                     <TableRow key={order.PurchaseOrderID}>
                       <TableCell>{formatReleaseDate(order.PurchaseDate)}</TableCell>
                       <TableCell>{order.InvoiceNumber}</TableCell>
@@ -3037,6 +3131,7 @@ export default function InventoryLookupPage() {
                       <TableCell className="text-right">${(order.TotalAmount || 0).toFixed(2)}</TableCell>
                       <TableCell className="text-right">
                         <Button
+                          ref={index === 0 ? firstRelatedOrderOpenButtonRef : undefined}
                           className="bg-blue-600 hover:bg-blue-700"
                           onClick={() => handleOpenLinkedOrder(order)}
                         >
@@ -3051,7 +3146,7 @@ export default function InventoryLookupPage() {
           ) : null}
 
           <div className="flex justify-end">
-            <Button className="bg-gray-600 hover:bg-gray-700" onClick={handleCloseRelatedOrdersModal}>
+            <Button ref={relatedOrdersCloseButtonRef} className="bg-gray-600 hover:bg-gray-700" onClick={handleCloseRelatedOrdersModal}>
               Close
             </Button>
           </div>
@@ -3076,6 +3171,8 @@ export default function InventoryLookupPage() {
         collectionOptions={collectionUploadOptions}
         categoryOptions={categorySelectOptions}
         subTypeOptions={subTypeSelectOptions}
+        publisherCollectionLinks={publisherCollectionLinks}
+        categorySubTypeLinks={categorySubTypeLinks}
         onItemsAdded={() => {
           queryClient.invalidateQueries({ queryKey: ['inventory'] });
         }}

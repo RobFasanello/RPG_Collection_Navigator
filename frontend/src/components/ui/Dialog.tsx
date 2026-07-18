@@ -10,6 +10,7 @@ interface DialogProps {
   contentClassName?: string;
   onOpenAutoFocus?: RadixDialog.DialogContentProps['onOpenAutoFocus'];
   closeButtonTabIndex?: number;
+  showCloseButton?: boolean;
 }
 
 export const Dialog: React.FC<DialogProps> = ({
@@ -21,6 +22,7 @@ export const Dialog: React.FC<DialogProps> = ({
   contentClassName,
   onOpenAutoFocus,
   closeButtonTabIndex = 0,
+  showCloseButton = true,
 }) => {
   const isComboSelectPortalTarget = (target: EventTarget | null) => {
     if (!target) {
@@ -73,15 +75,17 @@ export const Dialog: React.FC<DialogProps> = ({
             <RadixDialog.Title className="text-xl font-semibold text-gray-900">
               {title}
             </RadixDialog.Title>
-            <RadixDialog.Close asChild>
-              <button
-                type="button"
-                tabIndex={closeButtonTabIndex}
-                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
-              >
-                ×
-              </button>
-            </RadixDialog.Close>
+            {showCloseButton ? (
+              <RadixDialog.Close asChild>
+                <button
+                  type="button"
+                  tabIndex={closeButtonTabIndex}
+                  className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                >
+                  ×
+                </button>
+              </RadixDialog.Close>
+            ) : null}
           </div>
           <div>{children}</div>
         </RadixDialog.Content>
