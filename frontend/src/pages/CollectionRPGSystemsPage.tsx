@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, X, ChevronUp, ChevronDown, Edit2 } from 'lucide-react';
+import { Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
+import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import { tableAPI } from '../services/api';
 
 interface CollectionRPGSystem {
@@ -26,6 +27,7 @@ export default function CollectionRPGSystemsPage() {
   const [formError, setFormError] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const modalRef = useModalFocusTrap<HTMLDivElement>(isAdding || isEditing);
   const queryClient = useQueryClient();
   const tableName = 'CollectionRPGSystem';
 
@@ -117,6 +119,7 @@ export default function CollectionRPGSystemsPage() {
     },
     onSuccess: () => {
       setDeleteError('');
+      closeForm();
       queryClient.invalidateQueries({ queryKey: ['table', tableName] });
     },
     onError: (error: any) => {
@@ -152,6 +155,11 @@ export default function CollectionRPGSystemsPage() {
     });
     setFormError('');
   };
+
+  const getNewFormValuesFromFilters = () => ({
+    CollectionID: activeFilters.collectionName,
+    RPGSystemID: activeFilters.rpgSystemName,
+  });
 
   const closeForm = () => {
     setIsAdding(false);
@@ -270,7 +278,7 @@ export default function CollectionRPGSystemsPage() {
                 setIsEditing(false);
                 setEditingRecord(null);
                 setIsAdding(true);
-                setFormValues({ CollectionID: '', RPGSystemID: '' });
+                setFormValues(getNewFormValuesFromFilters());
                 setFormError('');
               }}
               className="gap-2 bg-green-600 hover:bg-green-700"
@@ -287,12 +295,10 @@ export default function CollectionRPGSystemsPage() {
         </div>
 
         {isAdding || isEditing ? (
-          <div className="mb-8 bg-white p-6 rounded-lg shadow">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div ref={modalRef} tabIndex={-1} className="w-full max-w-2xl bg-white p-6 rounded-lg shadow-xl">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">{isEditing ? 'Edit Collection / RPG System' : 'New Collection / RPG System'}</h2>
-              <button onClick={closeForm} className="text-gray-500 hover:text-gray-700">
-                <X className="w-6 h-6" />
-              </button>
             </div>
 
             {formError ? (
@@ -387,6 +393,7 @@ export default function CollectionRPGSystemsPage() {
                   onChange={(value) => setFormValues((prev) => ({ ...prev, CollectionID: value }))}
                   placeholder="Select RPG collection"
                   className="w-full"
+                  autoFocus
                 />
               </div>
 
@@ -401,15 +408,25 @@ export default function CollectionRPGSystemsPage() {
                 />
               </div>
 
-              <div className="flex gap-2 justify-end mt-6">
-                <Button type="button" onClick={closeForm} className="bg-gray-200 text-gray-800 hover:bg-gray-300">
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : isEditing ? 'Update' : 'Save'}
-                </Button>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-6">
+                <div>
+                  {isEditing && editingRecord ? (
+                    <Button type="button" onClick={() => handleDelete(editingRecord)} disabled={deleteMutation.isLoading || isSaving} className="bg-red-600 hover:bg-red-700">
+                      Delete
+                    </Button>
+                  ) : null}
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button type="button" onClick={closeForm} className="bg-gray-200 text-gray-800 hover:bg-gray-300">
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSaving}>
+                    {isSaving ? 'Saving...' : isEditing ? 'Update' : 'Save'}
+                  </Button>
+                </div>
               </div>
             </form>
+            </div>
           </div>
         ) : null}
 
@@ -432,24 +449,13 @@ export default function CollectionRPGSystemsPage() {
                     {getSortIcon('rpgSystem')}
                   </div>
                 </th>
-                <th className="px-6 py-3 text-right text-sm font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {Array.isArray(getSortedRecords()) && getSortedRecords().map((record: CollectionRPGSystem, index: number) => (
-                <tr key={record.CollectionRPGSystemID ?? `${record.CollectionID}-${record.RPGSystemID}-${index}`} className="hover:bg-gray-50">
+                <tr key={record.CollectionRPGSystemID ?? `${record.CollectionID}-${record.RPGSystemID}-${index}`} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleEdit(record)}>
                   <td className="px-6 py-4">{collectionNameById[Number(record.CollectionID)] ?? record.CollectionID}</td>
                   <td className="px-6 py-4">{rpgSystemNameById[Number(record.RPGSystemID)] ?? record.RPGSystemID}</td>
-                  <td className="px-6 py-4 text-right space-x-2">
-                    <button onClick={() => handleEdit(record)} className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700">
-                      <Edit2 className="w-4 h-4" />
-                      Edit
-                    </button>
-                    <button onClick={() => handleDelete(record)} className="inline-flex items-center gap-1 text-red-600 hover:text-red-700">
-                      <Trash2 className="w-4 h-4" />
-                      Delete
-                    </button>
-                  </td>
                 </tr>
               ))}
             </tbody>

@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Dialog } from '../components/ui/Dialog';
+import ImageCropDialog from '../components/ImageCropDialog';
+import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import { tableAPI } from '../services/api';
 
 interface Publisher {
@@ -51,6 +53,8 @@ export default function PublishersPage() {
   const [deleteError, setDeleteError] = useState('');
   const [sortColumn, setSortColumn] = useState<SortColumn>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [filterInputs, setFilterInputs] = useState({ publisherName: '', publisherUrl: '' });
+  const [activeFilters, setActiveFilters] = useState({ publisherName: '', publisherUrl: '' });
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [formValues, setFormValues] = useState({
@@ -59,6 +63,8 @@ export default function PublishersPage() {
     ImageFileName: '',
   });
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [cropSourceFile, setCropSourceFile] = useState<File | null>(null);
+  const modalRef = useModalFocusTrap<HTMLDivElement>(isAdding || editingId !== null);
   const queryClient = useQueryClient();
   const tableName = 'Publisher';
 
@@ -129,6 +135,7 @@ export default function PublishersPage() {
     },
     onSuccess: () => {
       setDeleteError('');
+      closeForm();
       queryClient.invalidateQueries({ queryKey: ['table', tableName] });
     },
     onError: (error: any) => {
@@ -150,10 +157,14 @@ export default function PublishersPage() {
     },
   });
 
-  const handleDelete = (recordId: string) => {
+  const handleDelete = () => {
+    if (editingId === null) {
+      return;
+    }
+
     if (confirm('Are you sure you want to delete this record?')) {
       setDeleteError('');
-      deleteMutation.mutate(recordId);
+      deleteMutation.mutate(editingId);
     }
   };
 
@@ -166,6 +177,7 @@ export default function PublishersPage() {
       ImageFileName: String(record.ImageFileName ?? ''),
     });
     setSelectedImageFile(null);
+    setCropSourceFile(null);
     setFormError('');
   };
 
@@ -178,23 +190,26 @@ export default function PublishersPage() {
       ImageFileName: '',
     });
     setSelectedImageFile(null);
+    setCropSourceFile(null);
     setFormError('');
   };
 
   const handleImageFileChange = (file: File | null) => {
     if (!file) {
       setSelectedImageFile(null);
+      setCropSourceFile(null);
       return;
     }
 
     const isWebpFile = file.name.toLowerCase().endsWith('.webp') && (!file.type || file.type === 'image/webp');
     if (!isWebpFile) {
       setSelectedImageFile(null);
+      setCropSourceFile(null);
       setFormError('Image File Name must be a .webp file.');
       return;
     }
 
-    setSelectedImageFile(file);
+    setCropSourceFile(file);
     setFormError('');
   };
 
@@ -216,11 +231,26 @@ export default function PublishersPage() {
   };
 
   const getSortedRecords = () => {
-    if (!Array.isArray(records) || !sortDirection || !sortColumn) {
-      return records;
+    if (!Array.isArray(records)) {
+      return [];
     }
 
-    const sorted = [...records].sort((a, b) => {
+    const publisherNameFilter = activeFilters.publisherName.trim().toLowerCase();
+    const publisherUrlFilter = activeFilters.publisherUrl.trim().toLowerCase();
+    const filteredRecords = records.filter((record: Publisher) => {
+      const publisherName = String(record.PublisherName || '').toLowerCase();
+      const publisherUrl = String(record.PublisherURL || '').toLowerCase();
+      return (
+        (!publisherNameFilter || publisherName.includes(publisherNameFilter)) &&
+        (!publisherUrlFilter || publisherUrl.includes(publisherUrlFilter))
+      );
+    });
+
+    if (!sortDirection || !sortColumn) {
+      return filteredRecords;
+    }
+
+    const sorted = [...filteredRecords].sort((a, b) => {
       if (sortColumn === 'imageUploadDate') {
         const dateA = Date.parse(String(a.ImageUploadDate ?? '')) || 0;
         const dateB = Date.parse(String(b.ImageUploadDate ?? '')) || 0;
@@ -294,37 +324,72 @@ export default function PublishersPage() {
   const getPublisherImageUrl = (fileName?: string | null) =>
     fileName ? `/api/uploads/publishers/${encodeURIComponent(fileName)}` : '';
 
+  const hasFilterChanges =
+    filterInputs.publisherName !== activeFilters.publisherName ||
+    filterInputs.publisherUrl !== activeFilters.publisherUrl;
+
   return (
     <AdminLayout title="Publishers" subtitle="Use this screen to view, add, remove and modify the publishers in your collection.">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <Button
-            onClick={() => {
-              setIsAdding(true);
-              setEditingId(null);
-              setFormValues({ PublisherName: '', PublisherURL: '', ImageFileName: '' });
-              setSelectedImageFile(null);
-              setFormError('');
-            }}
-            className="gap-2 bg-green-600 hover:bg-green-700 text-white"
-          >
-            <Plus className="w-4 h-4" />
-            New Publisher
-          </Button>
+        <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Publisher Name</label>
+              <Input
+                type="text"
+                value={filterInputs.publisherName}
+                onChange={(event) => setFilterInputs((prev) => ({ ...prev, publisherName: event.target.value }))}
+                placeholder="Filter by publisher name"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Publisher URL</label>
+              <Input
+                type="text"
+                value={filterInputs.publisherUrl}
+                onChange={(event) => setFilterInputs((prev) => ({ ...prev, publisherUrl: event.target.value }))}
+                placeholder="Filter by publisher URL"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 justify-end">
+            <Button onClick={() => setActiveFilters(filterInputs)} disabled={!hasFilterChanges}>Apply Filters</Button>
+            <Button
+              onClick={() => {
+                setFilterInputs({ publisherName: '', publisherUrl: '' });
+                setActiveFilters({ publisherName: '', publisherUrl: '' });
+              }}
+              className="bg-gray-600 hover:bg-gray-700"
+              disabled={!filterInputs.publisherName && !filterInputs.publisherUrl && !activeFilters.publisherName && !activeFilters.publisherUrl}
+            >
+              Clear
+            </Button>
+            <Button
+              onClick={() => {
+                setIsAdding(true);
+                setEditingId(null);
+                setFormValues({ PublisherName: '', PublisherURL: '', ImageFileName: '' });
+                setSelectedImageFile(null);
+                setCropSourceFile(null);
+                setFormError('');
+              }}
+              className="gap-2 bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Plus className="w-4 h-4" />
+              New Publisher
+            </Button>
+          </div>
         </div>
 
         {isAdding || editingId !== null ? (
-          <div className="mb-8 bg-white p-6 rounded-lg shadow">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div ref={modalRef} tabIndex={-1} className="w-full max-w-2xl bg-white p-6 rounded-lg shadow-xl">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">
                 {editingId !== null ? 'Edit Publisher' : 'New Publisher'}
               </h2>
-              <button
-                onClick={closeForm}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-6 h-6" />
-              </button>
             </div>
 
             {formError && (
@@ -380,6 +445,7 @@ export default function PublishersPage() {
                   onChange={(e) => setFormValues((prev) => ({ ...prev, PublisherName: e.target.value }))}
                   placeholder="Enter Publisher Name"
                   required
+                  autoFocus
                 />
               </div>
 
@@ -405,6 +471,9 @@ export default function PublishersPage() {
                     if (file && !isWebpFile) {
                       e.target.value = '';
                     }
+                    if (file) {
+                      e.target.value = '';
+                    }
                   }}
                 />
                 {selectedImageFile ? (
@@ -424,20 +493,43 @@ export default function PublishersPage() {
                 ) : null}
               </div>
 
-              <div className="flex gap-2 justify-end mt-6">
-                <Button
-                  type="button"
-                  onClick={closeForm}
-                  className="bg-gray-200 text-gray-800 hover:bg-gray-300"
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : 'Save Publisher'}
-                </Button>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-6">
+                <div>
+                  {editingId !== null ? (
+                    <Button type="button" onClick={handleDelete} disabled={deleteMutation.isLoading || isSaving} className="bg-red-600 hover:bg-red-700">
+                      Delete
+                    </Button>
+                  ) : null}
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    type="button"
+                    onClick={closeForm}
+                    className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSaving}>
+                    {isSaving ? 'Saving...' : 'Save Publisher'}
+                  </Button>
+                </div>
               </div>
             </form>
+            </div>
           </div>
+        ) : null}
+
+        {cropSourceFile ? (
+          <ImageCropDialog
+            file={cropSourceFile}
+            title="Crop Publisher Image"
+            onApply={(croppedFile) => {
+              setSelectedImageFile(croppedFile);
+              setCropSourceFile(null);
+              setFormError('');
+            }}
+            onCancel={() => setCropSourceFile(null)}
+          />
         ) : null}
 
         {isLoading && <p className="text-gray-500">Loading...</p>}
@@ -500,12 +592,11 @@ export default function PublishersPage() {
                     {getSortIcon('imageUploadDate')}
                   </div>
                 </th>
-                <th className="px-6 py-3 text-right text-sm font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {sortedRecords.map((record: Publisher) => (
-                <tr key={record.PublisherID} className="hover:bg-gray-50">
+                <tr key={record.PublisherID} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleEdit(record)}>
                   <td className="px-6 py-4">{record.PublisherName}</td>
                   <td className="px-6 py-4">
                     {record.PublisherURL ? (
@@ -527,6 +618,7 @@ export default function PublishersPage() {
                       to={buildPublisherInventoryLink(String(record.PublisherName || ''), false)}
                       className="text-blue-600 hover:text-blue-700 underline"
                       title={`View items for ${record.PublisherName || ''}`}
+                      onClick={(event) => event.stopPropagation()}
                     >
                       {(itemCountByPublisher[Number(record.PublisherID)] || 0).toLocaleString()}
                     </Link>
@@ -536,6 +628,7 @@ export default function PublishersPage() {
                       to={buildPublisherInventoryLink(String(record.PublisherName || ''), true)}
                       className="text-blue-600 hover:text-blue-700 underline"
                       title={`View owned items for ${record.PublisherName || ''}`}
+                      onClick={(event) => event.stopPropagation()}
                     >
                       {(orderCountByPublisher[Number(record.PublisherID)] || 0).toLocaleString()}
                     </Link>
@@ -547,6 +640,7 @@ export default function PublishersPage() {
                         target="_blank"
                         rel="noreferrer"
                         className="text-blue-600 hover:text-blue-700 underline"
+                        onClick={(event) => event.stopPropagation()}
                       >
                         {record.ImageFileName}
                       </a>
@@ -555,22 +649,6 @@ export default function PublishersPage() {
                     )}
                   </td>
                   <td className="px-6 py-4">{formatImageUploadDate(record.ImageUploadDate)}</td>
-                  <td className="px-6 py-4 text-right space-x-2">
-                    <button
-                      onClick={() => handleEdit(record)}
-                      className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(String(record.PublisherID))}
-                      className="inline-flex items-center gap-1 text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Delete
-                    </button>
-                  </td>
                 </tr>
               ))}
             </tbody>

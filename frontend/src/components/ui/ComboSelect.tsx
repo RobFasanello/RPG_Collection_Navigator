@@ -15,6 +15,7 @@ interface Props {
   className?: string;
   disablePortal?: boolean;
   tabIndex?: number;
+  autoFocus?: boolean;
 }
 
 const ComboSelect: React.FC<Props> = ({
@@ -26,6 +27,7 @@ const ComboSelect: React.FC<Props> = ({
   className,
   disablePortal = false,
   tabIndex,
+  autoFocus = false,
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -259,6 +261,7 @@ const ComboSelect: React.FC<Props> = ({
           placeholder={disabled ? 'Loading...' : placeholder}
           disabled={disabled}
           tabIndex={tabIndex}
+          autoFocus={autoFocus}
           className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
         />
         {value && !disabled ? (

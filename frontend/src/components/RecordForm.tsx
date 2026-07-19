@@ -2,7 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { tablesAPI } from '../services/api';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
-import { X } from 'lucide-react';
+import useModalFocusTrap from '../hooks/useModalFocusTrap';
 
 interface RecordFormProps {
   tableName: string;
@@ -10,6 +10,10 @@ interface RecordFormProps {
   recordId: number | string | null | undefined;
   onClose?: () => void;
   onSuccess?: () => void;
+  title?: string;
+  onDelete?: () => void;
+  deleteDisabled?: boolean;
+  deleteLabel?: string;
 }
 
 const isTruthyFlag = (value: unknown): boolean => {
@@ -28,12 +32,17 @@ export default function RecordForm({
   recordId,
   onClose,
   onSuccess,
+  title,
+  onDelete,
+  deleteDisabled = false,
+  deleteLabel = 'Delete',
 }: RecordFormProps) {
   const [schemaState, setSchemaState] = useState<any[]>(schema ?? []);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState('');
+  const modalRef = useModalFocusTrap<HTMLDivElement>();
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -147,18 +156,12 @@ export default function RecordForm({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full p-6">
+    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+      <div ref={modalRef} tabIndex={-1} className="bg-white rounded-lg shadow-lg max-w-2xl w-full p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold">
-            {recordId !== null && recordId !== undefined ? 'Edit Record' : 'Create New Record'}
+            {title ?? (recordId !== null && recordId !== undefined ? 'Edit Record' : 'Create New Record')}
           </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <X className="w-6 h-6" />
-          </button>
         </div>
 
         {error && (
@@ -193,22 +196,37 @@ export default function RecordForm({
                     handleChange(col.COLUMN_NAME, e.target.value)
                   }
                   required={col.IS_NULLABLE === 'NO'}
+                  autoFocus={schemaState.filter((candidate: any) => !isTruthyFlag(candidate.IS_IDENTITY) && !isTruthyFlag(candidate.IS_COMPUTED))[0]?.COLUMN_NAME === col.COLUMN_NAME}
                 />
               </div>
             );
           })}
 
-          <div className="flex gap-2 justify-end mt-6">
-            <Button
-              type="button"
-              onClick={onClose}
-              className="bg-gray-200 text-gray-800 hover:bg-gray-300"
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading || fetching}>
-              {loading ? 'Saving...' : 'Save Record'}
-            </Button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-6">
+            <div>
+              {recordId !== null && recordId !== undefined && onDelete ? (
+                <Button
+                  type="button"
+                  onClick={onDelete}
+                  disabled={deleteDisabled || loading || fetching}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  {deleteLabel}
+                </Button>
+              ) : null}
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                type="button"
+                onClick={onClose}
+                className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading || fetching}>
+                {loading ? 'Saving...' : 'Save Record'}
+              </Button>
+            </div>
           </div>
         </form>
       </div>

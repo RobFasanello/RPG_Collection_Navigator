@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Dialog } from '../components/ui/Dialog';
+import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import { tableAPI } from '../services/api';
 
 interface RPGSystem {
@@ -23,6 +24,8 @@ export default function RPGSystemsPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [filterInputs, setFilterInputs] = useState({ rpgSystemName: '', rpgSystemUrl: '' });
+  const [activeFilters, setActiveFilters] = useState({ rpgSystemName: '', rpgSystemUrl: '' });
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [deleteError, setDeleteError] = useState('');
@@ -31,6 +34,7 @@ export default function RPGSystemsPage() {
     RPGSystemURL: '',
     RPGSystemDescription: '',
   });
+  const modalRef = useModalFocusTrap<HTMLDivElement>(isAdding || editingId !== null);
   const queryClient = useQueryClient();
   const tableName = 'RPGSystem';
 
@@ -48,6 +52,7 @@ export default function RPGSystemsPage() {
     },
     onSuccess: () => {
       setDeleteError('');
+      closeForm();
       queryClient.invalidateQueries({ queryKey: ['table', tableName] });
     },
     onError: (error: any) => {
@@ -88,10 +93,14 @@ export default function RPGSystemsPage() {
     setFormError('');
   };
 
-  const handleDelete = (recordId: string) => {
+  const handleDelete = () => {
+    if (editingId === null) {
+      return;
+    }
+
     if (confirm('Are you sure you want to delete this record?')) {
       setDeleteError('');
-      deleteMutation.mutate(recordId);
+      deleteMutation.mutate(editingId);
     }
   };
 
@@ -113,11 +122,23 @@ export default function RPGSystemsPage() {
   };
 
   const getSortedRecords = () => {
-    if (!Array.isArray(records) || !sortDirection || !sortColumn) {
-      return records;
+    if (!Array.isArray(records)) {
+      return [];
     }
 
-    return [...records].sort((a, b) => {
+    const nameFilter = activeFilters.rpgSystemName.trim().toLowerCase();
+    const urlFilter = activeFilters.rpgSystemUrl.trim().toLowerCase();
+    const filteredRecords = records.filter((record: RPGSystem) => {
+      const name = String(record.RPGSystemName || '').toLowerCase();
+      const url = String(record.RPGSystemURL || '').toLowerCase();
+      return (!nameFilter || name.includes(nameFilter)) && (!urlFilter || url.includes(urlFilter));
+    });
+
+    if (!sortDirection || !sortColumn) {
+      return filteredRecords;
+    }
+
+    return [...filteredRecords].sort((a, b) => {
       const valueA = sortColumn === 'name' ? String(a.RPGSystemName || '') : String(a.RPGSystemURL || '');
       const valueB = sortColumn === 'name' ? String(b.RPGSystemName || '') : String(b.RPGSystemURL || '');
       const normalizedA = valueA.toLowerCase();
@@ -139,34 +160,70 @@ export default function RPGSystemsPage() {
 
   const sortedRecordValues = getSortedRecords();
   const sortedRecords = Array.isArray(sortedRecordValues) ? sortedRecordValues : [];
+  const hasFilterChanges =
+    filterInputs.rpgSystemName !== activeFilters.rpgSystemName ||
+    filterInputs.rpgSystemUrl !== activeFilters.rpgSystemUrl;
 
   return (
     <AdminLayout title="RPG Systems" subtitle="Use this screen to view, add, remove and modify the RPG systems in your collection.">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <Button
-            onClick={() => {
-              setIsAdding(true);
-              setEditingId(null);
-              setFormValues({ RPGSystemName: '', RPGSystemURL: '', RPGSystemDescription: '' });
-              setFormError('');
-            }}
-            className="gap-2 bg-green-600 hover:bg-green-700 text-white"
-          >
-            <Plus className="w-4 h-4" />
-            New RPG System
-          </Button>
+        <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">RPG System Name</label>
+              <Input
+                type="text"
+                value={filterInputs.rpgSystemName}
+                onChange={(event) => setFilterInputs((prev) => ({ ...prev, rpgSystemName: event.target.value }))}
+                placeholder="Filter by RPG system name"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">RPG System URL</label>
+              <Input
+                type="text"
+                value={filterInputs.rpgSystemUrl}
+                onChange={(event) => setFilterInputs((prev) => ({ ...prev, rpgSystemUrl: event.target.value }))}
+                placeholder="Filter by RPG system URL"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 justify-end">
+            <Button onClick={() => setActiveFilters(filterInputs)} disabled={!hasFilterChanges}>Apply Filters</Button>
+            <Button
+              onClick={() => {
+                setFilterInputs({ rpgSystemName: '', rpgSystemUrl: '' });
+                setActiveFilters({ rpgSystemName: '', rpgSystemUrl: '' });
+              }}
+              className="bg-gray-600 hover:bg-gray-700"
+              disabled={!filterInputs.rpgSystemName && !filterInputs.rpgSystemUrl && !activeFilters.rpgSystemName && !activeFilters.rpgSystemUrl}
+            >
+              Clear
+            </Button>
+            <Button
+              onClick={() => {
+                setIsAdding(true);
+                setEditingId(null);
+                setFormValues({ RPGSystemName: '', RPGSystemURL: '', RPGSystemDescription: '' });
+                setFormError('');
+              }}
+              className="gap-2 bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Plus className="w-4 h-4" />
+              New RPG System
+            </Button>
+          </div>
         </div>
 
         {isAdding || editingId !== null ? (
-          <div className="mb-8 bg-white p-6 rounded-lg shadow">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div ref={modalRef} tabIndex={-1} className="w-full max-w-2xl bg-white p-6 rounded-lg shadow-xl">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">
                 {editingId !== null ? 'Edit RPG System' : 'New RPG System'}
               </h2>
-              <button onClick={closeForm} className="text-gray-500 hover:text-gray-700">
-                <X className="w-6 h-6" />
-              </button>
             </div>
 
             {formError ? (
@@ -221,6 +278,7 @@ export default function RPGSystemsPage() {
                   onChange={(event) => setFormValues((prev) => ({ ...prev, RPGSystemName: event.target.value }))}
                   placeholder="Enter RPG System Name"
                   required
+                  autoFocus
                 />
               </div>
 
@@ -245,15 +303,25 @@ export default function RPGSystemsPage() {
                 />
               </div>
 
-              <div className="flex gap-2 justify-end mt-6">
-                <Button type="button" onClick={closeForm} className="bg-gray-200 text-gray-800 hover:bg-gray-300">
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : 'Save RPG System'}
-                </Button>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-6">
+                <div>
+                  {editingId !== null ? (
+                    <Button type="button" onClick={handleDelete} disabled={deleteMutation.isLoading || isSaving} className="bg-red-600 hover:bg-red-700">
+                      Delete
+                    </Button>
+                  ) : null}
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button type="button" onClick={closeForm} className="bg-gray-200 text-gray-800 hover:bg-gray-300">
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSaving}>
+                    {isSaving ? 'Saving...' : 'Save RPG System'}
+                  </Button>
+                </div>
               </div>
             </form>
+            </div>
           </div>
         ) : null}
 
@@ -277,12 +345,11 @@ export default function RPGSystemsPage() {
                   </div>
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Description</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {sortedRecords.map((record: RPGSystem) => (
-                <tr key={record.RPGSystemID} className="hover:bg-gray-50">
+                <tr key={record.RPGSystemID} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleEdit(record)}>
                   <td className="px-6 py-4">{record.RPGSystemName}</td>
                   <td className="px-6 py-4">
                     {record.RPGSystemURL ? (
@@ -300,16 +367,6 @@ export default function RPGSystemsPage() {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-pre-wrap">{record.RPGSystemDescription || <span className="text-gray-400">-</span>}</td>
-                  <td className="px-6 py-4 text-right space-x-2">
-                    <button onClick={() => handleEdit(record)} className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700">
-                      <Edit2 className="w-4 h-4" />
-                      Edit
-                    </button>
-                    <button onClick={() => handleDelete(String(record.RPGSystemID))} className="inline-flex items-center gap-1 text-red-600 hover:text-red-700">
-                      <Trash2 className="w-4 h-4" />
-                      Delete
-                    </button>
-                  </td>
                 </tr>
               ))}
             </tbody>

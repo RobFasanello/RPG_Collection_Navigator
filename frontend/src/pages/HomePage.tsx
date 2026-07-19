@@ -822,7 +822,7 @@ export default function HomePage() {
                   return (
                     <div
                       key={publisher.EntityID || publisher.EntityName}
-                      className={`relative overflow-hidden rounded-xl border p-5 transition ${
+                      className={`relative aspect-video overflow-hidden rounded-xl border p-5 transition ${
                         hasPublisherImage
                           ? 'border-gray-300 bg-gray-900 bg-cover bg-center hover:border-gray-400'
                           : coverageBand.card
@@ -877,7 +877,7 @@ export default function HomePage() {
                 return (
                   <div
                     key={collection.EntityID || collection.EntityName}
-                    className={`relative overflow-hidden rounded-xl border p-5 transition ${
+                    className={`relative aspect-video overflow-hidden rounded-xl border p-5 transition ${
                       hasCollectionImage
                         ? 'border-gray-300 bg-gray-900 bg-cover bg-center hover:border-gray-400'
                         : coverageBand.card
