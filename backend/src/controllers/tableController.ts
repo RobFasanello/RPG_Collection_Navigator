@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { getPool, sql } from '../db/connection.js';
+import { deleteUploadedFile } from '../uploads.js';
 
 function getPrimaryKeyColumn(tableName: string): string {
   return `${tableName}ID`;
@@ -1776,10 +1777,33 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
 
     const request = pool.request();
 
+    if (tableName === 'Collection') {
+      delete data.ImageUploadDate;
+      delete data.ImageFileName;
+
+      if (Object.prototype.hasOwnProperty.call(data, 'CollectionTypeID')) {
+        const collectionTypeId = parseInt(data.CollectionTypeID, 10);
+        if (!Number.isInteger(collectionTypeId)) {
+          await deleteUploadedFile(req.file);
+          res.status(400).json({ error: 'Collection Type is required.' });
+          return;
+        }
+        data.CollectionTypeID = collectionTypeId;
+      }
+
+      if (req.file) {
+        data.ImageFileName = req.file.filename;
+      }
+    }
+
     const columns = Object.keys(data);
     const values = Object.values(data);
-    const placeholders = columns.map((col, i) => `@${col}`).join(', ');
-    const columnList = columns.map(col => `[${col}]`).join(', ');
+    const insertColumns = tableName === 'Collection' ? [...columns, 'ImageUploadDate'] : columns;
+    const placeholders = [
+      ...columns.map((col) => `@${col}`),
+      ...(tableName === 'Collection' ? ['GETDATE()'] : []),
+    ].join(', ');
+    const columnList = insertColumns.map(col => `[${col}]`).join(', ');
 
     columns.forEach((col, i) => {
       request.input(col, values[i]);
@@ -1793,6 +1817,10 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
     await request.query(query);
     res.status(201).json({ success: true, message: 'Record created' });
   } catch (error) {
+    if (tableName === 'Collection') {
+      await deleteUploadedFile(req.file);
+    }
+
     console.error('Error creating record:', error);
 
     const dbError = error as any;
@@ -2185,12 +2213,35 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
       res.json({ success: true, message: 'Record updated' });
       return;
     } else {
+      if (tableName === 'Collection') {
+        delete data.ImageUploadDate;
+        delete data.ImageFileName;
+
+        if (Object.prototype.hasOwnProperty.call(data, 'CollectionTypeID')) {
+          const collectionTypeId = parseInt(data.CollectionTypeID, 10);
+          if (!Number.isInteger(collectionTypeId)) {
+            await deleteUploadedFile(req.file);
+            res.status(400).json({ error: 'Collection Type is required.' });
+            return;
+          }
+          data.CollectionTypeID = collectionTypeId;
+        }
+
+        if (req.file) {
+          data.ImageFileName = req.file.filename;
+        }
+      }
+
       const request = pool.request();
-      const updates = Object.keys(data)
-        .map(col => `[${col}] = @${col}`)
+      const updateColumns = Object.keys(data);
+      const updates = [
+        ...updateColumns.map(col => `[${col}] = @${col}`),
+        ...(tableName === 'Collection' ? ['[ImageUploadDate] = GETDATE()'] : []),
+      ]
         .join(', ');
 
-      Object.entries(data).forEach(([col, value]) => {
+      updateColumns.forEach((col) => {
+        const value = data[col];
         request.input(col, value);
       });
 
@@ -2207,6 +2258,10 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
 
     res.json({ success: true, message: 'Record updated' });
   } catch (error) {
+    if (req.params.tableName === 'Collection') {
+      await deleteUploadedFile(req.file);
+    }
+
     console.error('Error updating record:', error);
     res.status(500).json({
       error: (error as any)?.message || 'Failed to update record',

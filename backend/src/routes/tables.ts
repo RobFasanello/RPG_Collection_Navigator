@@ -19,6 +19,7 @@ import {
   deleteRecord,
   deleteRecordByQuery,
 } from '../controllers/tableController.js';
+import { uploadCollectionImageIfNeeded } from '../uploads.js';
 
 const router = Router();
 
@@ -65,13 +66,13 @@ router.get('/:tableName/data', getTableData);
 router.get('/:tableName/:id', getRecord);
 
 // Create record
-router.post('/:tableName', createRecord);
+router.post('/:tableName', uploadCollectionImageIfNeeded, createRecord);
 
 // Delete record by query params (supports composite-key tables)
 router.delete('/:tableName', deleteRecordByQuery);
 
 // Update record
-router.patch('/:tableName/:id', updateRecord);
+router.patch('/:tableName/:id', uploadCollectionImageIfNeeded, updateRecord);
 
 // Delete record
 router.delete('/:tableName/:id', deleteRecord);

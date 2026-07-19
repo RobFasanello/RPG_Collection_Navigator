@@ -4,6 +4,7 @@ dotenv.config();
 import express, { Express } from 'express';
 import { initializePool, closePool } from './db/connection.js';
 import { BACKEND_BUILD_TIME_ISO } from './generated/buildInfo.js';
+import { uploadsRoot } from './uploads.js';
 
 import cors from 'cors';
 import tablesRouter from './routes/tables.js';
@@ -42,6 +43,7 @@ const corsOptions: cors.CorsOptions = {
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use('/api/uploads', express.static(uploadsRoot));
 
 // Routes
 app.use('/api/tables', tablesRouter);

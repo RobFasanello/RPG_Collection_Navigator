@@ -52,7 +52,7 @@ export const tablesAPI = {
   // Backwards-compatible convenience method used by UI pages
   getRecords: (tableName: string) => api.get(`/tables/${tableName}/data`),
   
-  createRecord: (tableName: string, data: Record<string, any>) =>
+  createRecord: (tableName: string, data: Record<string, any> | FormData) =>
     api.post(`/tables/${tableName}`, data),
 
   createPurchaseOrderWithDetails: (data: {
@@ -90,7 +90,7 @@ export const tablesAPI = {
     }>;
   }) => api.post('/tables/items/bulk-create', data),
   
-  updateRecord: (tableName: string, id: number | string, data: Record<string, any>) =>
+  updateRecord: (tableName: string, id: number | string, data: Record<string, any> | FormData) =>
     api.patch(`/tables/${tableName}/${parseId(id)}`, data),
   
   deleteRecord: (tableName: string, idOrKeys: number | string | Record<string, any>) =>

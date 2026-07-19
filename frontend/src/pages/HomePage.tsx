@@ -317,6 +317,7 @@ type CoverageBox = {
   TotalItems: number;
   ItemsInPurchaseOrder: number;
   CoveragePercent: number;
+  ImageFileName?: string;
 };
 
 function buildCoverageBoxes({
@@ -389,6 +390,19 @@ function buildInventoryLink(params: Record<string, string | number | boolean | u
 
   const query = searchParams.toString();
   return query ? `/admin/inventory?${query}` : '/admin/inventory';
+}
+
+function getCollectionImageUrl(fileName?: string) {
+  const normalizedFileName = String(fileName || '').trim();
+  if (!normalizedFileName) {
+    return '';
+  }
+
+  if (/^(https?:)?\/\//i.test(normalizedFileName) || normalizedFileName.startsWith('/')) {
+    return normalizedFileName;
+  }
+
+  return `/api/uploads/collections/${encodeURIComponent(normalizedFileName)}`;
 }
 
 function CollectionStatusLinks({ uncollectedTo, collectedTo }: { uncollectedTo: string; collectedTo: string }) {
@@ -614,6 +628,7 @@ export default function HomePage() {
       TotalItems: coverage.totalItems,
       ItemsInPurchaseOrder: coverage.itemsInPurchaseOrder,
       CoveragePercent: coverage.coveragePercent,
+      ImageFileName: String(row.ImageFileName || '').trim() || undefined,
     };
   });
 
@@ -821,6 +836,11 @@ export default function HomePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {collectionBoxes.map((collection) => {
                 const coverageBand = getCoverageBandClasses(collection.CoveragePercent);
+                const collectionImageUrl = getCollectionImageUrl(collection.ImageFileName);
+                const hasCollectionImage = Boolean(collectionImageUrl);
+                const titleClass = hasCollectionImage ? 'text-white drop-shadow' : coverageBand.title;
+                const valueClass = hasCollectionImage ? 'text-white drop-shadow' : coverageBand.value;
+                const detailClass = hasCollectionImage ? 'text-gray-100 drop-shadow' : coverageBand.detail;
                 const baseInventoryLink = buildInventoryLink({ collection: String(collection.EntityID || collection.EntityName) });
                 const uncollectedInventoryLink = buildInventoryLink({
                   collection: String(collection.EntityID || collection.EntityName),
@@ -830,18 +850,24 @@ export default function HomePage() {
                 return (
                   <div
                     key={collection.EntityID || collection.EntityName}
-                    className={`relative overflow-hidden rounded-xl border p-5 transition ${coverageBand.card}`}
+                    className={`relative overflow-hidden rounded-xl border p-5 transition ${
+                      hasCollectionImage
+                        ? 'border-gray-300 bg-gray-900 bg-cover bg-center hover:border-gray-400'
+                        : coverageBand.card
+                    }`}
+                    style={hasCollectionImage ? { backgroundImage: `url("${collectionImageUrl}")` } : undefined}
                   >
+                    {hasCollectionImage ? <div className="absolute inset-0 bg-black/55" /> : null}
                     <Link
                       to={baseInventoryLink}
-                      className="block pr-36 pb-14 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
+                      className="relative z-10 block pr-36 pb-14 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
                       title={`Open Item Master for ${collection.EntityName}`}
                     >
-                      <p className={`text-sm font-medium truncate ${coverageBand.title}`} title={collection.EntityName}>
+                      <p className={`text-sm font-medium truncate ${titleClass}`} title={collection.EntityName}>
                         {collection.EntityName}
                       </p>
-                      <p className={`mt-2 text-3xl font-bold ${coverageBand.value}`}>{formatPercent(collection.CoveragePercent)}</p>
-                      <p className={`mt-2 text-sm ${coverageBand.detail}`}>
+                      <p className={`mt-2 text-3xl font-bold ${valueClass}`}>{formatPercent(collection.CoveragePercent)}</p>
+                      <p className={`mt-2 text-sm ${detailClass}`}>
                         {collection.ItemsInPurchaseOrder.toLocaleString()} / {collection.TotalItems.toLocaleString()} items in orders
                       </p>
                     </Link>

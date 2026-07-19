@@ -13,7 +13,7 @@ interface Collection {
 }
 
 type SortDirection = 'asc' | 'desc' | null;
-type SortColumn = 'name' | 'collectionType' | null;
+type SortColumn = 'name' | 'collectionType' | 'imageFileName' | 'imageUploadDate' | null;
 
 export default function CollectionsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -26,7 +26,9 @@ export default function CollectionsPage() {
   const [formValues, setFormValues] = useState({
     CollectionName: '',
     CollectionTypeID: '',
+    ImageFileName: '',
   });
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const queryClient = useQueryClient();
   const tableName = 'Collection';
 
@@ -87,7 +89,9 @@ export default function CollectionsPage() {
     setFormValues({
       CollectionName: String(record.CollectionName ?? ''),
       CollectionTypeID: String(record.CollectionTypeID ?? ''),
+      ImageFileName: String(record.ImageFileName ?? ''),
     });
+    setSelectedImageFile(null);
     setFormError('');
   };
 
@@ -97,7 +101,26 @@ export default function CollectionsPage() {
     setFormValues({
       CollectionName: '',
       CollectionTypeID: '',
+      ImageFileName: '',
     });
+    setSelectedImageFile(null);
+    setFormError('');
+  };
+
+  const handleImageFileChange = (file: File | null) => {
+    if (!file) {
+      setSelectedImageFile(null);
+      return;
+    }
+
+    const isWebpFile = file.name.toLowerCase().endsWith('.webp') && (!file.type || file.type === 'image/webp');
+    if (!isWebpFile) {
+      setSelectedImageFile(null);
+      setFormError('Image File Name must be a .webp file.');
+      return;
+    }
+
+    setSelectedImageFile(file);
     setFormError('');
   };
 
@@ -124,14 +147,25 @@ export default function CollectionsPage() {
     }
 
     const sorted = [...records].sort((a, b) => {
+      if (sortColumn === 'imageUploadDate') {
+        const dateA = Date.parse(String(a.ImageUploadDate ?? '')) || 0;
+        const dateB = Date.parse(String(b.ImageUploadDate ?? '')) || 0;
+
+        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+
       const valueA =
         sortColumn === 'collectionType'
           ? String(collectionTypeNameById[Number(a.CollectionTypeID)] ?? a.CollectionTypeID ?? '')
-          : String(a.CollectionName ?? '');
+          : sortColumn === 'imageFileName'
+            ? String(a.ImageFileName ?? '')
+            : String(a.CollectionName ?? '');
       const valueB =
         sortColumn === 'collectionType'
           ? String(collectionTypeNameById[Number(b.CollectionTypeID)] ?? b.CollectionTypeID ?? '')
-          : String(b.CollectionName ?? '');
+          : sortColumn === 'imageFileName'
+            ? String(b.ImageFileName ?? '')
+            : String(b.CollectionName ?? '');
 
       const nameA = valueA.toLowerCase();
       const nameB = valueB.toLowerCase();
@@ -168,6 +202,22 @@ export default function CollectionsPage() {
     label: String(item.CollectionTypeName ?? ''),
   }));
 
+  const formatImageUploadDate = (date?: string) => {
+    if (!date) {
+      return '-';
+    }
+
+    const parsed = new Date(date);
+    if (Number.isNaN(parsed.getTime())) {
+      return date;
+    }
+
+    return parsed.toLocaleString();
+  };
+
+  const getCollectionImageUrl = (fileName?: string) =>
+    fileName ? `/api/uploads/collections/${encodeURIComponent(fileName)}` : '';
+
   return (
     <AdminLayout title="Collections" subtitle="Use this screen to view, add, remove and modify the collections in your collection.">
       <div className="max-w-7xl mx-auto">
@@ -176,7 +226,8 @@ export default function CollectionsPage() {
             onClick={() => {
               setIsAdding(true);
               setEditingId(null);
-              setFormValues({ CollectionName: '', CollectionTypeID: '' });
+              setFormValues({ CollectionName: '', CollectionTypeID: '', ImageFileName: '' });
+              setSelectedImageFile(null);
               setFormError('');
             }}
             className="gap-2 bg-green-600 hover:bg-green-700 text-white"
@@ -226,10 +277,13 @@ export default function CollectionsPage() {
 
                 setIsSaving(true);
                 try {
-                  const payload = {
-                    CollectionName: collectionName,
-                    CollectionTypeID: collectionTypeId,
-                  };
+                  const payload = new FormData();
+                  payload.append('CollectionName', collectionName);
+                  payload.append('CollectionTypeID', String(collectionTypeId));
+
+                  if (selectedImageFile) {
+                    payload.append('ImageFile', selectedImageFile);
+                  }
 
                   if (editingId !== null) {
                     await tableAPI.updateRecord(tableName, editingId, payload);
@@ -273,6 +327,37 @@ export default function CollectionsPage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium mb-1">Image File Name</label>
+                <Input
+                  type="file"
+                  accept=".webp,image/webp"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    handleImageFileChange(file);
+                    const isWebpFile = file?.name.toLowerCase().endsWith('.webp') && (!file.type || file.type === 'image/webp');
+                    if (file && !isWebpFile) {
+                      e.target.value = '';
+                    }
+                  }}
+                />
+                {selectedImageFile ? (
+                  <p className="mt-1 text-sm text-gray-600">Selected: {selectedImageFile.name}</p>
+                ) : formValues.ImageFileName ? (
+                  <p className="mt-1 text-sm text-gray-600">
+                    Current:{' '}
+                    <a
+                      href={getCollectionImageUrl(formValues.ImageFileName)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-600 hover:text-blue-700 underline"
+                    >
+                      {formValues.ImageFileName}
+                    </a>
+                  </p>
+                ) : null}
+              </div>
+
               <div className="flex gap-2 justify-end mt-6">
                 <Button
                   type="button"
@@ -314,6 +399,24 @@ export default function CollectionsPage() {
                     {getSortIcon('collectionType')}
                   </div>
                 </th>
+                <th
+                  className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
+                  onClick={() => handleSort('imageFileName')}
+                >
+                  <div className="flex items-center gap-2">
+                    Image File Name
+                    {getSortIcon('imageFileName')}
+                  </div>
+                </th>
+                <th
+                  className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
+                  onClick={() => handleSort('imageUploadDate')}
+                >
+                  <div className="flex items-center gap-2">
+                    Image Upload Date
+                    {getSortIcon('imageUploadDate')}
+                  </div>
+                </th>
                 <th className="px-6 py-3 text-right text-sm font-semibold">Actions</th>
               </tr>
             </thead>
@@ -324,6 +427,21 @@ export default function CollectionsPage() {
                   <td className="px-6 py-4">
                     {collectionTypeNameById[Number(record.CollectionTypeID)] ?? `ID: ${record.CollectionTypeID ?? '-'}`}
                   </td>
+                  <td className="px-6 py-4">
+                    {record.ImageFileName ? (
+                      <a
+                        href={getCollectionImageUrl(record.ImageFileName)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 hover:text-blue-700 underline"
+                      >
+                        {record.ImageFileName}
+                      </a>
+                    ) : (
+                      '-'
+                    )}
+                  </td>
+                  <td className="px-6 py-4">{formatImageUploadDate(record.ImageUploadDate)}</td>
                   <td className="px-6 py-4 text-right space-x-2">
                     <button
                       onClick={() => handleEdit(record)}
