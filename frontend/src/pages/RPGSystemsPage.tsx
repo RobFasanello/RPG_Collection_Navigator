@@ -5,7 +5,9 @@ import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Dialog } from '../components/ui/Dialog';
+import SetupTablePagination from '../components/SetupTablePagination';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
+import useSetupPagination from '../hooks/useSetupPagination';
 import { tableAPI } from '../services/api';
 
 interface RPGSystem {
@@ -41,8 +43,7 @@ export default function RPGSystemsPage() {
   const { data: records = [], isLoading, error } = useQuery<any, Error>({
     queryKey: ['table', tableName],
     queryFn: async () => {
-      const response = await tableAPI.getRecords(tableName);
-      return response.data.data;
+      return tableAPI.getAllRecords(tableName);
     },
   });
 
@@ -160,6 +161,7 @@ export default function RPGSystemsPage() {
 
   const sortedRecordValues = getSortedRecords();
   const sortedRecords = Array.isArray(sortedRecordValues) ? sortedRecordValues : [];
+  const pagination = useSetupPagination(sortedRecords, [activeFilters.rpgSystemName, activeFilters.rpgSystemUrl, sortColumn, sortDirection]);
   const hasFilterChanges =
     filterInputs.rpgSystemName !== activeFilters.rpgSystemName ||
     filterInputs.rpgSystemUrl !== activeFilters.rpgSystemUrl;
@@ -348,7 +350,7 @@ export default function RPGSystemsPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {sortedRecords.map((record: RPGSystem) => (
+              {pagination.paginatedRows.map((record: RPGSystem) => (
                 <tr key={record.RPGSystemID} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleEdit(record)}>
                   <td className="px-6 py-4">{record.RPGSystemName}</td>
                   <td className="px-6 py-4">
@@ -372,6 +374,14 @@ export default function RPGSystemsPage() {
             </tbody>
           </table>
         </div>
+
+        <SetupTablePagination
+          currentCount={pagination.paginatedRows.length}
+          total={pagination.total}
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          onPageChange={pagination.setPage}
+        />
 
         <Dialog
           open={!!deleteError}

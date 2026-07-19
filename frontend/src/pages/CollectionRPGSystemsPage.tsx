@@ -5,7 +5,9 @@ import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
+import SetupTablePagination from '../components/SetupTablePagination';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
+import useSetupPagination from '../hooks/useSetupPagination';
 import { tableAPI } from '../services/api';
 
 interface CollectionRPGSystem {
@@ -34,8 +36,7 @@ export default function CollectionRPGSystemsPage() {
   const { data: records = [], isLoading, error } = useQuery<any, Error>({
     queryKey: ['table', tableName],
     queryFn: async () => {
-      const response = await tableAPI.getRecords(tableName);
-      return response.data.data;
+      return tableAPI.getAllRecords(tableName);
     },
   });
 
@@ -243,6 +244,9 @@ export default function CollectionRPGSystemsPage() {
     return null;
   };
 
+  const sortedRecords = getSortedRecords();
+  const pagination = useSetupPagination(sortedRecords, [activeFilters.collectionName, activeFilters.rpgSystemName, sortColumn, sortDirection]);
+
   return (
     <AdminLayout title="Collection / RPG Systems" subtitle="Use this screen to view, add, remove and modify collection and RPG system relationships.">
       <div className="max-w-7xl mx-auto">
@@ -257,6 +261,7 @@ export default function CollectionRPGSystemsPage() {
                 placeholder="Select RPG collection"
                 className="w-full"
                 tabIndex={1}
+                autoFocus
               />
             </div>
             <div>
@@ -452,7 +457,7 @@ export default function CollectionRPGSystemsPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {Array.isArray(getSortedRecords()) && getSortedRecords().map((record: CollectionRPGSystem, index: number) => (
+              {pagination.paginatedRows.map((record: CollectionRPGSystem, index: number) => (
                 <tr key={record.CollectionRPGSystemID ?? `${record.CollectionID}-${record.RPGSystemID}-${index}`} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleEdit(record)}>
                   <td className="px-6 py-4">{collectionNameById[Number(record.CollectionID)] ?? record.CollectionID}</td>
                   <td className="px-6 py-4">{rpgSystemNameById[Number(record.RPGSystemID)] ?? record.RPGSystemID}</td>
@@ -461,6 +466,14 @@ export default function CollectionRPGSystemsPage() {
             </tbody>
           </table>
         </div>
+
+        <SetupTablePagination
+          currentCount={pagination.paginatedRows.length}
+          total={pagination.total}
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          onPageChange={pagination.setPage}
+        />
 
         <Dialog
           open={!!deleteError}

@@ -7,7 +7,9 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Dialog } from '../components/ui/Dialog';
 import ImageCropDialog from '../components/ImageCropDialog';
+import SetupTablePagination from '../components/SetupTablePagination';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
+import useSetupPagination from '../hooks/useSetupPagination';
 import { tableAPI } from '../services/api';
 
 interface Publisher {
@@ -71,8 +73,7 @@ export default function PublishersPage() {
   const { data: records = [], isLoading, error } = useQuery<any, Error>({
     queryKey: ['table', tableName],
     queryFn: async () => {
-      const response = await tableAPI.getRecords(tableName);
-      return response.data.data;
+      return tableAPI.getAllRecords(tableName);
     },
   });
 
@@ -307,6 +308,7 @@ export default function PublishersPage() {
 
   const sortedRecordValues = getSortedRecords();
   const sortedRecords = Array.isArray(sortedRecordValues) ? sortedRecordValues : [];
+  const pagination = useSetupPagination(sortedRecords, [activeFilters.publisherName, activeFilters.publisherUrl, sortColumn, sortDirection]);
 
   const formatImageUploadDate = (date?: string | null) => {
     if (!date) {
@@ -595,7 +597,7 @@ export default function PublishersPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {sortedRecords.map((record: Publisher) => (
+              {pagination.paginatedRows.map((record: Publisher) => (
                 <tr key={record.PublisherID} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleEdit(record)}>
                   <td className="px-6 py-4">{record.PublisherName}</td>
                   <td className="px-6 py-4">
@@ -654,6 +656,14 @@ export default function PublishersPage() {
             </tbody>
           </table>
         </div>
+
+        <SetupTablePagination
+          currentCount={pagination.paginatedRows.length}
+          total={pagination.total}
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          onPageChange={pagination.setPage}
+        />
 
         <Dialog
           open={!!deleteError}

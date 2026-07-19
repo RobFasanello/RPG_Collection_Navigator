@@ -16,6 +16,7 @@ interface Props {
   disablePortal?: boolean;
   tabIndex?: number;
   autoFocus?: boolean;
+  openOnFocus?: boolean;
 }
 
 const ComboSelect: React.FC<Props> = ({
@@ -28,6 +29,7 @@ const ComboSelect: React.FC<Props> = ({
   disablePortal = false,
   tabIndex,
   autoFocus = false,
+  openOnFocus = true,
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -129,12 +131,31 @@ const ComboSelect: React.FC<Props> = ({
     setOpen(false);
   };
 
-  const handleInputFocus = () => {
+  const openDropdown = () => {
     setSearch('');
     if (!disablePortal) {
       recalcPosition();
     }
     setOpen(true);
+  };
+
+  const handleInputFocus = () => {
+    if (openOnFocus) {
+      openDropdown();
+      return;
+    }
+
+    if (!disablePortal) {
+      recalcPosition();
+    }
+  };
+
+  const handleInputMouseDown = () => {
+    if (disabled) {
+      return;
+    }
+
+    openDropdown();
   };
 
   const handleInputBlur = () => {
@@ -257,6 +278,7 @@ const ComboSelect: React.FC<Props> = ({
           onChange={handleInputChange}
           onKeyDown={handleInputKeyDown}
           onFocus={handleInputFocus}
+          onMouseDown={handleInputMouseDown}
           onBlur={handleInputBlur}
           placeholder={disabled ? 'Loading...' : placeholder}
           disabled={disabled}

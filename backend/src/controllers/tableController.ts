@@ -10,6 +10,10 @@ function isImageUploadTable(tableName: string): boolean {
   return supportsImageUpload(tableName);
 }
 
+function usesServerGeneratedManualId(tableName: string): boolean {
+  return tableName === 'Location' || tableName === 'LocationType' || tableName === 'Miniature';
+}
+
 function parsePositiveInt(value: unknown): number | null {
   if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
     return value;
@@ -1775,6 +1779,37 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
         INSERT INTO [RPGSystem] ([RPGSystemID], [RPGSystemName], [RPGSystemURL], [RPGSystemDescription])
         SELECT ISNULL(MAX([RPGSystemID]), 0) + 1, @RPGSystemName, @RPGSystemURL, @RPGSystemDescription
         FROM [RPGSystem] WITH (UPDLOCK, HOLDLOCK)
+      `);
+
+      res.status(201).json({ success: true, message: 'Record created' });
+      return;
+    }
+
+    if (usesServerGeneratedManualId(tableName)) {
+      const primaryKey = getPrimaryKeyColumn(tableName);
+      delete data[primaryKey];
+
+      const columns = Object.keys(data);
+      if (columns.length === 0) {
+        res.status(400).json({ error: 'At least one field is required.' });
+        return;
+      }
+
+      const request = pool.request();
+      columns.forEach((col) => {
+        request.input(col, data[col]);
+      });
+
+      const columnList = [primaryKey, ...columns].map((col) => `[${col}]`).join(', ');
+      const selectList = [
+        `ISNULL(MAX([${primaryKey}]), 0) + 1`,
+        ...columns.map((col) => `@${col}`),
+      ].join(', ');
+
+      await request.query(`
+        INSERT INTO [${tableName}] (${columnList})
+        SELECT ${selectList}
+        FROM [${tableName}] WITH (UPDLOCK, HOLDLOCK)
       `);
 
       res.status(201).json({ success: true, message: 'Record created' });

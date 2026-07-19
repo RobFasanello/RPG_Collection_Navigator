@@ -24,6 +24,7 @@ const SETUP_ITEMS: SidebarItem[] = [
 
 const INVENTORY_ITEMS: SidebarItem[] = [
   { id: 'inventory', label: 'Item Master', path: '/admin/inventory' },
+  { id: 'miniatures', label: 'Miniature Master', path: '/admin/miniatures' },
   { id: 'ordermaster', label: 'Order Master', path: '/admin/order-master' },
   { id: 'store', label: 'Stores', path: '/admin/stores' },
 ];

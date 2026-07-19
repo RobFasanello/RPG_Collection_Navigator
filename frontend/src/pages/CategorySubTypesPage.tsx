@@ -5,7 +5,9 @@ import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
+import SetupTablePagination from '../components/SetupTablePagination';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
+import useSetupPagination from '../hooks/useSetupPagination';
 import { tableAPI } from '../services/api';
 
 interface CategorySubType {
@@ -48,8 +50,7 @@ export default function CategorySubTypesPage() {
   const { data: records = [], isLoading, error } = useQuery<any, Error>({
     queryKey: ['table', tableName],
     queryFn: async () => {
-      const response = await tableAPI.getRecords(tableName);
-      return response.data.data;
+      return tableAPI.getAllRecords(tableName);
     },
   });
 
@@ -298,6 +299,9 @@ export default function CategorySubTypesPage() {
     return null;
   };
 
+  const sortedRecords = getSortedRecords();
+  const pagination = useSetupPagination(sortedRecords, [activeFilters.categoryName, activeFilters.subTypeName, sortColumn, sortDirection]);
+
   return (
     <AdminLayout title="Category / Sub Categories" subtitle="Use this screen to view, add, remove and modify the category and sub category relationships used by your collection.">
       <div className="max-w-7xl mx-auto">
@@ -312,6 +316,7 @@ export default function CategorySubTypesPage() {
                 placeholder="Select category"
                 className="w-full"
                 tabIndex={1}
+                autoFocus
               />
             </div>
             <div>
@@ -527,7 +532,7 @@ export default function CategorySubTypesPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {Array.isArray(getSortedRecords()) && getSortedRecords().map((record: CategorySubType, idx: number) => (
+              {pagination.paginatedRows.map((record: CategorySubType, idx: number) => (
                 <tr key={record.CategorySubTypeID ?? `${record.CategoryID}-${record.SubTypeID}-${idx}`} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleEdit(record)}>
                   <td className="px-6 py-4">{categoryNameById[record.CategoryID] ?? record.CategoryID}</td>
                   <td className="px-6 py-4">{subTypeNameById[record.SubTypeID] ?? record.SubTypeID}</td>
@@ -539,6 +544,14 @@ export default function CategorySubTypesPage() {
             </tbody>
           </table>
         </div>
+
+        <SetupTablePagination
+          currentCount={pagination.paginatedRows.length}
+          total={pagination.total}
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          onPageChange={pagination.setPage}
+        />
 
         <Dialog
           open={!!deleteError}

@@ -15,6 +15,9 @@ const SETUP_NAV_ITEMS: SetupNavItem[] = [
   { label: 'Categories', path: '/home/setup/categories' },
   { label: 'Sub Categories', path: '/home/setup/sub-categories' },
   { label: 'Category / Sub Categories', path: '/home/setup/category-sub-categories' },
+  { label: 'Locations', path: '/home/setup/locations' },
+  { label: 'Location Types', path: '/home/setup/location-types' },
+  { label: 'Location / Types', path: '/home/setup/location-type-assignments' },
   { label: 'Stores', path: '/home/setup/stores' },
   { label: 'Status', path: '/home/setup/status' },
 ];

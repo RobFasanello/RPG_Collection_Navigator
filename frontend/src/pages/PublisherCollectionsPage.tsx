@@ -5,7 +5,9 @@ import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
+import SetupTablePagination from '../components/SetupTablePagination';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
+import useSetupPagination from '../hooks/useSetupPagination';
 import { tableAPI } from '../services/api';
 
 interface PublisherCollection {
@@ -49,8 +51,7 @@ export default function PublisherCollectionsPage() {
   const { data: records = [], isLoading, error } = useQuery<any, Error>({
     queryKey: ['table', tableName],
     queryFn: async () => {
-      const response = await tableAPI.getRecords(tableName);
-      return response.data.data;
+      return tableAPI.getAllRecords(tableName);
     },
   });
 
@@ -330,6 +331,9 @@ export default function PublisherCollectionsPage() {
     return null;
   };
 
+  const sortedRecords = getSortedRecords();
+  const pagination = useSetupPagination(sortedRecords, [activeFilters.publisherName, activeFilters.collectionName, sortColumn, sortDirection]);
+
   return (
     <AdminLayout title="Publisher / Collections" subtitle="Use this screen to view, add, remove and modify the publisher and collection relationships used by your collection.">
       <div className="max-w-7xl mx-auto">
@@ -344,6 +348,7 @@ export default function PublisherCollectionsPage() {
                 placeholder="Select publisher"
                 className="w-full"
                 tabIndex={1}
+                autoFocus
               />
             </div>
             <div>
@@ -559,7 +564,7 @@ export default function PublisherCollectionsPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {Array.isArray(getSortedRecords()) && getSortedRecords().map((record: PublisherCollection, idx: number) => (
+              {pagination.paginatedRows.map((record: PublisherCollection, idx: number) => (
                 <tr key={record.PublisherCollectionID ?? `${record.PublisherID}-${record.CollectionID}-${idx}`} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleEdit(record)}>
                   <td className="px-6 py-4">{publisherNameById[record.PublisherID] ?? record.PublisherID}</td>
                   <td className="px-6 py-4">{collectionNameById[record.CollectionID] ?? record.CollectionID}</td>
@@ -571,6 +576,14 @@ export default function PublisherCollectionsPage() {
             </tbody>
           </table>
         </div>
+
+        <SetupTablePagination
+          currentCount={pagination.paginatedRows.length}
+          total={pagination.total}
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          onPageChange={pagination.setPage}
+        />
 
         <Dialog
           open={!!deleteError}

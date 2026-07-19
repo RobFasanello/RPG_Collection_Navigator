@@ -7,7 +7,9 @@ import { Input } from '../components/ui/Input';
 import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
 import ImageCropDialog from '../components/ImageCropDialog';
+import SetupTablePagination from '../components/SetupTablePagination';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
+import useSetupPagination from '../hooks/useSetupPagination';
 import { tableAPI } from '../services/api';
 
 interface Collection {
@@ -41,8 +43,7 @@ export default function CollectionsPage() {
   const { data: records = [], isLoading, error } = useQuery<any, Error>({
     queryKey: ['table', tableName],
     queryFn: async () => {
-      const response = await tableAPI.getRecords(tableName);
-      return response.data.data;
+      return tableAPI.getAllRecords(tableName);
     },
   });
 
@@ -236,6 +237,9 @@ export default function CollectionsPage() {
   const hasFilterChanges =
     filterInputs.collectionName !== activeFilters.collectionName ||
     filterInputs.collectionTypeId !== activeFilters.collectionTypeId;
+  const sortedRecordValues = getSortedRecords();
+  const sortedRecords = Array.isArray(sortedRecordValues) ? sortedRecordValues : [];
+  const pagination = useSetupPagination(sortedRecords, [activeFilters.collectionName, activeFilters.collectionTypeId, sortColumn, sortDirection]);
 
   const formatImageUploadDate = (date?: string) => {
     if (!date) {
@@ -514,7 +518,7 @@ export default function CollectionsPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {Array.isArray(getSortedRecords()) && getSortedRecords().map((record: Collection) => (
+              {pagination.paginatedRows.map((record: Collection) => (
                 <tr key={record.CollectionID} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleEdit(record)}>
                   <td className="px-6 py-4">{record.CollectionName}</td>
                   <td className="px-6 py-4">
@@ -541,6 +545,14 @@ export default function CollectionsPage() {
             </tbody>
           </table>
         </div>
+
+        <SetupTablePagination
+          currentCount={pagination.paginatedRows.length}
+          total={pagination.total}
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          onPageChange={pagination.setPage}
+        />
 
         <Dialog
           open={!!deleteError}

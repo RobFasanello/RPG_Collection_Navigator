@@ -2076,7 +2076,7 @@ export default function InventoryLookupPage() {
                 + Add Item
               </Button>
               <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={18}>
-                Bulk Upload
+                ++ Bulk Upload
               </Button>
               <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={19}>
                 {isDownloading ? 'Downloading...' : 'Download CSV'}

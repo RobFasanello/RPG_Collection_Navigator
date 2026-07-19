@@ -12,6 +12,7 @@ type TopMenuItem = {
 const TOP_MENU_ITEMS: TopMenuItem[] = [
   { label: 'Home', path: '/home' },
   { label: 'Manage Inventory', path: '/home/inventory' },
+  { label: 'Manage Miniatures', path: '/home/miniatures' },
   { label: 'Manage Orders', path: '/home/orders' },
   { label: 'Manage Setup', path: '/home/setup' },
 ];

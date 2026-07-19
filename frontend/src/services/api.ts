@@ -13,6 +13,25 @@ export const appAPI = {
   getBuildInfo: () => api.get('/build-info'),
 };
 
+const getAllTableData = async (tableName: string) => {
+  const pageSize = 100;
+  const firstResponse = await api.get(`/tables/${tableName}/data`, {
+    params: { page: 1, pageSize },
+  });
+  const firstData = firstResponse.data;
+  const rows = [...(firstData?.data || [])];
+  const totalPages = Number(firstData?.totalPages || 1);
+
+  for (let page = 2; page <= totalPages; page++) {
+    const response = await api.get(`/tables/${tableName}/data`, {
+      params: { page, pageSize },
+    });
+    rows.push(...(response.data?.data || []));
+  }
+
+  return rows;
+};
+
 // Tables API
 export const tablesAPI = {
   getTables: () => api.get('/tables'),
@@ -51,6 +70,7 @@ export const tablesAPI = {
 
   // Backwards-compatible convenience method used by UI pages
   getRecords: (tableName: string) => api.get(`/tables/${tableName}/data`),
+  getAllRecords: getAllTableData,
   
   createRecord: (tableName: string, data: Record<string, any> | FormData) =>
     api.post(`/tables/${tableName}`, data),

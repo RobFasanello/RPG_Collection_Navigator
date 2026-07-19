@@ -1,18 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import AdminLayout from './AdminLayout';
-import RecordForm from './RecordForm';
 import SetupTablePagination from './SetupTablePagination';
 import { Button } from './ui/Button';
 import { Dialog } from './ui/Dialog';
 import { Input } from './ui/Input';
+import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import useSetupPagination from '../hooks/useSetupPagination';
 import { tableAPI } from '../services/api';
 
 type SortDirection = 'asc' | 'desc' | null;
 
-type SetupLookupPageProps = {
+type ManualIdLookupPageProps = {
   title: string;
   subtitle: string;
   tableName: string;
@@ -24,10 +24,12 @@ type SetupLookupPageProps = {
   newButtonLabel: string;
   newTitle: string;
   editTitle: string;
+  nameLabel: string;
+  namePlaceholder: string;
   deleteConflictMessage: string;
 };
 
-export default function SetupLookupPage({
+export default function ManualIdLookupPage({
   title,
   subtitle,
   tableName,
@@ -39,14 +41,20 @@ export default function SetupLookupPage({
   newButtonLabel,
   newTitle,
   editTitle,
+  nameLabel,
+  namePlaceholder,
   deleteConflictMessage,
-}: SetupLookupPageProps) {
-  const [editingId, setEditingId] = useState<string | null>(null);
+}: ManualIdLookupPageProps) {
   const [isAdding, setIsAdding] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<Record<string, any> | null>(null);
   const [filterInput, setFilterInput] = useState('');
   const [activeFilter, setActiveFilter] = useState('');
+  const [formValues, setFormValues] = useState({ name: '' });
+  const [formError, setFormError] = useState('');
   const [deleteError, setDeleteError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const modalRef = useModalFocusTrap<HTMLDivElement>(isAdding || editingRecord !== null, () => closeForm());
   const queryClient = useQueryClient();
 
   const { data: records = [], isLoading, error } = useQuery<any, Error>({
@@ -56,11 +64,21 @@ export default function SetupLookupPage({
     },
   });
 
+  useEffect(() => {
+    if (!editingRecord) {
+      return;
+    }
+
+    setFormValues({
+      name: String(editingRecord[nameColumn] ?? '').trim(),
+    });
+  }, [editingRecord, nameColumn]);
+
   const deleteMutation = useMutation({
     mutationFn: async (recordId: number | string) => tableAPI.deleteRecord(tableName, recordId),
     onSuccess: () => {
       setDeleteError('');
-      setEditingId(null);
+      closeForm();
       queryClient.invalidateQueries({ queryKey: ['table', tableName] });
     },
     onError: (error: any) => {
@@ -78,14 +96,25 @@ export default function SetupLookupPage({
 
   const closeForm = () => {
     setIsAdding(false);
-    setEditingId(null);
+    setEditingRecord(null);
+    setFormValues({ name: '' });
+    setFormError('');
+  };
+
+  const openAddForm = () => {
+    setIsAdding(true);
+    setEditingRecord(null);
+    setFormValues({ name: '' });
+    setFormError('');
   };
 
   const handleDelete = () => {
-    if (editingId !== null && confirm('Are you sure you want to delete this record?')) {
-      setDeleteError('');
-      deleteMutation.mutate(editingId);
+    if (!editingRecord || !confirm('Are you sure you want to delete this record?')) {
+      return;
     }
+
+    setDeleteError('');
+    deleteMutation.mutate(editingRecord[idColumn]);
   };
 
   const handleNameSort = () => {
@@ -119,6 +148,7 @@ export default function SetupLookupPage({
   };
 
   const hasFilterChanges = filterInput !== activeFilter;
+  const isEditing = editingRecord !== null;
   const pagination = useSetupPagination(sortedRecords, [activeFilter, sortDirection]);
 
   return (
@@ -149,32 +179,93 @@ export default function SetupLookupPage({
             >
               Clear
             </Button>
-            <Button
-              onClick={() => {
-                setIsAdding(true);
-                setEditingId(null);
-              }}
-              className="gap-2 bg-green-600 hover:bg-green-700"
-            >
+            <Button onClick={openAddForm} className="gap-2 bg-green-600 hover:bg-green-700">
               <Plus className="w-4 h-4" />
               {newButtonLabel}
             </Button>
           </div>
         </div>
 
-        {isAdding || editingId !== null ? (
-          <RecordForm
-            tableName={tableName}
-            recordId={editingId ?? undefined}
-            title={editingId !== null ? editTitle : newTitle}
-            onClose={closeForm}
-            onSuccess={() => {
-              closeForm();
-              queryClient.invalidateQueries({ queryKey: ['table', tableName] });
-            }}
-            onDelete={editingId !== null ? handleDelete : undefined}
-            deleteDisabled={deleteMutation.isLoading}
-          />
+        {isAdding || isEditing ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div ref={modalRef} tabIndex={-1} className="w-full max-w-2xl bg-white p-6 rounded-lg shadow-xl">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">{isEditing ? editTitle : newTitle}</h2>
+              </div>
+
+              {formError ? (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded">
+                  {formError}
+                </div>
+              ) : null}
+
+              <form
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  setFormError('');
+
+                  const recordName = formValues.name.trim();
+
+                  if (!recordName) {
+                    setFormError(`${nameLabel} is required.`);
+                    return;
+                  }
+
+                  setIsSaving(true);
+                  try {
+                    if (isEditing && editingRecord) {
+                      await tableAPI.updateRecord(tableName, editingRecord[idColumn], {
+                        [idColumn]: editingRecord[idColumn],
+                        [nameColumn]: recordName,
+                      });
+                    } else {
+                      await tableAPI.createRecord(tableName, {
+                        [nameColumn]: recordName,
+                      });
+                    }
+
+                    queryClient.invalidateQueries({ queryKey: ['table', tableName] });
+                    closeForm();
+                  } catch (err: any) {
+                    setFormError(err.response?.data?.error || 'Error saving record');
+                  } finally {
+                    setIsSaving(false);
+                  }
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <label className="block text-sm font-medium mb-1">{nameLabel}</label>
+                  <Input
+                    type="text"
+                    value={formValues.name}
+                    onChange={(event) => setFormValues((prev) => ({ ...prev, name: event.target.value }))}
+                    placeholder={namePlaceholder}
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-6">
+                  <div>
+                    {isEditing ? (
+                      <Button type="button" onClick={handleDelete} disabled={deleteMutation.isLoading || isSaving} className="bg-red-600 hover:bg-red-700">
+                        Delete
+                      </Button>
+                    ) : null}
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button type="button" onClick={closeForm} className="bg-gray-200 text-gray-800 hover:bg-gray-300">
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={isSaving}>
+                      {isSaving ? 'Saving...' : isEditing ? 'Update' : 'Save'}
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
         ) : null}
 
         {isLoading && <p className="text-gray-500">Loading...</p>}
@@ -184,10 +275,7 @@ export default function SetupLookupPage({
           <table className="w-full">
             <thead className="bg-gray-100 border-b">
               <tr>
-                <th
-                  className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
-                  onClick={handleNameSort}
-                >
+                <th className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition" onClick={handleNameSort}>
                   <div className="flex items-center gap-2">
                     {nameHeader}
                     {getSortIcon()}
@@ -202,10 +290,11 @@ export default function SetupLookupPage({
                   className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => {
                     setIsAdding(false);
-                    setEditingId(String(record[idColumn]));
+                    setEditingRecord(record);
+                    setFormError('');
                   }}
                 >
-                  <td className="px-6 py-4">{record[nameColumn]}</td>
+                  <td className="px-6 py-4">{String(record[nameColumn] ?? '').trim()}</td>
                 </tr>
               ))}
             </tbody>
