@@ -34,7 +34,7 @@ export default function CollectionsPage() {
   });
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [cropSourceFile, setCropSourceFile] = useState<File | null>(null);
-  const modalRef = useModalFocusTrap<HTMLDivElement>(isAdding || editingId !== null);
+  const modalRef = useModalFocusTrap<HTMLDivElement>(isAdding || editingId !== null, () => closeForm());
   const queryClient = useQueryClient();
   const tableName = 'Collection';
 

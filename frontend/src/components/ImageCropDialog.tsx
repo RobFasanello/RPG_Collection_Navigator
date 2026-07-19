@@ -139,7 +139,7 @@ export default function ImageCropDialog({
 }: ImageCropDialogProps) {
   const imageRef = useRef<HTMLImageElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const modalRef = useModalFocusTrap<HTMLDivElement>();
+  const modalRef = useModalFocusTrap<HTMLDivElement>(true, onCancel);
   const [imageUrl, setImageUrl] = useState('');
   const [imageLoaded, setImageLoaded] = useState(false);
   const [zoom, setZoom] = useState(1);

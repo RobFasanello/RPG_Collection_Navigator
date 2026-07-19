@@ -9,7 +9,7 @@ const FOCUSABLE_SELECTOR = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(',');
 
-export default function useModalFocusTrap<T extends HTMLElement>(active = true) {
+export default function useModalFocusTrap<T extends HTMLElement>(active = true, onEscape?: () => void) {
   const containerRef = useRef<T | null>(null);
 
   useEffect(() => {
@@ -34,6 +34,13 @@ export default function useModalFocusTrap<T extends HTMLElement>(active = true) 
     }, 0);
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && onEscape) {
+        event.preventDefault();
+        event.stopPropagation();
+        onEscape();
+        return;
+      }
+
       if (event.key !== 'Tab') {
         return;
       }
@@ -62,7 +69,7 @@ export default function useModalFocusTrap<T extends HTMLElement>(active = true) 
 
     container.addEventListener('keydown', handleKeyDown);
     return () => container.removeEventListener('keydown', handleKeyDown);
-  }, [active]);
+  }, [active, onEscape]);
 
   return containerRef;
 }

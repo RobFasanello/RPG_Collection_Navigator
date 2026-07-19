@@ -42,7 +42,7 @@ export default function RecordForm({
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState('');
-  const modalRef = useModalFocusTrap<HTMLDivElement>();
+  const modalRef = useModalFocusTrap<HTMLDivElement>(true, onClose);
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));

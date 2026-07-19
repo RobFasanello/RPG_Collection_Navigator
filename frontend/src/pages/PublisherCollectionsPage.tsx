@@ -42,7 +42,7 @@ export default function PublisherCollectionsPage() {
   const [formError, setFormError] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const modalRef = useModalFocusTrap<HTMLDivElement>(isAdding || isEditing);
+  const modalRef = useModalFocusTrap<HTMLDivElement>(isAdding || isEditing, () => closeForm());
   const queryClient = useQueryClient();
   const tableName = 'PublisherCollection';
 

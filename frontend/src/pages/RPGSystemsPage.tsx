@@ -34,7 +34,7 @@ export default function RPGSystemsPage() {
     RPGSystemURL: '',
     RPGSystemDescription: '',
   });
-  const modalRef = useModalFocusTrap<HTMLDivElement>(isAdding || editingId !== null);
+  const modalRef = useModalFocusTrap<HTMLDivElement>(isAdding || editingId !== null, () => closeForm());
   const queryClient = useQueryClient();
   const tableName = 'RPGSystem';
 

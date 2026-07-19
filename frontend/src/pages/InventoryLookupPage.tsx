@@ -10,6 +10,7 @@ import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
 import LinkedOrderDetailModal, { type LinkedPurchaseOrder } from '../components/order/LinkedOrderDetailModal';
 import BulkItemUploadDialog from '../components/inventory/BulkItemUploadDialog';
+import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import { tablesAPI } from '../services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
 
@@ -105,6 +106,7 @@ export default function InventoryLookupPage() {
   });
   const [searchParams, setSearchParams] = useState(filterValues);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const editModalRef = useModalFocusTrap<HTMLDivElement>(Boolean(editingItem), () => closeEditModal());
   const [editValues, setEditValues] = useState({
     ItemName: '',
     ItemVersion: '',
@@ -2485,7 +2487,7 @@ export default function InventoryLookupPage() {
 
       {editingItem ? (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6">
+          <div ref={editModalRef} tabIndex={-1} className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h2 className="text-xl font-semibold">Edit Item Detail</h2>
