@@ -1,9 +1,13 @@
 import { Request, Response } from 'express';
 import { getPool, sql } from '../db/connection.js';
-import { deleteUploadedFile } from '../uploads.js';
+import { deleteUploadedFile, supportsImageUpload } from '../uploads.js';
 
 function getPrimaryKeyColumn(tableName: string): string {
   return `${tableName}ID`;
+}
+
+function isImageUploadTable(tableName: string): boolean {
+  return supportsImageUpload(tableName);
 }
 
 function parsePositiveInt(value: unknown): number | null {
@@ -1615,6 +1619,7 @@ export async function getDashboardOverview(req: Request, res: Response): Promise
       SELECT
         [Publisher].[PublisherID],
         [Publisher].[PublisherName],
+        [Publisher].[ImageFileName],
         COUNT(DISTINCT [Item].[ItemID]) AS [TotalItems],
         COUNT(DISTINCT CASE WHEN [PurchaseOrder].[PurchaseOrderID] IS NOT NULL THEN [Item].[ItemID] END) AS [ItemsInPurchaseOrder],
         CAST(
@@ -1630,7 +1635,7 @@ export async function getDashboardOverview(req: Request, res: Response): Promise
       LEFT JOIN [Item] ON [Item].[PublisherID] = [Publisher].[PublisherID]
       LEFT JOIN [PurchaseOrderDetail] ON [PurchaseOrderDetail].[ItemID] = [Item].[ItemID]
       LEFT JOIN [PurchaseOrder] ON [PurchaseOrder].[PurchaseOrderID] = [PurchaseOrderDetail].[PurchaseOrderID]
-      GROUP BY [Publisher].[PublisherID], [Publisher].[PublisherName]
+      GROUP BY [Publisher].[PublisherID], [Publisher].[PublisherName], [Publisher].[ImageFileName]
       ORDER BY [Publisher].[PublisherName] ASC
     `;
 
@@ -1711,6 +1716,7 @@ export async function getDashboardOverview(req: Request, res: Response): Promise
         TotalItems: Number(row.TotalItems || 0),
         ItemsInPurchaseOrder: Number(row.ItemsInPurchaseOrder || 0),
         CoveragePercent: Number(row.CoveragePercent || 0),
+        ImageFileName: String(row.ImageFileName || '').trim() || undefined,
       })),
       collectionDashboard: collectionDashboardResult.recordset.map((row) => ({
         CollectionID: Number(row.CollectionID || 0),
@@ -1777,7 +1783,7 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
 
     const request = pool.request();
 
-    if (tableName === 'Collection') {
+    if (isImageUploadTable(tableName)) {
       delete data.ImageUploadDate;
       delete data.ImageFileName;
 
@@ -1798,10 +1804,10 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
 
     const columns = Object.keys(data);
     const values = Object.values(data);
-    const insertColumns = tableName === 'Collection' ? [...columns, 'ImageUploadDate'] : columns;
+    const insertColumns = isImageUploadTable(tableName) ? [...columns, 'ImageUploadDate'] : columns;
     const placeholders = [
       ...columns.map((col) => `@${col}`),
-      ...(tableName === 'Collection' ? ['GETDATE()'] : []),
+      ...(isImageUploadTable(tableName) ? ['GETDATE()'] : []),
     ].join(', ');
     const columnList = insertColumns.map(col => `[${col}]`).join(', ');
 
@@ -1817,7 +1823,7 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
     await request.query(query);
     res.status(201).json({ success: true, message: 'Record created' });
   } catch (error) {
-    if (tableName === 'Collection') {
+    if (isImageUploadTable(tableName)) {
       await deleteUploadedFile(req.file);
     }
 
@@ -2213,7 +2219,7 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
       res.json({ success: true, message: 'Record updated' });
       return;
     } else {
-      if (tableName === 'Collection') {
+      if (isImageUploadTable(tableName)) {
         delete data.ImageUploadDate;
         delete data.ImageFileName;
 
@@ -2236,7 +2242,7 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
       const updateColumns = Object.keys(data);
       const updates = [
         ...updateColumns.map(col => `[${col}] = @${col}`),
-        ...(tableName === 'Collection' ? ['[ImageUploadDate] = GETDATE()'] : []),
+        ...(isImageUploadTable(tableName) ? ['[ImageUploadDate] = GETDATE()'] : []),
       ]
         .join(', ');
 
@@ -2258,7 +2264,7 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
 
     res.json({ success: true, message: 'Record updated' });
   } catch (error) {
-    if (req.params.tableName === 'Collection') {
+    if (isImageUploadTable(req.params.tableName)) {
       await deleteUploadedFile(req.file);
     }
 

@@ -17,6 +17,7 @@ type DashboardData = {
     TotalItems: number;
     ItemsInPurchaseOrder: number;
     CoveragePercent: number;
+    ImageFileName?: string;
   }>;
   collectionDashboard: Array<{
     CollectionID: number;
@@ -166,6 +167,7 @@ async function getDashboardFallback(): Promise<DashboardData> {
         TotalItems: totalItems,
         ItemsInPurchaseOrder: itemsInPurchaseOrder,
         CoveragePercent: Number(coveragePercent.toFixed(2)),
+        ImageFileName: String(publisherRow.ImageFileName || '').trim() || undefined,
       };
     })
     .sort((a, b) => a.PublisherName.localeCompare(b.PublisherName));
@@ -373,6 +375,7 @@ function buildCoverageBoxes({
       TotalItems: coverage.totalItems,
       ItemsInPurchaseOrder: coverage.itemsInPurchaseOrder,
       CoveragePercent: coverage.coveragePercent,
+      ImageFileName: String(catalogRow.ImageFileName || '').trim() || undefined,
     };
   });
 }
@@ -403,6 +406,19 @@ function getCollectionImageUrl(fileName?: string) {
   }
 
   return `/api/uploads/collections/${encodeURIComponent(normalizedFileName)}`;
+}
+
+function getPublisherImageUrl(fileName?: string) {
+  const normalizedFileName = String(fileName || '').trim();
+  if (!normalizedFileName) {
+    return '';
+  }
+
+  if (/^(https?:)?\/\//i.test(normalizedFileName) || normalizedFileName.startsWith('/')) {
+    return normalizedFileName;
+  }
+
+  return `/api/uploads/publishers/${encodeURIComponent(normalizedFileName)}`;
 }
 
 function CollectionStatusLinks({ uncollectedTo, collectedTo }: { uncollectedTo: string; collectedTo: string }) {
@@ -795,24 +811,35 @@ export default function HomePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {publisherBoxes.map((publisher) => {
                   const coverageBand = getCoverageBandClasses(publisher.CoveragePercent);
+                  const publisherImageUrl = getPublisherImageUrl(publisher.ImageFileName);
+                  const hasPublisherImage = Boolean(publisherImageUrl);
+                  const titleClass = hasPublisherImage ? 'text-white drop-shadow' : coverageBand.title;
+                  const valueClass = hasPublisherImage ? 'text-white drop-shadow' : coverageBand.value;
+                  const detailClass = hasPublisherImage ? 'text-gray-100 drop-shadow' : coverageBand.detail;
                   const baseInventoryLink = buildInventoryLink({ publisher: publisher.EntityName });
                   const uncollectedInventoryLink = buildInventoryLink({ publisher: publisher.EntityName, hasPurchaseOrder: false });
 
                   return (
                     <div
                       key={publisher.EntityID || publisher.EntityName}
-                      className={`relative overflow-hidden rounded-xl border p-5 transition ${coverageBand.card}`}
+                      className={`relative overflow-hidden rounded-xl border p-5 transition ${
+                        hasPublisherImage
+                          ? 'border-gray-300 bg-gray-900 bg-cover bg-center hover:border-gray-400'
+                          : coverageBand.card
+                      }`}
+                      style={hasPublisherImage ? { backgroundImage: `url("${publisherImageUrl}")` } : undefined}
                     >
+                      {hasPublisherImage ? <div className="absolute inset-0 bg-black/55" /> : null}
                       <Link
                         to={baseInventoryLink}
-                        className="block pr-24 pb-8 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
+                        className="relative z-10 block pr-36 pb-14 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
                         title={`Open Item Master for ${publisher.EntityName}`}
                       >
-                        <p className={`text-sm font-medium truncate ${coverageBand.title}`} title={publisher.EntityName}>
+                        <p className={`text-sm font-medium truncate ${titleClass}`} title={publisher.EntityName}>
                           {publisher.EntityName}
                         </p>
-                        <p className={`mt-2 text-3xl font-bold ${coverageBand.value}`}>{formatPercent(publisher.CoveragePercent)}</p>
-                        <p className={`mt-2 text-sm ${coverageBand.detail}`}>
+                        <p className={`mt-2 text-3xl font-bold ${valueClass}`}>{formatPercent(publisher.CoveragePercent)}</p>
+                        <p className={`mt-2 text-sm ${detailClass}`}>
                           {publisher.ItemsInPurchaseOrder.toLocaleString()} / {publisher.TotalItems.toLocaleString()} items in orders
                         </p>
                       </Link>

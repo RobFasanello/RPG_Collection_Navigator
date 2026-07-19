@@ -5,30 +5,43 @@ import type { NextFunction, Request, Response } from 'express';
 import multer from 'multer';
 
 export const uploadsRoot = path.resolve(process.env.UPLOADS_ROOT || path.join(process.cwd(), 'uploads'));
-const collectionImagesDirectory = path.join(uploadsRoot, 'collections');
+const imageUploadDirectories: Record<string, string> = {
+  Collection: path.join(uploadsRoot, 'collections'),
+  Publisher: path.join(uploadsRoot, 'publishers'),
+};
 
-function ensureCollectionImagesDirectory(): void {
-  fs.mkdirSync(collectionImagesDirectory, { recursive: true });
+function ensureImageUploadDirectory(tableName: string): string {
+  const directory = imageUploadDirectories[tableName];
+  if (!directory) {
+    throw new Error('Image uploads are not supported for this table.');
+  }
+
+  fs.mkdirSync(directory, { recursive: true });
+  return directory;
 }
 
-function getSafeWebpFileName(originalName: string): string {
+function getSafeWebpFileName(originalName: string, tableName: string): string {
   const baseName = path.parse(originalName).name;
-  const safeBaseName = baseName.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'collection-image';
+  const defaultBaseName = `${tableName.toLowerCase()}-image`;
+  const safeBaseName = baseName.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || defaultBaseName;
   return `${safeBaseName}-${Date.now()}-${crypto.randomUUID()}.webp`;
 }
 
-const collectionImageStorage = multer.diskStorage({
-  destination(_req, _file, callback) {
-    ensureCollectionImagesDirectory();
-    callback(null, collectionImagesDirectory);
+const imageUploadStorage = multer.diskStorage({
+  destination(req, _file, callback) {
+    try {
+      callback(null, ensureImageUploadDirectory(req.params.tableName));
+    } catch (error) {
+      callback(error as Error, '');
+    }
   },
-  filename(_req, file, callback) {
-    callback(null, getSafeWebpFileName(file.originalname));
+  filename(req, file, callback) {
+    callback(null, getSafeWebpFileName(file.originalname, req.params.tableName));
   },
 });
 
-const collectionImageUpload = multer({
-  storage: collectionImageStorage,
+const imageUpload = multer({
+  storage: imageUploadStorage,
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter(_req, file, callback) {
     const extension = path.extname(file.originalname).toLowerCase();
@@ -43,13 +56,17 @@ const collectionImageUpload = multer({
   },
 }).single('ImageFile');
 
+export function supportsImageUpload(tableName: string): boolean {
+  return Object.prototype.hasOwnProperty.call(imageUploadDirectories, tableName);
+}
+
 export function uploadCollectionImageIfNeeded(req: Request, res: Response, next: NextFunction): void {
-  if (req.params.tableName !== 'Collection') {
+  if (!supportsImageUpload(req.params.tableName)) {
     next();
     return;
   }
 
-  collectionImageUpload(req, res, (error: unknown) => {
+  imageUpload(req, res, (error: unknown) => {
     if (!error) {
       next();
       return;

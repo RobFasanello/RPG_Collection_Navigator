@@ -4,8 +4,8 @@ import { Plus, Edit2, Trash2, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 import { Dialog } from '../components/ui/Dialog';
-import RecordForm from '../components/RecordForm';
 import { tableAPI } from '../services/api';
 
 interface Publisher {
@@ -13,10 +13,12 @@ interface Publisher {
   PublisherID?: number;
   PublisherName?: string;
   PublisherURL?: string | null;
+  ImageFileName?: string | null;
+  ImageUploadDate?: string | null;
 }
 
 type SortDirection = 'asc' | 'desc' | null;
-type SortColumn = 'name' | 'url' | 'itemCount' | 'orderCount' | null;
+type SortColumn = 'name' | 'url' | 'imageFileName' | 'imageUploadDate' | 'itemCount' | 'orderCount' | null;
 
 async function getAllTableRows(tableName: string): Promise<any[]> {
   const pageSize = 500;
@@ -49,6 +51,14 @@ export default function PublishersPage() {
   const [deleteError, setDeleteError] = useState('');
   const [sortColumn, setSortColumn] = useState<SortColumn>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [formValues, setFormValues] = useState({
+    PublisherName: '',
+    PublisherURL: '',
+    ImageFileName: '',
+  });
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const queryClient = useQueryClient();
   const tableName = 'Publisher';
 
@@ -147,6 +157,47 @@ export default function PublishersPage() {
     }
   };
 
+  const handleEdit = (record: Publisher) => {
+    setIsAdding(false);
+    setEditingId(String(record.PublisherID));
+    setFormValues({
+      PublisherName: String(record.PublisherName ?? ''),
+      PublisherURL: String(record.PublisherURL ?? ''),
+      ImageFileName: String(record.ImageFileName ?? ''),
+    });
+    setSelectedImageFile(null);
+    setFormError('');
+  };
+
+  const closeForm = () => {
+    setIsAdding(false);
+    setEditingId(null);
+    setFormValues({
+      PublisherName: '',
+      PublisherURL: '',
+      ImageFileName: '',
+    });
+    setSelectedImageFile(null);
+    setFormError('');
+  };
+
+  const handleImageFileChange = (file: File | null) => {
+    if (!file) {
+      setSelectedImageFile(null);
+      return;
+    }
+
+    const isWebpFile = file.name.toLowerCase().endsWith('.webp') && (!file.type || file.type === 'image/webp');
+    if (!isWebpFile) {
+      setSelectedImageFile(null);
+      setFormError('Image File Name must be a .webp file.');
+      return;
+    }
+
+    setSelectedImageFile(file);
+    setFormError('');
+  };
+
   const handleSort = (column: Exclude<SortColumn, null>) => {
     if (sortColumn !== column) {
       setSortColumn(column);
@@ -170,6 +221,13 @@ export default function PublishersPage() {
     }
 
     const sorted = [...records].sort((a, b) => {
+      if (sortColumn === 'imageUploadDate') {
+        const dateA = Date.parse(String(a.ImageUploadDate ?? '')) || 0;
+        const dateB = Date.parse(String(b.ImageUploadDate ?? '')) || 0;
+
+        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+
       if (sortColumn === 'itemCount' || sortColumn === 'orderCount') {
         const countA =
           sortColumn === 'itemCount'
@@ -183,8 +241,18 @@ export default function PublishersPage() {
         if (countA < countB) return sortDirection === 'asc' ? -1 : 1;
         if (countA > countB) return sortDirection === 'asc' ? 1 : -1;
       } else {
-        const valueA = sortColumn === 'name' ? String(a.PublisherName || '') : String(a.PublisherURL || '');
-        const valueB = sortColumn === 'name' ? String(b.PublisherName || '') : String(b.PublisherURL || '');
+        const valueA =
+          sortColumn === 'name'
+            ? String(a.PublisherName || '')
+            : sortColumn === 'imageFileName'
+              ? String(a.ImageFileName || '')
+              : String(a.PublisherURL || '');
+        const valueB =
+          sortColumn === 'name'
+            ? String(b.PublisherName || '')
+            : sortColumn === 'imageFileName'
+              ? String(b.ImageFileName || '')
+              : String(b.PublisherURL || '');
         const normalizedA = valueA.toLowerCase();
         const normalizedB = valueB.toLowerCase();
 
@@ -210,6 +278,22 @@ export default function PublishersPage() {
   const sortedRecordValues = getSortedRecords();
   const sortedRecords = Array.isArray(sortedRecordValues) ? sortedRecordValues : [];
 
+  const formatImageUploadDate = (date?: string | null) => {
+    if (!date) {
+      return '-';
+    }
+
+    const parsed = new Date(date);
+    if (Number.isNaN(parsed.getTime())) {
+      return date;
+    }
+
+    return parsed.toLocaleString();
+  };
+
+  const getPublisherImageUrl = (fileName?: string | null) =>
+    fileName ? `/api/uploads/publishers/${encodeURIComponent(fileName)}` : '';
+
   return (
     <AdminLayout title="Publishers" subtitle="Use this screen to view, add, remove and modify the publishers in your collection.">
       <div className="max-w-7xl mx-auto">
@@ -218,6 +302,9 @@ export default function PublishersPage() {
             onClick={() => {
               setIsAdding(true);
               setEditingId(null);
+              setFormValues({ PublisherName: '', PublisherURL: '', ImageFileName: '' });
+              setSelectedImageFile(null);
+              setFormError('');
             }}
             className="gap-2 bg-green-600 hover:bg-green-700 text-white"
           >
@@ -233,28 +320,123 @@ export default function PublishersPage() {
                 {editingId !== null ? 'Edit Publisher' : 'New Publisher'}
               </h2>
               <button
-                onClick={() => {
-                  setIsAdding(false);
-                  setEditingId(null);
-                }}
+                onClick={closeForm}
                 className="text-gray-500 hover:text-gray-700"
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
-            <RecordForm
-              tableName={tableName}
-              recordId={editingId ?? undefined}
-              onClose={() => {
-                setIsAdding(false);
-                setEditingId(null);
+
+            {formError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded">
+                {formError}
+              </div>
+            )}
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setFormError('');
+
+                const publisherName = formValues.PublisherName.trim();
+                const publisherUrl = formValues.PublisherURL.trim();
+
+                if (!publisherName) {
+                  setFormError('Publisher Name is required.');
+                  return;
+                }
+
+                setIsSaving(true);
+                try {
+                  const payload = new FormData();
+                  payload.append('PublisherName', publisherName);
+                  payload.append('PublisherURL', publisherUrl);
+
+                  if (selectedImageFile) {
+                    payload.append('ImageFile', selectedImageFile);
+                  }
+
+                  if (editingId !== null) {
+                    await tableAPI.updateRecord(tableName, editingId, payload);
+                  } else {
+                    await tableAPI.createRecord(tableName, payload);
+                  }
+
+                  queryClient.invalidateQueries({ queryKey: ['table', tableName] });
+                  closeForm();
+                } catch (err: any) {
+                  setFormError(err.response?.data?.error || 'Error saving record');
+                } finally {
+                  setIsSaving(false);
+                }
               }}
-              onSuccess={() => {
-                setIsAdding(false);
-                setEditingId(null);
-                queryClient.invalidateQueries({ queryKey: ['table', tableName] });
-              }}
-            />
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium mb-1">Publisher Name</label>
+                <Input
+                  type="text"
+                  value={formValues.PublisherName}
+                  onChange={(e) => setFormValues((prev) => ({ ...prev, PublisherName: e.target.value }))}
+                  placeholder="Enter Publisher Name"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Publisher URL</label>
+                <Input
+                  type="url"
+                  value={formValues.PublisherURL}
+                  onChange={(e) => setFormValues((prev) => ({ ...prev, PublisherURL: e.target.value }))}
+                  placeholder="Enter Publisher URL"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Image File Name</label>
+                <Input
+                  type="file"
+                  accept=".webp,image/webp"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    handleImageFileChange(file);
+                    const isWebpFile = file?.name.toLowerCase().endsWith('.webp') && (!file.type || file.type === 'image/webp');
+                    if (file && !isWebpFile) {
+                      e.target.value = '';
+                    }
+                  }}
+                />
+                {selectedImageFile ? (
+                  <p className="mt-1 text-sm text-gray-600">Selected: {selectedImageFile.name}</p>
+                ) : formValues.ImageFileName ? (
+                  <p className="mt-1 text-sm text-gray-600">
+                    Current:{' '}
+                    <a
+                      href={getPublisherImageUrl(formValues.ImageFileName)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-600 hover:text-blue-700 underline"
+                    >
+                      {formValues.ImageFileName}
+                    </a>
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="flex gap-2 justify-end mt-6">
+                <Button
+                  type="button"
+                  onClick={closeForm}
+                  className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving ? 'Saving...' : 'Save Publisher'}
+                </Button>
+              </div>
+            </form>
           </div>
         ) : null}
 
@@ -300,6 +482,24 @@ export default function PublishersPage() {
                     {getSortIcon('orderCount')}
                   </div>
                 </th>
+                <th
+                  className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
+                  onClick={() => handleSort('imageFileName')}
+                >
+                  <div className="flex items-center gap-2">
+                    Image File Name
+                    {getSortIcon('imageFileName')}
+                  </div>
+                </th>
+                <th
+                  className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
+                  onClick={() => handleSort('imageUploadDate')}
+                >
+                  <div className="flex items-center gap-2">
+                    Image Upload Date
+                    {getSortIcon('imageUploadDate')}
+                  </div>
+                </th>
                 <th className="px-6 py-3 text-right text-sm font-semibold">Actions</th>
               </tr>
             </thead>
@@ -340,9 +540,24 @@ export default function PublishersPage() {
                       {(orderCountByPublisher[Number(record.PublisherID)] || 0).toLocaleString()}
                     </Link>
                   </td>
+                  <td className="px-6 py-4">
+                    {record.ImageFileName ? (
+                      <a
+                        href={getPublisherImageUrl(record.ImageFileName)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 hover:text-blue-700 underline"
+                      >
+                        {record.ImageFileName}
+                      </a>
+                    ) : (
+                      '-'
+                    )}
+                  </td>
+                  <td className="px-6 py-4">{formatImageUploadDate(record.ImageUploadDate)}</td>
                   <td className="px-6 py-4 text-right space-x-2">
                     <button
-                      onClick={() => setEditingId(String(record.PublisherID))}
+                      onClick={() => handleEdit(record)}
                       className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700"
                     >
                       <Edit2 className="w-4 h-4" />
