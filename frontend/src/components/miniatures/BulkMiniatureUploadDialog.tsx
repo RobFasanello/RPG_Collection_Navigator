@@ -8,7 +8,7 @@ import { Input } from '../ui/Input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table';
 import { tablesAPI } from '../../services/api';
 
-type BulkField = 'CollectionName' | 'SubCategory' | 'Item' | 'MiniatureName' | 'Quantity' | 'Location';
+type BulkField = 'Item' | 'MiniatureName' | 'MiniatureSize' | 'MiniatureRarity' | 'Quantity' | 'Location';
 
 type OptionItem = {
   value: string | number;
@@ -35,37 +35,38 @@ type UploadRow = {
   success: boolean;
   isManual: boolean;
   resolvedItemId?: number;
+  resolvedMiniatureSizeId?: number;
+  resolvedMiniatureRarityId?: number;
   resolvedLocationId?: number | null;
 };
 
 type BulkMiniatureUploadDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  collectionOptions: OptionItem[];
-  subTypeOptions: OptionItem[];
   locationOptions: OptionItem[];
+  miniatureSizeOptions: OptionItem[];
+  miniatureRarityOptions: OptionItem[];
   itemRecords: ItemRecord[];
   miniatureRecords: MiniatureRecord[];
   onMiniaturesAdded?: () => void;
 };
 
-const REQUIRED_ROW_FIELDS: BulkField[] = ['CollectionName', 'SubCategory', 'Item', 'MiniatureName', 'Quantity'];
-const ALL_FIELDS: BulkField[] = ['CollectionName', 'SubCategory', 'Item', 'MiniatureName', 'Quantity', 'Location'];
+const REQUIRED_ROW_FIELDS: BulkField[] = ['Item', 'MiniatureName', 'MiniatureSize', 'MiniatureRarity', 'Quantity'];
+const ALL_FIELDS: BulkField[] = ['Item', 'MiniatureName', 'MiniatureSize', 'MiniatureRarity', 'Quantity', 'Location'];
 const BULK_UPLOAD_MINIATURE_TEMPLATE_URL = '/templates/Bulk%20Upload%20Miniature%20Template.xlsx';
 const BASE_SELECT_CLASS_NAME = 'mt-1 block w-full border rounded-md p-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500';
 const ERROR_FIELD_CLASS_NAME = 'border-red-500 bg-red-50 focus:ring-red-500';
 
 const HEADER_ALIASES: Record<string, BulkField> = {
-  collectionname: 'CollectionName',
-  collection: 'CollectionName',
-  subcategory: 'SubCategory',
-  subtype: 'SubCategory',
-  subcat: 'SubCategory',
   item: 'Item',
   itemname: 'Item',
   miniaturename: 'MiniatureName',
   miniature: 'MiniatureName',
   name: 'MiniatureName',
+  miniaturesize: 'MiniatureSize',
+  size: 'MiniatureSize',
+  miniaturerarity: 'MiniatureRarity',
+  rarity: 'MiniatureRarity',
   quantity: 'Quantity',
   miniaturequantity: 'Quantity',
   location: 'Location',
@@ -86,10 +87,10 @@ function normalizeKey(value: string): string {
 
 function emptyRowValues(): Record<BulkField, string> {
   return {
-    CollectionName: '',
-    SubCategory: '',
     Item: '',
     MiniatureName: '',
+    MiniatureSize: '',
+    MiniatureRarity: '',
     Quantity: '',
     Location: '',
   };
@@ -109,10 +110,10 @@ function getErrorFields(row: UploadRow): Set<BulkField> {
   const fields = new Set<BulkField>();
 
   row.errors.forEach((error) => {
-    if (error.startsWith('Collection Name')) fields.add('CollectionName');
-    if (error.startsWith('Sub Category')) fields.add('SubCategory');
     if (error.startsWith('Item') || error.startsWith('No matching item') || error.startsWith('Multiple matching items') || error.startsWith('A miniature record already exists')) fields.add('Item');
     if (error.startsWith('Miniature Name')) fields.add('MiniatureName');
+    if (error.startsWith('Miniature Size')) fields.add('MiniatureSize');
+    if (error.startsWith('Miniature Rarity')) fields.add('MiniatureRarity');
     if (error.startsWith('Quantity')) fields.add('Quantity');
     if (error.startsWith('Location')) fields.add('Location');
   });
@@ -123,9 +124,9 @@ function getErrorFields(row: UploadRow): Set<BulkField> {
 export default function BulkMiniatureUploadDialog({
   open,
   onOpenChange,
-  collectionOptions,
-  subTypeOptions,
   locationOptions,
+  miniatureSizeOptions,
+  miniatureRarityOptions,
   itemRecords,
   onMiniaturesAdded,
 }: BulkMiniatureUploadDialogProps) {
@@ -136,34 +137,27 @@ export default function BulkMiniatureUploadDialog({
   const [addedCount, setAddedCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const collectionSelectOptions = useMemo(
-    () => collectionOptions.map((option) => ({ value: String(option.label), label: String(option.label) })),
-    [collectionOptions]
-  );
-
-  const subTypeSelectOptions = useMemo(
-    () => subTypeOptions.map((option) => ({ value: String(option.label), label: String(option.label) })),
-    [subTypeOptions]
-  );
-
   const locationSelectOptions = useMemo(
     () => locationOptions.map((option) => ({ value: String(option.label), label: String(option.label) })),
     [locationOptions]
   );
 
-  const collectionLookup = useMemo(() => buildLookup(collectionOptions), [collectionOptions]);
-  const subTypeLookup = useMemo(() => buildLookup(subTypeOptions), [subTypeOptions]);
+  const miniatureSizeSelectOptions = useMemo(
+    () => miniatureSizeOptions.map((option) => ({ value: String(option.label), label: String(option.label) })),
+    [miniatureSizeOptions]
+  );
+
+  const miniatureRaritySelectOptions = useMemo(
+    () => miniatureRarityOptions.map((option) => ({ value: String(option.label), label: String(option.label) })),
+    [miniatureRarityOptions]
+  );
+
   const locationLookup = useMemo(() => buildLookup(locationOptions), [locationOptions]);
+  const miniatureSizeLookup = useMemo(() => buildLookup(miniatureSizeOptions), [miniatureSizeOptions]);
+  const miniatureRarityLookup = useMemo(() => buildLookup(miniatureRarityOptions), [miniatureRarityOptions]);
 
-  const getItemSelectOptions = (row: UploadRow) => {
-    const collectionMatches = collectionLookup.get(normalizeKey(row.values.CollectionName)) || [];
-    const subTypeMatches = subTypeLookup.get(normalizeKey(row.values.SubCategory)) || [];
-    const collectionId = collectionMatches.length === 1 ? Number(collectionMatches[0].value) : null;
-    const subTypeId = subTypeMatches.length === 1 ? Number(subTypeMatches[0].value) : null;
-
+  const getItemSelectOptions = () => {
     return itemRecords
-      .filter((item) => collectionId === null || Number(item.CollectionID) === collectionId)
-      .filter((item) => subTypeId !== null && Number(item.SubTypeID) === subTypeId)
       .map((item) => ({
         value: String(item.ItemName ?? '').trim(),
         label: String(item.ItemName ?? '').trim(),
@@ -186,29 +180,19 @@ export default function BulkMiniatureUploadDialog({
       const errors: string[] = [];
       REQUIRED_ROW_FIELDS.forEach((field) => {
         if (!row.values[field].trim()) {
-          const label = field === 'CollectionName' ? 'Collection Name' : field === 'SubCategory' ? 'Sub Category' : field === 'MiniatureName' ? 'Miniature Name' : field;
+          const label = field === 'MiniatureName' ? 'Miniature Name' : field;
           errors.push(`${label} is required.`);
         }
       });
 
-      const collectionMatches = collectionLookup.get(normalizeKey(row.values.CollectionName)) || [];
-      const subTypeMatches = subTypeLookup.get(normalizeKey(row.values.SubCategory)) || [];
       const locationMatches = row.values.Location.trim() ? locationLookup.get(normalizeKey(row.values.Location)) || [] : [];
+      const miniatureSizeMatches = row.values.MiniatureSize.trim() ? miniatureSizeLookup.get(normalizeKey(row.values.MiniatureSize)) || [] : [];
+      const miniatureRarityMatches = row.values.MiniatureRarity.trim() ? miniatureRarityLookup.get(normalizeKey(row.values.MiniatureRarity)) || [] : [];
       const quantity = parseInt(row.values.Quantity, 10);
       let resolvedItemId: number | undefined;
+      let resolvedMiniatureSizeId: number | undefined;
+      let resolvedMiniatureRarityId: number | undefined;
       let resolvedLocationId: number | null | undefined = null;
-
-      if (row.values.CollectionName.trim() && collectionMatches.length === 0) {
-        errors.push(`Collection Name "${row.values.CollectionName}" was not found.`);
-      } else if (collectionMatches.length > 1) {
-        errors.push(`Collection Name "${row.values.CollectionName}" matches multiple collections.`);
-      }
-
-      if (row.values.SubCategory.trim() && subTypeMatches.length === 0) {
-        errors.push(`Sub Category "${row.values.SubCategory}" was not found.`);
-      } else if (subTypeMatches.length > 1) {
-        errors.push(`Sub Category "${row.values.SubCategory}" matches multiple sub categories.`);
-      }
 
       if (!Number.isInteger(quantity) || quantity < 0) {
         errors.push('Quantity must be zero or greater.');
@@ -224,20 +208,35 @@ export default function BulkMiniatureUploadDialog({
         }
       }
 
-      if (collectionMatches.length === 1 && subTypeMatches.length === 1 && row.values.Item.trim()) {
-        const collectionId = Number(collectionMatches[0].value);
-        const subTypeId = Number(subTypeMatches[0].value);
+      if (row.values.MiniatureSize.trim()) {
+        if (miniatureSizeMatches.length === 0) {
+          errors.push(`Miniature Size "${row.values.MiniatureSize}" was not found.`);
+        } else if (miniatureSizeMatches.length > 1) {
+          errors.push(`Miniature Size "${row.values.MiniatureSize}" matches multiple miniature sizes.`);
+        } else {
+          resolvedMiniatureSizeId = Number(miniatureSizeMatches[0].value);
+        }
+      }
+
+      if (row.values.MiniatureRarity.trim()) {
+        if (miniatureRarityMatches.length === 0) {
+          errors.push(`Miniature Rarity "${row.values.MiniatureRarity}" was not found.`);
+        } else if (miniatureRarityMatches.length > 1) {
+          errors.push(`Miniature Rarity "${row.values.MiniatureRarity}" matches multiple miniature rarities.`);
+        } else {
+          resolvedMiniatureRarityId = Number(miniatureRarityMatches[0].value);
+        }
+      }
+
+      if (row.values.Item.trim()) {
         const itemMatches = itemRecords.filter(
-          (item) =>
-            Number(item.CollectionID) === collectionId &&
-            Number(item.SubTypeID) === subTypeId &&
-            normalizeKey(String(item.ItemName || '')) === normalizeKey(row.values.Item)
+          (item) => normalizeKey(String(item.ItemName || '')) === normalizeKey(row.values.Item)
         );
 
         if (itemMatches.length === 0) {
-          errors.push('No matching item exists for this Collection Name, Sub Category, and Item.');
+          errors.push('No matching item exists for this Item.');
         } else if (itemMatches.length > 1) {
-          errors.push('Multiple matching items exist for this Collection Name, Sub Category, and Item.');
+          errors.push('Multiple matching items exist for this Item.');
         } else {
           resolvedItemId = Number(itemMatches[0].ItemID);
         }
@@ -247,6 +246,8 @@ export default function BulkMiniatureUploadDialog({
         ...row,
         errors,
         resolvedItemId,
+        resolvedMiniatureSizeId,
+        resolvedMiniatureRarityId,
         resolvedLocationId,
       };
     });
@@ -272,6 +273,8 @@ export default function BulkMiniatureUploadDialog({
           const payload: Record<string, any> = {
             ItemID: row.resolvedItemId,
             MiniatureName: row.values.MiniatureName.trim(),
+            MiniatureSizeID: row.resolvedMiniatureSizeId,
+            MiniatureRarityID: row.resolvedMiniatureRarityId,
             MiniatureQuantity: parseInt(row.values.Quantity, 10),
           };
 
@@ -337,7 +340,7 @@ export default function BulkMiniatureUploadDialog({
 
       const missingRequired = REQUIRED_ROW_FIELDS.filter((field) => !columnIndexByField.has(field));
       if (missingRequired.length > 0) {
-        const labels = missingRequired.map((field) => field === 'CollectionName' ? 'Collection Name' : field === 'SubCategory' ? 'Sub Category' : field === 'MiniatureName' ? 'Miniature Name' : field);
+        const labels = missingRequired.map((field) => field === 'MiniatureName' ? 'Miniature Name' : field);
         setParseError(`Missing required column${labels.length === 1 ? '' : 's'}: ${labels.join(', ')}.`);
         return;
       }
@@ -408,7 +411,6 @@ export default function BulkMiniatureUploadDialog({
         values: {
           ...row.values,
           [field]: value,
-          ...(field === 'CollectionName' || field === 'SubCategory' ? { Item: '' } : {}),
         },
       };
     }));
@@ -477,7 +479,7 @@ export default function BulkMiniatureUploadDialog({
         </div>
 
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-          Required columns: Collection Name, Sub Category, Item, Miniature Name, and Quantity. Item must match an existing Item for the selected Collection Name and Sub Category. Location is optional, but when provided it must match an existing Location.
+          Required columns: Item, Miniature Name, Miniature Size, Miniature Rarity, and Quantity. Item, Miniature Size, and Miniature Rarity must match existing values. Location is optional, but when provided it must match an existing Location.
           <div className="mt-2">
             <a href={BULK_UPLOAD_MINIATURE_TEMPLATE_URL} download target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 underline hover:text-blue-800">
               Download Bulk Upload Miniatures Template
@@ -496,14 +498,14 @@ export default function BulkMiniatureUploadDialog({
         </div>
 
         <div className="max-h-[50vh] overflow-auto rounded-lg border border-gray-200">
-          <Table className="min-w-[1300px]">
+          <Table className="min-w-[1200px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Row</TableHead>
-                <TableHead>Collection Name</TableHead>
-                <TableHead>Sub Category</TableHead>
                 <TableHead>Item</TableHead>
                 <TableHead>Miniature Name</TableHead>
+                <TableHead>Miniature Size</TableHead>
+                <TableHead>Miniature Rarity</TableHead>
                 <TableHead>Quantity</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Status</TableHead>
@@ -519,22 +521,10 @@ export default function BulkMiniatureUploadDialog({
                 </TableRow>
               ) : rows.map((row) => {
                 const errorFields = getErrorFields(row);
-                const itemSelectOptions = getItemSelectOptions(row);
+                const itemSelectOptions = getItemSelectOptions();
                 return (
                   <TableRow key={row.id} className={row.success ? 'bg-green-50' : ''}>
                     <TableCell className="whitespace-nowrap align-top">{row.rowNumber}</TableCell>
-                    <TableCell className="align-top">
-                      <select value={row.values.CollectionName} onChange={(event) => handleCellChange(row.id, 'CollectionName', event.target.value)} disabled={row.success} className={getSelectClassName(errorFields, 'CollectionName')}>
-                        <option value="">Select collection</option>
-                        {collectionSelectOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <select value={row.values.SubCategory} onChange={(event) => handleCellChange(row.id, 'SubCategory', event.target.value)} disabled={row.success} className={getSelectClassName(errorFields, 'SubCategory')}>
-                        <option value="">Select sub category</option>
-                        {subTypeSelectOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
-                    </TableCell>
                     <TableCell className="align-top">
                       <select value={row.values.Item} onChange={(event) => handleCellChange(row.id, 'Item', event.target.value)} disabled={row.success} className={getSelectClassName(errorFields, 'Item')}>
                         <option value="">Select item</option>
@@ -543,6 +533,18 @@ export default function BulkMiniatureUploadDialog({
                     </TableCell>
                     <TableCell className="align-top">
                       <Input value={row.values.MiniatureName} onChange={(event) => handleCellChange(row.id, 'MiniatureName', event.target.value)} disabled={row.success} placeholder="Miniature name" className={getFieldClassName(errorFields, 'MiniatureName')} />
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <select value={row.values.MiniatureSize} onChange={(event) => handleCellChange(row.id, 'MiniatureSize', event.target.value)} disabled={row.success} className={getSelectClassName(errorFields, 'MiniatureSize')}>
+                        <option value="">Select miniature size</option>
+                        {miniatureSizeSelectOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <select value={row.values.MiniatureRarity} onChange={(event) => handleCellChange(row.id, 'MiniatureRarity', event.target.value)} disabled={row.success} className={getSelectClassName(errorFields, 'MiniatureRarity')}>
+                        <option value="">Select miniature rarity</option>
+                        {miniatureRaritySelectOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
                     </TableCell>
                     <TableCell className="align-top">
                       <Input type="number" min="0" value={row.values.Quantity} onChange={(event) => handleCellChange(row.id, 'Quantity', event.target.value)} disabled={row.success} className={getFieldClassName(errorFields, 'Quantity')} />

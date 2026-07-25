@@ -207,13 +207,20 @@ const ComboSelect: React.FC<Props> = ({
     }
 
     if (e.key === 'Tab') {
-      if (!open || !search.trim()) {
+      if (!open) {
         return;
       }
-      const option = filtered[activeIndex] ?? filtered[0];
-      if (option) {
-        handleSelect(option);
+
+      if (search.trim()) {
+        const option = filtered[activeIndex] ?? filtered[0];
+        if (option) {
+          handleSelect(option);
+          return;
+        }
       }
+
+      setOpen(false);
+      setSearch(selectedOption?.label ?? '');
       return;
     }
 

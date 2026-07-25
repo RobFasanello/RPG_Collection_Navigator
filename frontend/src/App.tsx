@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router';
 import HomeShell from './home/HomeShell';
 import './index.css';
 
@@ -15,9 +15,10 @@ const PublishersPage = lazy(() => import('./pages/PublishersPage'));
 const RPGSystemsPage = lazy(() => import('./pages/RPGSystemsPage'));
 const StatusPage = lazy(() => import('./pages/StatusPage'));
 const StoresPage = lazy(() => import('./pages/StoresPage'));
+const MiniatureSizesPage = lazy(() => import('./pages/MiniatureSizesPage'));
+const MiniatureRaritiesPage = lazy(() => import('./pages/MiniatureRaritiesPage'));
 const LocationsPage = lazy(() => import('./pages/LocationsPage'));
 const LocationTypesPage = lazy(() => import('./pages/LocationTypesPage'));
-const LocationTypeAssignmentsPage = lazy(() => import('./pages/LocationTypeAssignmentsPage'));
 const CategorySubTypesPage = lazy(() => import('./pages/CategorySubTypesPage'));
 const PublisherCollectionsPage = lazy(() => import('./pages/PublisherCollectionsPage'));
 const CollectionRPGSystemsPage = lazy(() => import('./pages/CollectionRPGSystemsPage'));
@@ -56,8 +57,9 @@ function App() {
                 <Route path="category-sub-categories" element={<CategorySubTypesPage />} />
                 <Route path="locations" element={<LocationsPage />} />
                 <Route path="location-types" element={<LocationTypesPage />} />
-                <Route path="location-type-assignments" element={<LocationTypeAssignmentsPage />} />
                 <Route path="stores" element={<StoresPage />} />
+                <Route path="miniature-sizes" element={<MiniatureSizesPage />} />
+                <Route path="miniature-rarities" element={<MiniatureRaritiesPage />} />
                 <Route path="status" element={<StatusPage />} />
               </Route>
             </Route>
@@ -70,9 +72,10 @@ function App() {
             <Route path="/admin/rpg-systems" element={<Navigate to="/home/setup/rpg-systems" replace />} />
             <Route path="/admin/status" element={<Navigate to="/home/setup/status" replace />} />
             <Route path="/admin/stores" element={<Navigate to="/home/setup/stores" replace />} />
+            <Route path="/admin/miniature-sizes" element={<Navigate to="/home/setup/miniature-sizes" replace />} />
+            <Route path="/admin/miniature-rarities" element={<Navigate to="/home/setup/miniature-rarities" replace />} />
             <Route path="/admin/locations" element={<Navigate to="/home/setup/locations" replace />} />
             <Route path="/admin/location-types" element={<Navigate to="/home/setup/location-types" replace />} />
-            <Route path="/admin/location-type-assignments" element={<Navigate to="/home/setup/location-type-assignments" replace />} />
             <Route path="/admin/category-subtypes" element={<Navigate to="/home/setup/category-sub-categories" replace />} />
             <Route path="/admin/publisher-collections" element={<Navigate to="/home/setup/publisher-collections" replace />} />
             <Route path="/admin/collection-rpg-systems" element={<Navigate to="/home/setup/collection-rpg-systems" replace />} />

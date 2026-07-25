@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { appAPI } from '../services/api';
 import { FRONTEND_BUILD_TIME_ISO } from '../generated/buildInfo';

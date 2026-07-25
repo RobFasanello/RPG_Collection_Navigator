@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ComboMultiSelect from '../components/ui/ComboMultiSelect';
 import ComboSelect from '../components/ui/ComboSelect';
@@ -13,12 +13,14 @@ import { tablesAPI } from '../services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
 
 type SortOrder = 'ASC' | 'DESC';
-type SortColumn = 'CollectionName' | 'SubTypeName' | 'ItemName' | 'MiniatureName' | 'MiniatureQuantity' | 'LocationName';
+type SortColumn = 'CollectionName' | 'SubTypeName' | 'ItemName' | 'MiniatureName' | 'MiniatureSizeName' | 'MiniatureRarityName' | 'MiniatureQuantity' | 'LocationName';
 
 type MiniatureRecord = {
   MiniatureID: number;
   ItemID?: number;
   MiniatureName: string;
+  MiniatureSizeID?: number | null;
+  MiniatureRarityID?: number | null;
   MiniatureQuantity: number;
   LocationID?: number | null;
 };
@@ -38,6 +40,8 @@ type MiniatureRow = MiniatureRecord & {
   CollectionName: string;
   SubTypeID?: number;
   SubTypeName: string;
+  MiniatureSizeName: string;
+  MiniatureRarityName: string;
   LocationName: string;
 };
 
@@ -46,6 +50,8 @@ type FilterValues = {
   subTypeName: string[];
   itemId: string;
   miniatureName: string;
+  miniatureSizeName: string[];
+  miniatureRarityName: string[];
   locationName: string[];
 };
 
@@ -54,6 +60,8 @@ const EMPTY_FILTERS: FilterValues = {
   subTypeName: [],
   itemId: '',
   miniatureName: '',
+  miniatureSizeName: [],
+  miniatureRarityName: [],
   locationName: [],
 };
 
@@ -73,13 +81,13 @@ export default function MiniatureMasterPage() {
   const [searchParams, setSearchParams] = useState<FilterValues>(EMPTY_FILTERS);
   const [selectedMiniatureIds, setSelectedMiniatureIds] = useState<number[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [addValues, setAddValues] = useState({ ItemID: '', Item: '', MiniatureName: '', MiniatureQuantity: '1', LocationID: '' });
+  const [addValues, setAddValues] = useState({ ItemID: '', Item: '', MiniatureName: '', MiniatureSizeID: '', MiniatureRarityID: '', MiniatureQuantity: '1', LocationID: '' });
   const [addError, setAddError] = useState('');
   const [editingMiniature, setEditingMiniature] = useState<MiniatureRow | null>(null);
-  const [editValues, setEditValues] = useState({ ItemID: '', Item: '', MiniatureName: '', MiniatureQuantity: '1', LocationID: '' });
+  const [editValues, setEditValues] = useState({ ItemID: '', Item: '', MiniatureName: '', MiniatureSizeID: '', MiniatureRarityID: '', MiniatureQuantity: '1', LocationID: '' });
   const [editError, setEditError] = useState('');
   const [isBulkUpdateOpen, setIsBulkUpdateOpen] = useState(false);
-  const [bulkValues, setBulkValues] = useState({ MiniatureQuantity: '', LocationID: '' });
+  const [bulkValues, setBulkValues] = useState({ MiniatureSizeID: '', MiniatureRarityID: '', MiniatureQuantity: '', LocationID: '' });
   const [bulkError, setBulkError] = useState('');
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [bulkDeleteConfirmText, setBulkDeleteConfirmText] = useState('');
@@ -87,6 +95,8 @@ export default function MiniatureMasterPage() {
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
+  const addMiniatureNameInputRef = useRef<HTMLInputElement | null>(null);
+  const editMiniatureNameInputRef = useRef<HTMLInputElement | null>(null);
 
   const { data: miniatureRecords = [], isLoading, error } = useQuery<MiniatureRecord[], Error>({
     queryKey: ['table', 'Miniature'],
@@ -126,6 +136,16 @@ export default function MiniatureMasterPage() {
   const { data: locationRecords = [] } = useQuery<LookupRecord[], Error>({
     queryKey: ['table', 'Location', 'all-for-miniatures'],
     queryFn: async () => tablesAPI.getAllRecords('Location'),
+  });
+
+  const { data: miniatureSizeRecords = [] } = useQuery<LookupRecord[], Error>({
+    queryKey: ['table', 'MiniatureSize', 'all-for-miniatures'],
+    queryFn: async () => tablesAPI.getAllRecords('MiniatureSize'),
+  });
+
+  const { data: miniatureRarityRecords = [] } = useQuery<LookupRecord[], Error>({
+    queryKey: ['table', 'MiniatureRarity', 'all-for-miniatures'],
+    queryFn: async () => tablesAPI.getAllRecords('MiniatureRarity'),
   });
 
   const collectionNameById = useMemo(() => {
@@ -190,6 +210,20 @@ export default function MiniatureMasterPage() {
     }, {});
   }, [locationRecords]);
 
+  const miniatureSizeNameById = useMemo(() => {
+    return miniatureSizeRecords.reduce((map: Record<number, string>, miniatureSize) => {
+      map[Number(miniatureSize.MiniatureSizeID)] = String(miniatureSize.MiniatureSizeName ?? '').trim();
+      return map;
+    }, {});
+  }, [miniatureSizeRecords]);
+
+  const miniatureRarityNameById = useMemo(() => {
+    return miniatureRarityRecords.reduce((map: Record<number, string>, miniatureRarity) => {
+      map[Number(miniatureRarity.MiniatureRarityID)] = String(miniatureRarity.MiniatureRarityName ?? '').trim();
+      return map;
+    }, {});
+  }, [miniatureRarityRecords]);
+
   const itemById = useMemo(() => {
     return itemRecords.reduce((map: Record<number, ItemRecord>, item) => {
       map[Number(item.ItemID)] = item;
@@ -218,10 +252,12 @@ export default function MiniatureMasterPage() {
         CollectionName: item ? collectionNameById[Number(item.CollectionID)] || 'Unknown' : 'Unknown',
         SubTypeID: item?.SubTypeID,
         SubTypeName: item ? subTypeNameById[Number(item.SubTypeID)] || 'Unknown' : 'Unknown',
+        MiniatureSizeName: miniatureSizeNameById[Number(miniature.MiniatureSizeID)] || 'Unknown',
+        MiniatureRarityName: miniatureRarityNameById[Number(miniature.MiniatureRarityID)] || 'Unknown',
         LocationName: locationNameById[Number(miniature.LocationID)] || 'Unknown',
       };
     });
-  }, [collectionNameById, itemById, locationNameById, miniatureRecords, subTypeNameById]);
+  }, [collectionNameById, itemById, locationNameById, miniatureRarityNameById, miniatureRecords, miniatureSizeNameById, subTypeNameById]);
 
   const subTypeIdByName = useMemo(() => {
     return subTypeRecords.reduce((map: Record<string, number>, subType) => {
@@ -270,6 +306,36 @@ export default function MiniatureMasterPage() {
       .filter((option) => option.value && option.label)
       .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
   }, [locationRecords]);
+
+  const miniatureSizeOptions = useMemo(() => {
+    return miniatureSizeRecords
+      .map((miniatureSize) => ({
+        value: String(miniatureSize.MiniatureSizeID ?? ''),
+        label: String(miniatureSize.MiniatureSizeName ?? '').trim(),
+      }))
+      .filter((option) => option.value && option.label)
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+  }, [miniatureSizeRecords]);
+
+  const miniatureRarityOptions = useMemo(() => {
+    return miniatureRarityRecords
+      .map((miniatureRarity) => ({
+        value: String(miniatureRarity.MiniatureRarityID ?? ''),
+        label: String(miniatureRarity.MiniatureRarityName ?? '').trim(),
+      }))
+      .filter((option) => option.value && option.label)
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+  }, [miniatureRarityRecords]);
+
+  const miniatureSizeFilterOptions = useMemo(
+    () => miniatureSizeOptions.map((option) => ({ value: option.label, label: option.label })),
+    [miniatureSizeOptions]
+  );
+
+  const miniatureRarityFilterOptions = useMemo(
+    () => miniatureRarityOptions.map((option) => ({ value: option.label, label: option.label })),
+    [miniatureRarityOptions]
+  );
 
   const itemOptions = useMemo(() => {
     return itemRecords
@@ -333,8 +399,10 @@ export default function MiniatureMasterPage() {
       const subTypeMatches = !searchParams.subTypeName.length || searchParams.subTypeName.includes(row.SubTypeName);
       const itemMatches = !Number.isInteger(itemFilterId) || Number(row.ItemID) === itemFilterId;
       const nameMatches = !miniatureFilter || String(row.MiniatureName || '').toLowerCase().includes(miniatureFilter);
+      const miniatureSizeMatches = !searchParams.miniatureSizeName.length || searchParams.miniatureSizeName.includes(row.MiniatureSizeName);
+      const miniatureRarityMatches = !searchParams.miniatureRarityName.length || searchParams.miniatureRarityName.includes(row.MiniatureRarityName);
       const locationMatches = !searchParams.locationName.length || searchParams.locationName.includes(row.LocationName);
-      return collectionMatches && subTypeMatches && itemMatches && nameMatches && locationMatches;
+      return collectionMatches && subTypeMatches && itemMatches && nameMatches && miniatureSizeMatches && miniatureRarityMatches && locationMatches;
     });
 
     return [...filtered].sort((a, b) => {
@@ -357,6 +425,8 @@ export default function MiniatureMasterPage() {
     filterValues.miniatureName !== searchParams.miniatureName ||
     filterValues.collectionName.join('\u0000') !== searchParams.collectionName.join('\u0000') ||
     filterValues.subTypeName.join('\u0000') !== searchParams.subTypeName.join('\u0000') ||
+    filterValues.miniatureSizeName.join('\u0000') !== searchParams.miniatureSizeName.join('\u0000') ||
+    filterValues.miniatureRarityName.join('\u0000') !== searchParams.miniatureRarityName.join('\u0000') ||
     filterValues.locationName.join('\u0000') !== searchParams.locationName.join('\u0000');
 
   const hasAnyFilter =
@@ -364,11 +434,15 @@ export default function MiniatureMasterPage() {
     filterValues.miniatureName.trim().length > 0 ||
     filterValues.collectionName.length > 0 ||
     filterValues.subTypeName.length > 0 ||
+    filterValues.miniatureSizeName.length > 0 ||
+    filterValues.miniatureRarityName.length > 0 ||
     filterValues.locationName.length > 0 ||
     searchParams.itemId.trim().length > 0 ||
     searchParams.miniatureName.trim().length > 0 ||
     searchParams.collectionName.length > 0 ||
     searchParams.subTypeName.length > 0 ||
+    searchParams.miniatureSizeName.length > 0 ||
+    searchParams.miniatureRarityName.length > 0 ||
     searchParams.locationName.length > 0;
 
   const queryKey = ['table', 'Miniature'];
@@ -479,6 +553,8 @@ export default function MiniatureMasterPage() {
       subTypeName: [...filterValues.subTypeName],
       itemId: filterValues.itemId,
       miniatureName: filterValues.miniatureName,
+      miniatureSizeName: [...filterValues.miniatureSizeName],
+      miniatureRarityName: [...filterValues.miniatureRarityName],
       locationName: [...filterValues.locationName],
     });
     setSelectedMiniatureIds([]);
@@ -511,7 +587,7 @@ export default function MiniatureMasterPage() {
   };
 
   const openAddModal = () => {
-    setAddValues({ ItemID: '', Item: '', MiniatureName: '', MiniatureQuantity: '1', LocationID: '' });
+    setAddValues({ ItemID: '', Item: '', MiniatureName: '', MiniatureSizeID: '', MiniatureRarityID: '', MiniatureQuantity: '1', LocationID: '' });
     setAddError('');
     setIsAddOpen(true);
   };
@@ -522,6 +598,8 @@ export default function MiniatureMasterPage() {
       ItemID: miniature.ItemID != null ? String(miniature.ItemID) : '',
       Item: miniature.ItemName || '',
       MiniatureName: miniature.MiniatureName || '',
+      MiniatureSizeID: miniature.MiniatureSizeID != null ? String(miniature.MiniatureSizeID) : '',
+      MiniatureRarityID: miniature.MiniatureRarityID != null ? String(miniature.MiniatureRarityID) : '',
       MiniatureQuantity: String(miniature.MiniatureQuantity ?? 0),
       LocationID: miniature.LocationID != null ? String(miniature.LocationID) : '',
     });
@@ -531,13 +609,13 @@ export default function MiniatureMasterPage() {
   const closeAddModal = () => {
     setIsAddOpen(false);
     setAddError('');
-    setAddValues({ ItemID: '', Item: '', MiniatureName: '', MiniatureQuantity: '1', LocationID: '' });
+    setAddValues({ ItemID: '', Item: '', MiniatureName: '', MiniatureSizeID: '', MiniatureRarityID: '', MiniatureQuantity: '1', LocationID: '' });
   };
 
   const closeEditModal = () => {
     setEditingMiniature(null);
     setEditError('');
-    setEditValues({ ItemID: '', Item: '', MiniatureName: '', MiniatureQuantity: '1', LocationID: '' });
+    setEditValues({ ItemID: '', Item: '', MiniatureName: '', MiniatureSizeID: '', MiniatureRarityID: '', MiniatureQuantity: '1', LocationID: '' });
   };
 
   const openBulkUpdateDialog = () => {
@@ -545,7 +623,7 @@ export default function MiniatureMasterPage() {
       return;
     }
 
-    setBulkValues({ MiniatureQuantity: '', LocationID: '' });
+    setBulkValues({ MiniatureSizeID: '', MiniatureRarityID: '', MiniatureQuantity: '', LocationID: '' });
     setBulkError('');
     setIsBulkUpdateOpen(true);
   };
@@ -553,7 +631,7 @@ export default function MiniatureMasterPage() {
   const closeBulkUpdateDialog = () => {
     setIsBulkUpdateOpen(false);
     setBulkError('');
-    setBulkValues({ MiniatureQuantity: '', LocationID: '' });
+    setBulkValues({ MiniatureSizeID: '', MiniatureRarityID: '', MiniatureQuantity: '', LocationID: '' });
   };
 
   const openBulkDeleteDialog = () => {
@@ -577,6 +655,8 @@ export default function MiniatureMasterPage() {
     setAddError('');
 
     const itemId = parseInt(addValues.ItemID, 10);
+    const miniatureSizeId = parseInt(addValues.MiniatureSizeID, 10);
+    const miniatureRarityId = parseInt(addValues.MiniatureRarityID, 10);
     const locationId = parseInt(addValues.LocationID, 10);
     const quantity = parseInt(addValues.MiniatureQuantity, 10);
     const itemName = addValues.Item.trim();
@@ -603,6 +683,16 @@ export default function MiniatureMasterPage() {
       return;
     }
 
+    if (!Number.isInteger(miniatureSizeId) || miniatureSizeId <= 0) {
+      setAddError('Miniature Size is required.');
+      return;
+    }
+
+    if (!Number.isInteger(miniatureRarityId) || miniatureRarityId <= 0) {
+      setAddError('Miniature Rarity is required.');
+      return;
+    }
+
     if (!Number.isInteger(quantity) || quantity < 0) {
       setAddError('Miniature Quantity must be zero or greater.');
       return;
@@ -616,6 +706,8 @@ export default function MiniatureMasterPage() {
     const payload: Record<string, any> = {
       ItemID: itemId,
       MiniatureName: miniatureName,
+      MiniatureSizeID: miniatureSizeId,
+      MiniatureRarityID: miniatureRarityId,
       MiniatureQuantity: quantity,
     };
 
@@ -635,6 +727,8 @@ export default function MiniatureMasterPage() {
       ItemID: editingMiniature.ItemID != null ? String(editingMiniature.ItemID) : '',
       Item: editingMiniature.ItemName || '',
       MiniatureName: editingMiniature.MiniatureName || '',
+      MiniatureSizeID: editingMiniature.MiniatureSizeID != null ? String(editingMiniature.MiniatureSizeID) : '',
+      MiniatureRarityID: editingMiniature.MiniatureRarityID != null ? String(editingMiniature.MiniatureRarityID) : '',
       MiniatureQuantity: String(editingMiniature.MiniatureQuantity ?? 0),
       LocationID: editingMiniature.LocationID != null ? String(editingMiniature.LocationID) : '',
     };
@@ -660,6 +754,8 @@ export default function MiniatureMasterPage() {
     }
 
     const itemId = parseInt(editValues.ItemID, 10);
+    const miniatureSizeId = parseInt(editValues.MiniatureSizeID, 10);
+    const miniatureRarityId = parseInt(editValues.MiniatureRarityID, 10);
     const locationId = parseInt(editValues.LocationID, 10);
     const quantity = parseInt(editValues.MiniatureQuantity, 10);
     const miniatureName = editValues.MiniatureName.trim();
@@ -679,6 +775,16 @@ export default function MiniatureMasterPage() {
       return;
     }
 
+    if (!Number.isInteger(miniatureSizeId) || miniatureSizeId <= 0) {
+      setEditError('Miniature Size is required.');
+      return;
+    }
+
+    if (!Number.isInteger(miniatureRarityId) || miniatureRarityId <= 0) {
+      setEditError('Miniature Rarity is required.');
+      return;
+    }
+
     if (!Number.isInteger(quantity) || quantity < 0) {
       setEditError('Miniature Quantity must be zero or greater.');
       return;
@@ -692,6 +798,8 @@ export default function MiniatureMasterPage() {
     editMutation.mutate({
       ItemID: itemId,
       MiniatureName: miniatureName,
+      MiniatureSizeID: miniatureSizeId,
+      MiniatureRarityID: miniatureRarityId,
       MiniatureQuantity: quantity,
       LocationID: Number.isInteger(locationId) && locationId > 0 ? locationId : null,
     });
@@ -715,6 +823,24 @@ export default function MiniatureMasterPage() {
     setBulkError('');
 
     const updates: Record<string, any> = {};
+    if (bulkValues.MiniatureSizeID) {
+      const miniatureSizeId = parseInt(bulkValues.MiniatureSizeID, 10);
+      if (!Number.isInteger(miniatureSizeId) || miniatureSizeId <= 0) {
+        setBulkError('Miniature Size is invalid.');
+        return;
+      }
+      updates.MiniatureSizeID = miniatureSizeId;
+    }
+
+    if (bulkValues.MiniatureRarityID) {
+      const miniatureRarityId = parseInt(bulkValues.MiniatureRarityID, 10);
+      if (!Number.isInteger(miniatureRarityId) || miniatureRarityId <= 0) {
+        setBulkError('Miniature Rarity is invalid.');
+        return;
+      }
+      updates.MiniatureRarityID = miniatureRarityId;
+    }
+
     if (bulkValues.MiniatureQuantity.trim()) {
       const quantity = parseInt(bulkValues.MiniatureQuantity, 10);
       if (!Number.isInteger(quantity) || quantity < 0) {
@@ -751,12 +877,14 @@ export default function MiniatureMasterPage() {
   };
 
   const buildCsvContent = (rows: MiniatureRow[]) => {
-    const headers = ['Collection Name', 'Sub Category', 'Item', 'Miniature Name', 'Miniature Quantity', 'Location'];
+    const headers = ['Collection Name', 'Sub Category', 'Item', 'Miniature Name', 'Miniature Size', 'Miniature Rarity', 'Miniature Quantity', 'Location'];
     const lines = rows.map((row) => [
       row.CollectionName,
       row.SubTypeName,
       row.ItemName,
       row.MiniatureName,
+      row.MiniatureSizeName,
+      row.MiniatureRarityName,
       String(row.MiniatureQuantity ?? ''),
       row.LocationName,
     ].map((value) => csvEscape(String(value))).join(','));
@@ -797,7 +925,7 @@ export default function MiniatureMasterPage() {
               applyFilters();
             }}
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-4">
               <label className="space-y-2 min-w-0">
                 <span className="text-sm font-medium text-gray-700">Collection Name</span>
                 <ComboMultiSelect
@@ -842,6 +970,28 @@ export default function MiniatureMasterPage() {
                 />
               </label>
               <label className="space-y-2 min-w-0">
+                <span className="text-sm font-medium text-gray-700">Miniature Size</span>
+                <ComboMultiSelect
+                  options={miniatureSizeFilterOptions}
+                  selected={filterValues.miniatureSizeName}
+                  onChange={(value) => handleFilterChange('miniatureSizeName', value)}
+                  placeholder="Miniature Size"
+                  className="w-full"
+                  tabIndex={5}
+                />
+              </label>
+              <label className="space-y-2 min-w-0">
+                <span className="text-sm font-medium text-gray-700">Miniature Rarity</span>
+                <ComboMultiSelect
+                  options={miniatureRarityFilterOptions}
+                  selected={filterValues.miniatureRarityName}
+                  onChange={(value) => handleFilterChange('miniatureRarityName', value)}
+                  placeholder="Miniature Rarity"
+                  className="w-full"
+                  tabIndex={6}
+                />
+              </label>
+              <label className="space-y-2 min-w-0">
                 <span className="text-sm font-medium text-gray-700">Location</span>
                 <ComboMultiSelect
                   options={locationFilterOptions}
@@ -849,29 +999,29 @@ export default function MiniatureMasterPage() {
                   onChange={(value) => handleFilterChange('locationName', value)}
                   placeholder="Location"
                   className="w-full"
-                  tabIndex={5}
+                  tabIndex={7}
                 />
               </label>
             </div>
 
             <div className="flex justify-end gap-3 flex-wrap">
-              <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={openBulkDeleteDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={6}>
+              <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={openBulkDeleteDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={8}>
                 Bulk Delete{selectedMiniatureIds.length ? ` (${selectedMiniatureIds.length})` : ''}
               </Button>
-              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openBulkUpdateDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={7}>
+              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openBulkUpdateDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={9}>
                 Bulk Update{selectedMiniatureIds.length ? ` (${selectedMiniatureIds.length})` : ''}
               </Button>
-              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={8}>
+              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={10}>
                 + Add Item
               </Button>
-              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={9}>
+              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={11}>
                 ++ Bulk Upload
               </Button>
-              <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={10}>
+              <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={12}>
                 {isDownloading ? 'Downloading...' : 'Download CSV'}
               </Button>
-              <Button type="submit" disabled={!filtersChanged} tabIndex={11}>Apply Filter</Button>
-              <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!filtersChanged && !hasAnyFilter} tabIndex={12}>
+              <Button type="submit" disabled={!filtersChanged} tabIndex={13}>Apply Filter</Button>
+              <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!filtersChanged && !hasAnyFilter} tabIndex={14}>
                 Clear
               </Button>
             </div>
@@ -900,36 +1050,46 @@ export default function MiniatureMasterPage() {
                           checked={areAllCurrentPageRowsSelected}
                           onChange={toggleSelectAllCurrentPage}
                           aria-label="Select all miniatures on this page"
-                          tabIndex={13}
+                          tabIndex={15}
                         />
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-blue-600" tabIndex={14}>
+                        <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-blue-600" tabIndex={16}>
                           Collection Name <SortIndicator column="CollectionName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-blue-600" tabIndex={15}>
+                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-blue-600" tabIndex={17}>
                           Sub Category <SortIndicator column="SubTypeName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-blue-600" tabIndex={16}>
+                        <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-blue-600" tabIndex={18}>
                           Item <SortIndicator column="ItemName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('MiniatureName')} className="flex items-center hover:text-blue-600" tabIndex={17}>
+                        <button onClick={() => handleSort('MiniatureName')} className="flex items-center hover:text-blue-600" tabIndex={19}>
                           Miniature Name <SortIndicator column="MiniatureName" />
                         </button>
                       </TableHead>
+                      <TableHead>
+                        <button onClick={() => handleSort('MiniatureSizeName')} className="flex items-center hover:text-blue-600" tabIndex={20}>
+                          Miniature Size <SortIndicator column="MiniatureSizeName" />
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button onClick={() => handleSort('MiniatureRarityName')} className="flex items-center hover:text-blue-600" tabIndex={21}>
+                          Miniature Rarity <SortIndicator column="MiniatureRarityName" />
+                        </button>
+                      </TableHead>
                       <TableHead className="text-right">
-                        <button onClick={() => handleSort('MiniatureQuantity')} className="flex items-center justify-end w-full hover:text-blue-600" tabIndex={18}>
+                        <button onClick={() => handleSort('MiniatureQuantity')} className="flex items-center justify-end w-full hover:text-blue-600" tabIndex={22}>
                           Miniature Quantity <SortIndicator column="MiniatureQuantity" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('LocationName')} className="flex items-center hover:text-blue-600" tabIndex={19}>
+                        <button onClick={() => handleSort('LocationName')} className="flex items-center hover:text-blue-600" tabIndex={23}>
                           Location <SortIndicator column="LocationName" />
                         </button>
                       </TableHead>
@@ -950,20 +1110,22 @@ export default function MiniatureMasterPage() {
                               onClick={(event) => event.stopPropagation()}
                               onChange={() => toggleMiniatureSelection(miniature.MiniatureID)}
                               aria-label={`Select ${miniature.MiniatureName}`}
-                              tabIndex={20 + rowIndex}
+                              tabIndex={24 + rowIndex}
                             />
                           </TableCell>
                           <TableCell>{miniature.CollectionName}</TableCell>
                           <TableCell>{miniature.SubTypeName}</TableCell>
                           <TableCell>{miniature.ItemName}</TableCell>
                           <TableCell>{miniature.MiniatureName}</TableCell>
+                          <TableCell>{miniature.MiniatureSizeName}</TableCell>
+                          <TableCell>{miniature.MiniatureRarityName}</TableCell>
                           <TableCell className="text-right">{Number(miniature.MiniatureQuantity || 0).toLocaleString()}</TableCell>
                           <TableCell>{miniature.LocationName}</TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-10 text-gray-500">
+                        <TableCell colSpan={9} className="text-center py-10 text-gray-500">
                           No matching miniatures found.
                         </TableCell>
                       </TableRow>
@@ -984,12 +1146,31 @@ export default function MiniatureMasterPage() {
         </section>
       </div>
 
-      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen} onClose={closeAddModal} title="Add Miniature" showCloseButton={false} contentClassName="max-w-2xl">
+      <Dialog
+        open={isAddOpen}
+        onOpenChange={setIsAddOpen}
+        onClose={closeAddModal}
+        title="Add Miniature"
+        showCloseButton={false}
+        contentClassName="max-w-2xl"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          addMiniatureNameInputRef.current?.focus();
+        }}
+      >
         <form className="space-y-4" onSubmit={handleAddSubmit}>
           {addError ? <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{addError}</div> : null}
           <label className="block space-y-2">
             <span className="text-sm font-medium text-gray-700">Miniature Name</span>
-            <Input autoFocus tabIndex={1} value={addValues.MiniatureName} onChange={(event) => setAddValues((current) => ({ ...current, MiniatureName: event.target.value }))} placeholder="Miniature name" />
+            <Input ref={addMiniatureNameInputRef} autoFocus value={addValues.MiniatureName} onChange={(event) => setAddValues((current) => ({ ...current, MiniatureName: event.target.value }))} placeholder="Miniature name" />
+          </label>
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-gray-700">Miniature Size</span>
+            <ComboSelect options={miniatureSizeOptions} value={addValues.MiniatureSizeID} onChange={(value) => setAddValues((current) => ({ ...current, MiniatureSizeID: value }))} placeholder="Select miniature size" className="w-full" />
+          </label>
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-gray-700">Miniature Rarity</span>
+            <ComboSelect options={miniatureRarityOptions} value={addValues.MiniatureRarityID} onChange={(value) => setAddValues((current) => ({ ...current, MiniatureRarityID: value }))} placeholder="Select miniature rarity" className="w-full" />
           </label>
           <label className="block space-y-2">
             <span className="text-sm font-medium text-gray-700">Item</span>
@@ -1008,31 +1189,49 @@ export default function MiniatureMasterPage() {
               className="w-full"
               disablePortal
               openOnFocus={false}
-              tabIndex={2}
             />
           </label>
           <label className="block space-y-2">
             <span className="text-sm font-medium text-gray-700">Miniature Quantity</span>
-            <Input tabIndex={3} type="number" min="0" value={addValues.MiniatureQuantity} onChange={(event) => setAddValues((current) => ({ ...current, MiniatureQuantity: event.target.value }))} />
+            <Input type="number" min="0" value={addValues.MiniatureQuantity} onChange={(event) => setAddValues((current) => ({ ...current, MiniatureQuantity: event.target.value }))} />
           </label>
           <label className="block space-y-2">
             <span className="text-sm font-medium text-gray-700">Location</span>
-            <ComboSelect options={locationOptions} value={addValues.LocationID} onChange={(value) => setAddValues((current) => ({ ...current, LocationID: value }))} placeholder="Select location" className="w-full" tabIndex={4} />
+            <ComboSelect options={locationOptions} value={addValues.LocationID} onChange={(value) => setAddValues((current) => ({ ...current, LocationID: value }))} placeholder="Select location" className="w-full" />
           </label>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" className="bg-gray-200 text-gray-800 hover:bg-gray-300" onClick={closeAddModal} tabIndex={5}>Cancel</Button>
-            <Button type="submit" disabled={addMutation.isLoading} tabIndex={6}>{addMutation.isLoading ? 'Saving...' : 'Save'}</Button>
+            <Button type="button" className="bg-gray-200 text-gray-800 hover:bg-gray-300" onClick={closeAddModal}>Cancel</Button>
+            <Button type="submit" disabled={addMutation.isLoading}>{addMutation.isLoading ? 'Saving...' : 'Save'}</Button>
           </div>
         </form>
       </Dialog>
 
-      <Dialog open={Boolean(editingMiniature)} onOpenChange={(open) => { if (!open) closeEditModal(); }} onClose={closeEditModal} title="Edit Miniature Detail" showCloseButton={false} contentClassName="max-w-2xl">
+      <Dialog
+        open={Boolean(editingMiniature)}
+        onOpenChange={(open) => { if (!open) closeEditModal(); }}
+        onClose={closeEditModal}
+        title="Edit Miniature Detail"
+        showCloseButton={false}
+        contentClassName="max-w-2xl"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          editMiniatureNameInputRef.current?.focus();
+        }}
+      >
         <form className="space-y-4" onSubmit={handleEditSubmit}>
           <p className="text-sm text-gray-500">Update miniature values and save changes.</p>
           {editError ? <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{editError}</div> : null}
           <label className="block space-y-2">
             <span className="text-sm font-medium text-gray-700">Miniature Name</span>
-            <Input autoFocus tabIndex={1} value={editValues.MiniatureName} onChange={(event) => setEditValues((current) => ({ ...current, MiniatureName: event.target.value }))} placeholder="Miniature name" />
+            <Input ref={editMiniatureNameInputRef} autoFocus value={editValues.MiniatureName} onChange={(event) => setEditValues((current) => ({ ...current, MiniatureName: event.target.value }))} placeholder="Miniature name" />
+          </label>
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-gray-700">Miniature Size</span>
+            <ComboSelect options={miniatureSizeOptions} value={editValues.MiniatureSizeID} onChange={(value) => setEditValues((current) => ({ ...current, MiniatureSizeID: value }))} placeholder="Select miniature size" className="w-full" />
+          </label>
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-gray-700">Miniature Rarity</span>
+            <ComboSelect options={miniatureRarityOptions} value={editValues.MiniatureRarityID} onChange={(value) => setEditValues((current) => ({ ...current, MiniatureRarityID: value }))} placeholder="Select miniature rarity" className="w-full" />
           </label>
           <label className="block space-y-2">
             <span className="text-sm font-medium text-gray-700">Item</span>
@@ -1051,34 +1250,55 @@ export default function MiniatureMasterPage() {
               className="w-full"
               disablePortal
               openOnFocus={false}
-              tabIndex={2}
             />
           </label>
           <label className="block space-y-2">
             <span className="text-sm font-medium text-gray-700">Miniature Quantity</span>
-            <Input tabIndex={3} type="number" min="0" value={editValues.MiniatureQuantity} onChange={(event) => setEditValues((current) => ({ ...current, MiniatureQuantity: event.target.value }))} />
+            <Input type="number" min="0" value={editValues.MiniatureQuantity} onChange={(event) => setEditValues((current) => ({ ...current, MiniatureQuantity: event.target.value }))} />
           </label>
           <label className="block space-y-2">
             <span className="text-sm font-medium text-gray-700">Location</span>
-            <ComboSelect options={locationOptions} value={editValues.LocationID} onChange={(value) => setEditValues((current) => ({ ...current, LocationID: value }))} placeholder="Select location" className="w-full" disablePortal tabIndex={4} />
+            <ComboSelect options={locationOptions} value={editValues.LocationID} onChange={(value) => setEditValues((current) => ({ ...current, LocationID: value }))} placeholder="Select location" className="w-full" disablePortal />
           </label>
           <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
-            <Button type="button" className="bg-red-600 hover:bg-red-700 sm:mr-auto" onClick={handleDeleteMiniature} disabled={editMutation.isLoading || editDeleteMutation.isLoading} tabIndex={5}>
+            <Button type="button" className="bg-red-600 hover:bg-red-700 sm:mr-auto" onClick={handleDeleteMiniature} disabled={editMutation.isLoading || editDeleteMutation.isLoading}>
               {editDeleteMutation.isLoading ? 'Deleting...' : 'Delete Miniature'}
             </Button>
-            <Button type="button" className="bg-gray-200 text-gray-800 hover:bg-gray-300" onClick={closeEditModal} disabled={editMutation.isLoading || editDeleteMutation.isLoading} tabIndex={6}>Cancel</Button>
-            <Button type="submit" disabled={!isEditDirty || editMutation.isLoading || editDeleteMutation.isLoading} tabIndex={7}>{editMutation.isLoading ? 'Saving...' : 'Save Changes'}</Button>
+            <Button type="button" className="bg-gray-200 text-gray-800 hover:bg-gray-300" onClick={closeEditModal} disabled={editMutation.isLoading || editDeleteMutation.isLoading}>Cancel</Button>
+            <Button type="submit" disabled={!isEditDirty || editMutation.isLoading || editDeleteMutation.isLoading}>{editMutation.isLoading ? 'Saving...' : 'Save Changes'}</Button>
           </div>
         </form>
       </Dialog>
 
-      <Dialog open={isBulkUpdateOpen} onOpenChange={setIsBulkUpdateOpen} onClose={closeBulkUpdateDialog} title="Bulk Update Miniatures" showCloseButton={false} contentClassName="max-w-2xl">
+      <Dialog
+        open={isBulkUpdateOpen}
+        onOpenChange={setIsBulkUpdateOpen}
+        onClose={closeBulkUpdateDialog}
+        title="Bulk Update Miniatures"
+        showCloseButton={false}
+        contentClassName="max-w-2xl"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          window.setTimeout(() => {
+            const firstField = document.querySelector<HTMLInputElement>('input[placeholder="Leave blank to keep current size"]');
+            firstField?.focus();
+          }, 0);
+        }}
+      >
         <form className="space-y-4" onSubmit={handleBulkUpdateSubmit}>
           {bulkError ? <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{bulkError}</div> : null}
           <p className="text-sm text-gray-600">Bulk updates apply to {selectedMiniatureIds.length} selected miniatures.</p>
           <label className="block space-y-2">
+            <span className="text-sm font-medium text-gray-700">Miniature Size</span>
+            <ComboSelect autoFocus options={miniatureSizeOptions} value={bulkValues.MiniatureSizeID} onChange={(value) => setBulkValues((current) => ({ ...current, MiniatureSizeID: value }))} placeholder="Leave blank to keep current size" className="w-full" />
+          </label>
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-gray-700">Miniature Rarity</span>
+            <ComboSelect options={miniatureRarityOptions} value={bulkValues.MiniatureRarityID} onChange={(value) => setBulkValues((current) => ({ ...current, MiniatureRarityID: value }))} placeholder="Leave blank to keep current rarity" className="w-full" />
+          </label>
+          <label className="block space-y-2">
             <span className="text-sm font-medium text-gray-700">Miniature Quantity</span>
-            <Input autoFocus type="number" min="0" value={bulkValues.MiniatureQuantity} onChange={(event) => setBulkValues((current) => ({ ...current, MiniatureQuantity: event.target.value }))} placeholder="Leave blank to keep current quantity" />
+            <Input type="number" min="0" value={bulkValues.MiniatureQuantity} onChange={(event) => setBulkValues((current) => ({ ...current, MiniatureQuantity: event.target.value }))} placeholder="Leave blank to keep current quantity" />
           </label>
           <label className="block space-y-2">
             <span className="text-sm font-medium text-gray-700">Location</span>
@@ -1111,9 +1331,9 @@ export default function MiniatureMasterPage() {
       <BulkMiniatureUploadDialog
         open={isBulkUploadOpen}
         onOpenChange={setIsBulkUploadOpen}
-        collectionOptions={collectionLookupOptions}
-        subTypeOptions={subTypeLookupOptions}
         locationOptions={locationOptions}
+        miniatureSizeOptions={miniatureSizeOptions}
+        miniatureRarityOptions={miniatureRarityOptions}
         itemRecords={miniatureItemRecords}
         miniatureRecords={miniatureRecords}
         onMiniaturesAdded={() => queryClient.invalidateQueries({ queryKey })}

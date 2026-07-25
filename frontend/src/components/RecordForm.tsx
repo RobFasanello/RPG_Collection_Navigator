@@ -8,6 +8,7 @@ interface RecordFormProps {
   tableName: string;
   schema?: any[];
   recordId: number | string | null | undefined;
+  hiddenColumns?: string[];
   onClose?: () => void;
   onSuccess?: () => void;
   title?: string;
@@ -30,6 +31,7 @@ export default function RecordForm({
   tableName,
   schema,
   recordId,
+  hiddenColumns = [],
   onClose,
   onSuccess,
   title,
@@ -43,6 +45,7 @@ export default function RecordForm({
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState('');
   const modalRef = useModalFocusTrap<HTMLDivElement>(true, onClose);
+  const hiddenColumnSet = new Set(hiddenColumns.map((column) => column.toLowerCase()));
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -98,10 +101,14 @@ export default function RecordForm({
           const filteredRecord = Object.entries(record).reduce(
             (acc, [key, value]) => {
               const column = schemaState.find((col) => col.COLUMN_NAME === key);
-              if (isTruthyFlag(column?.IS_IDENTITY) || isTruthyFlag(column?.IS_COMPUTED)) {
+              if (
+                isTruthyFlag(column?.IS_IDENTITY) ||
+                isTruthyFlag(column?.IS_COMPUTED) ||
+                hiddenColumnSet.has(key.toLowerCase())
+              ) {
                 return acc;
               }
-              acc[key] = value;
+              acc[key] = typeof value === 'string' ? value.trimEnd() : value;
               return acc;
             },
             {} as Record<string, any>
@@ -131,7 +138,11 @@ export default function RecordForm({
     try {
       const payload = Object.entries(formData).reduce((acc, [key, value]) => {
         const column = schemaState.find((col) => col.COLUMN_NAME === key);
-        if (isTruthyFlag(column?.IS_IDENTITY) || isTruthyFlag(column?.IS_COMPUTED)) {
+        if (
+          isTruthyFlag(column?.IS_IDENTITY) ||
+          isTruthyFlag(column?.IS_COMPUTED) ||
+          hiddenColumnSet.has(key.toLowerCase())
+        ) {
           return acc;
         }
         acc[key] = value;
@@ -175,7 +186,11 @@ export default function RecordForm({
         <form onSubmit={handleSubmit} className="space-y-4">
           {schemaState?.map((col: any) => {
             // Skip identity and computed columns
-            if (isTruthyFlag(col.IS_IDENTITY) || isTruthyFlag(col.IS_COMPUTED)) {
+            if (
+              isTruthyFlag(col.IS_IDENTITY) ||
+              isTruthyFlag(col.IS_COMPUTED) ||
+              hiddenColumnSet.has(String(col.COLUMN_NAME || '').toLowerCase())
+            ) {
               return null;
             }
 
@@ -196,7 +211,7 @@ export default function RecordForm({
                     handleChange(col.COLUMN_NAME, e.target.value)
                   }
                   required={col.IS_NULLABLE === 'NO'}
-                  autoFocus={schemaState.filter((candidate: any) => !isTruthyFlag(candidate.IS_IDENTITY) && !isTruthyFlag(candidate.IS_COMPUTED))[0]?.COLUMN_NAME === col.COLUMN_NAME}
+                  autoFocus={schemaState.filter((candidate: any) => !isTruthyFlag(candidate.IS_IDENTITY) && !isTruthyFlag(candidate.IS_COMPUTED) && !hiddenColumnSet.has(String(candidate.COLUMN_NAME || '').toLowerCase()))[0]?.COLUMN_NAME === col.COLUMN_NAME}
                 />
               </div>
             );

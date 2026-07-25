@@ -11,7 +11,13 @@ function isImageUploadTable(tableName: string): boolean {
 }
 
 function usesServerGeneratedManualId(tableName: string): boolean {
-  return tableName === 'Location' || tableName === 'LocationType' || tableName === 'Miniature';
+  return (
+    tableName === 'Location' ||
+    tableName === 'LocationType' ||
+    tableName === 'Miniature' ||
+    tableName === 'MiniatureSize' ||
+    tableName === 'MiniatureRarity'
+  );
 }
 
 function parsePositiveInt(value: unknown): number | null {

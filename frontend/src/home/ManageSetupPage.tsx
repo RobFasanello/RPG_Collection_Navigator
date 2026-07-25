@@ -1,4 +1,4 @@
-import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Link, Navigate, Outlet, useLocation } from 'react-router';
 
 type SetupNavItem = {
   label: string;
@@ -17,8 +17,9 @@ const SETUP_NAV_ITEMS: SetupNavItem[] = [
   { label: 'Category / Sub Categories', path: '/home/setup/category-sub-categories' },
   { label: 'Locations', path: '/home/setup/locations' },
   { label: 'Location Types', path: '/home/setup/location-types' },
-  { label: 'Location / Types', path: '/home/setup/location-type-assignments' },
   { label: 'Stores', path: '/home/setup/stores' },
+  { label: 'Miniature Size', path: '/home/setup/miniature-sizes' },
+  { label: 'Miniature Rarity', path: '/home/setup/miniature-rarities' },
   { label: 'Status', path: '/home/setup/status' },
 ];
 

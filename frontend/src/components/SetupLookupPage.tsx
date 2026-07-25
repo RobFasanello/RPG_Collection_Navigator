@@ -17,6 +17,7 @@ type SetupLookupPageProps = {
   subtitle: string;
   tableName: string;
   idColumn: string;
+  hiddenColumns?: string[];
   nameColumn: string;
   nameHeader: string;
   filterLabel: string;
@@ -32,6 +33,7 @@ export default function SetupLookupPage({
   subtitle,
   tableName,
   idColumn,
+  hiddenColumns,
   nameColumn,
   nameHeader,
   filterLabel,
@@ -166,6 +168,7 @@ export default function SetupLookupPage({
           <RecordForm
             tableName={tableName}
             recordId={editingId ?? undefined}
+            hiddenColumns={hiddenColumns}
             title={editingId !== null ? editTitle : newTitle}
             onClose={closeForm}
             onSuccess={() => {

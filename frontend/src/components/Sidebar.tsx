@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Menu, X, BookOpen } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router';
 import { appAPI } from '../services/api';
 import { FRONTEND_BUILD_TIME_ISO } from '../generated/buildInfo';
 
