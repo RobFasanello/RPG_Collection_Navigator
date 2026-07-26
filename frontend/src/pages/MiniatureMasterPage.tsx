@@ -1,5 +1,7 @@
-import { useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link2 } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router';
 import ComboMultiSelect from '../components/ui/ComboMultiSelect';
 import ComboSelect from '../components/ui/ComboSelect';
 import { Button } from '../components/ui/Button';
@@ -8,12 +10,13 @@ import { Input } from '../components/ui/Input';
 import SetupTablePagination from '../components/SetupTablePagination';
 import AdminLayout from '../components/AdminLayout';
 import BulkMiniatureUploadDialog from '../components/miniatures/BulkMiniatureUploadDialog';
+import { type LinkedPurchaseOrder } from '../components/order/LinkedOrderDetailModal';
 import useSetupPagination from '../hooks/useSetupPagination';
 import { tablesAPI } from '../services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
 
 type SortOrder = 'ASC' | 'DESC';
-type SortColumn = 'CollectionName' | 'SubTypeName' | 'ItemName' | 'MiniatureName' | 'MiniatureSizeName' | 'MiniatureRarityName' | 'MiniatureQuantity' | 'LocationName';
+type SortColumn = 'CollectionName' | 'SubTypeName' | 'ItemName' | 'MiniatureName' | 'MiniatureSizeName' | 'MiniatureRarityName' | 'MiniatureQuantity' | 'LocationName' | 'HasPurchaseOrder';
 
 type MiniatureRecord = {
   MiniatureID: number;
@@ -36,6 +39,7 @@ type LookupRecord = Record<string, any>;
 
 type MiniatureRow = MiniatureRecord & {
   ItemName: string;
+  ResolvedItemID?: number;
   CollectionID?: number;
   CollectionName: string;
   SubTypeID?: number;
@@ -53,6 +57,7 @@ type FilterValues = {
   miniatureSizeName: string[];
   miniatureRarityName: string[];
   locationName: string[];
+  hasPurchaseOrder: boolean | undefined;
 };
 
 const EMPTY_FILTERS: FilterValues = {
@@ -63,6 +68,7 @@ const EMPTY_FILTERS: FilterValues = {
   miniatureSizeName: [],
   miniatureRarityName: [],
   locationName: [],
+  hasPurchaseOrder: undefined,
 };
 
 const csvEscape = (value: string) => {
@@ -74,9 +80,12 @@ const csvEscape = (value: string) => {
 };
 
 export default function MiniatureMasterPage() {
+  const navigate = useNavigate();
+  const [urlSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [sortBy, setSortBy] = useState<SortColumn>('MiniatureName');
   const [sortOrder, setSortOrder] = useState<SortOrder>('ASC');
+  const [ownedFilter, setOwnedFilter] = useState<'both' | 'yes' | 'no'>('both');
   const [filterValues, setFilterValues] = useState<FilterValues>(EMPTY_FILTERS);
   const [searchParams, setSearchParams] = useState<FilterValues>(EMPTY_FILTERS);
   const [selectedMiniatureIds, setSelectedMiniatureIds] = useState<number[]>([]);
@@ -95,8 +104,16 @@ export default function MiniatureMasterPage() {
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
+  const [isRelatedOrdersModalOpen, setIsRelatedOrdersModalOpen] = useState(false);
+  const [selectedMiniatureForRelatedOrders, setSelectedMiniatureForRelatedOrders] = useState<MiniatureRow | null>(null);
+  const [relatedOrdersLoading, setRelatedOrdersLoading] = useState(false);
+  const [relatedOrdersError, setRelatedOrdersError] = useState('');
+  const [relatedOrders, setRelatedOrders] = useState<LinkedPurchaseOrder[]>([]);
+  const [hasPurchaseOrderByItemId, setHasPurchaseOrderByItemId] = useState<Record<number, boolean>>({});
   const addMiniatureNameInputRef = useRef<HTMLInputElement | null>(null);
   const editMiniatureNameInputRef = useRef<HTMLInputElement | null>(null);
+  const firstRelatedOrderOpenButtonRef = useRef<HTMLButtonElement | null>(null);
+  const relatedOrdersCloseButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const { data: miniatureRecords = [], isLoading, error } = useQuery<MiniatureRecord[], Error>({
     queryKey: ['table', 'Miniature'],
@@ -146,6 +163,51 @@ export default function MiniatureMasterPage() {
   const { data: miniatureRarityRecords = [] } = useQuery<LookupRecord[], Error>({
     queryKey: ['table', 'MiniatureRarity', 'all-for-miniatures'],
     queryFn: async () => tablesAPI.getAllRecords('MiniatureRarity'),
+  });
+
+  useQuery<Record<number, boolean>, Error>({
+    queryKey: ['inventory', 'owned-map-for-miniatures'],
+    queryFn: async () => {
+      const ownedMap: Record<number, boolean> = {};
+      let page = 1;
+      const pageSize = 100;
+
+      while (true) {
+        const response = await tablesAPI.getInventoryItems({
+          page,
+          pageSize,
+          sortBy: 'ItemName',
+          sortOrder: 'ASC',
+        });
+
+        const rows: any[] = response.data?.data || [];
+        rows.forEach((row) => {
+          const itemId = Number(row?.ItemID);
+          if (!Number.isInteger(itemId) || itemId <= 0) {
+            return;
+          }
+
+          if (typeof row?.HasPurchaseOrder === 'boolean') {
+            ownedMap[itemId] = row.HasPurchaseOrder;
+          }
+        });
+
+        const totalPages = Number(response.data?.totalPages || 1);
+        if (page >= totalPages) {
+          break;
+        }
+
+        page += 1;
+      }
+
+      return ownedMap;
+    },
+    onSuccess: (ownedMap) => {
+      setHasPurchaseOrderByItemId((current) => ({
+        ...ownedMap,
+        ...current,
+      }));
+    },
   });
 
   const collectionNameById = useMemo(() => {
@@ -248,6 +310,7 @@ export default function MiniatureMasterPage() {
       return {
         ...miniature,
         ItemName: String(item?.ItemName || '').trim(),
+        ResolvedItemID: Number.isInteger(Number(item?.ItemID)) ? Number(item?.ItemID) : undefined,
         CollectionID: item?.CollectionID,
         CollectionName: item ? collectionNameById[Number(item.CollectionID)] || 'Unknown' : 'Unknown',
         SubTypeID: item?.SubTypeID,
@@ -390,6 +453,38 @@ export default function MiniatureMasterPage() {
       .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
   }, [locationRecords]);
 
+  useEffect(() => {
+    const itemId = (urlSearchParams.get('itemId') || '').trim();
+
+    if (!itemId) {
+      return;
+    }
+
+    const nextFilters = {
+      collectionName: [],
+      subTypeName: [],
+      itemId,
+      miniatureName: '',
+      miniatureSizeName: [],
+      miniatureRarityName: [],
+      locationName: [],
+      hasPurchaseOrder: undefined,
+    };
+
+    setFilterValues(nextFilters);
+    setSearchParams(nextFilters);
+  }, [urlSearchParams]);
+
+  useEffect(() => {
+    if (filterValues.hasPurchaseOrder === true) {
+      setOwnedFilter('yes');
+    } else if (filterValues.hasPurchaseOrder === false) {
+      setOwnedFilter('no');
+    } else {
+      setOwnedFilter('both');
+    }
+  }, [filterValues.hasPurchaseOrder]);
+
   const filteredRows = useMemo(() => {
     const itemFilterId = parseInt(searchParams.itemId, 10);
     const miniatureFilter = searchParams.miniatureName.trim().toLowerCase();
@@ -402,18 +497,33 @@ export default function MiniatureMasterPage() {
       const miniatureSizeMatches = !searchParams.miniatureSizeName.length || searchParams.miniatureSizeName.includes(row.MiniatureSizeName);
       const miniatureRarityMatches = !searchParams.miniatureRarityName.length || searchParams.miniatureRarityName.includes(row.MiniatureRarityName);
       const locationMatches = !searchParams.locationName.length || searchParams.locationName.includes(row.LocationName);
-      return collectionMatches && subTypeMatches && itemMatches && nameMatches && miniatureSizeMatches && miniatureRarityMatches && locationMatches;
+      const isOwned = hasPurchaseOrderByItemId[Number(row.ResolvedItemID)] === true;
+      const ownedMatches =
+        typeof searchParams.hasPurchaseOrder === 'undefined' ||
+        (searchParams.hasPurchaseOrder === true ? isOwned : !isOwned);
+
+      return collectionMatches && subTypeMatches && itemMatches && nameMatches && miniatureSizeMatches && miniatureRarityMatches && locationMatches && ownedMatches;
     });
 
     return [...filtered].sort((a, b) => {
-      const valueA = sortBy === 'MiniatureQuantity' ? Number(a.MiniatureQuantity) : String(a[sortBy] ?? '').toLowerCase();
-      const valueB = sortBy === 'MiniatureQuantity' ? Number(b.MiniatureQuantity) : String(b[sortBy] ?? '').toLowerCase();
+      const valueA =
+        sortBy === 'MiniatureQuantity'
+          ? Number(a.MiniatureQuantity)
+          : sortBy === 'HasPurchaseOrder'
+            ? (hasPurchaseOrderByItemId[Number(a.ResolvedItemID)] ? 1 : 0)
+            : String(a[sortBy] ?? '').toLowerCase();
+      const valueB =
+        sortBy === 'MiniatureQuantity'
+          ? Number(b.MiniatureQuantity)
+          : sortBy === 'HasPurchaseOrder'
+            ? (hasPurchaseOrderByItemId[Number(b.ResolvedItemID)] ? 1 : 0)
+            : String(b[sortBy] ?? '').toLowerCase();
 
       if (valueA < valueB) return sortOrder === 'ASC' ? -1 : 1;
       if (valueA > valueB) return sortOrder === 'ASC' ? 1 : -1;
       return String(a.MiniatureName || '').localeCompare(String(b.MiniatureName || ''), undefined, { sensitivity: 'base' });
     });
-  }, [miniatureRows, searchParams, sortBy, sortOrder]);
+  }, [miniatureRows, searchParams, sortBy, sortOrder, hasPurchaseOrderByItemId]);
 
   const pagination = useSetupPagination(filteredRows, [searchParams, sortBy, sortOrder]);
   const currentPageRows = pagination.paginatedRows;
@@ -427,7 +537,8 @@ export default function MiniatureMasterPage() {
     filterValues.subTypeName.join('\u0000') !== searchParams.subTypeName.join('\u0000') ||
     filterValues.miniatureSizeName.join('\u0000') !== searchParams.miniatureSizeName.join('\u0000') ||
     filterValues.miniatureRarityName.join('\u0000') !== searchParams.miniatureRarityName.join('\u0000') ||
-    filterValues.locationName.join('\u0000') !== searchParams.locationName.join('\u0000');
+    filterValues.locationName.join('\u0000') !== searchParams.locationName.join('\u0000') ||
+    filterValues.hasPurchaseOrder !== searchParams.hasPurchaseOrder;
 
   const hasAnyFilter =
     filterValues.itemId.trim().length > 0 ||
@@ -437,13 +548,15 @@ export default function MiniatureMasterPage() {
     filterValues.miniatureSizeName.length > 0 ||
     filterValues.miniatureRarityName.length > 0 ||
     filterValues.locationName.length > 0 ||
+    filterValues.hasPurchaseOrder !== undefined ||
     searchParams.itemId.trim().length > 0 ||
     searchParams.miniatureName.trim().length > 0 ||
     searchParams.collectionName.length > 0 ||
     searchParams.subTypeName.length > 0 ||
     searchParams.miniatureSizeName.length > 0 ||
     searchParams.miniatureRarityName.length > 0 ||
-    searchParams.locationName.length > 0;
+    searchParams.locationName.length > 0 ||
+    searchParams.hasPurchaseOrder !== undefined;
 
   const queryKey = ['table', 'Miniature'];
 
@@ -546,6 +659,15 @@ export default function MiniatureMasterPage() {
     return <span className="ml-1">{sortOrder === 'ASC' ? '↑' : '↓'}</span>;
   };
 
+  const handleOwnedFilterChange = (value: 'both' | 'yes' | 'no') => {
+    setDownloadError('');
+    setOwnedFilter(value);
+    setFilterValues((current) => ({
+      ...current,
+      hasPurchaseOrder: value === 'yes' ? true : value === 'no' ? false : undefined,
+    }));
+  };
+
   const applyFilters = () => {
     setDownloadError('');
     setSearchParams({
@@ -556,6 +678,7 @@ export default function MiniatureMasterPage() {
       miniatureSizeName: [...filterValues.miniatureSizeName],
       miniatureRarityName: [...filterValues.miniatureRarityName],
       locationName: [...filterValues.locationName],
+      hasPurchaseOrder: filterValues.hasPurchaseOrder,
     });
     setSelectedMiniatureIds([]);
   };
@@ -563,6 +686,7 @@ export default function MiniatureMasterPage() {
   const clearFilters = () => {
     setDownloadError('');
     setFilterValues(EMPTY_FILTERS);
+    setOwnedFilter('both');
     setSearchParams(EMPTY_FILTERS);
     setSelectedMiniatureIds([]);
   };
@@ -818,6 +942,156 @@ export default function MiniatureMasterPage() {
     editDeleteMutation.mutate();
   };
 
+  const parseDateParts = (value?: string | Date | null) => {
+    if (!value) {
+      return null;
+    }
+
+    if (value instanceof Date) {
+      if (Number.isNaN(value.getTime())) {
+        return null;
+      }
+      return {
+        year: value.getUTCFullYear(),
+        month: value.getUTCMonth() + 1,
+        day: value.getUTCDate(),
+      };
+    }
+
+    const raw = String(value).trim();
+    if (!raw) {
+      return null;
+    }
+
+    const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) {
+      return {
+        year: Number(iso[1]),
+        month: Number(iso[2]),
+        day: Number(iso[3]),
+      };
+    }
+
+    const mdy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (mdy) {
+      return {
+        year: Number(mdy[3]),
+        month: Number(mdy[1]),
+        day: Number(mdy[2]),
+      };
+    }
+
+    return null;
+  };
+
+  const formatPurchaseDate = (date?: string) => {
+    const parts = parseDateParts(date);
+    if (!parts) {
+      return date || '-';
+    }
+
+    return `${String(parts.month).padStart(2, '0')}/${String(parts.day).padStart(2, '0')}/${parts.year}`;
+  };
+
+  const handleOpenRelatedOrders = async (miniature: MiniatureRow, event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    const itemId = Number(miniature.ResolvedItemID);
+    if (!Number.isInteger(itemId) || itemId <= 0) {
+      return;
+    }
+
+    setSelectedMiniatureForRelatedOrders(miniature);
+    setRelatedOrders([]);
+    setRelatedOrdersError('');
+    setRelatedOrdersLoading(true);
+    setIsRelatedOrdersModalOpen(true);
+
+    try {
+      const response = await tablesAPI.getPurchaseOrdersByItem(itemId);
+      setRelatedOrders(response.data?.data || []);
+      setHasPurchaseOrderByItemId((current) => ({
+        ...current,
+        [itemId]: Array.isArray(response.data?.data) && response.data.data.length > 0,
+      }));
+    } catch (error: any) {
+      setRelatedOrdersError(error.response?.data?.error || error.message || 'Failed to load related purchase orders');
+    } finally {
+      setRelatedOrdersLoading(false);
+    }
+  };
+
+  const handleOpenLinkedOrder = (order: LinkedPurchaseOrder) => {
+    setIsRelatedOrdersModalOpen(false);
+    navigate(`/home/orders?purchaseOrderId=${order.PurchaseOrderID}`);
+  };
+
+  useEffect(() => {
+    if (!isRelatedOrdersModalOpen || relatedOrdersLoading) {
+      return;
+    }
+
+    if (!relatedOrdersError && relatedOrders.length > 0) {
+      firstRelatedOrderOpenButtonRef.current?.focus();
+      return;
+    }
+
+    relatedOrdersCloseButtonRef.current?.focus();
+  }, [isRelatedOrdersModalOpen, relatedOrdersLoading, relatedOrdersError, relatedOrders.length]);
+
+  useEffect(() => {
+    const itemIdsToCheck = Array.from(
+      new Set(
+        currentPageRows
+          .map((row) => Number(row.ResolvedItemID))
+          .filter((itemId) => Number.isInteger(itemId) && itemId > 0)
+      )
+    ).filter((itemId) => typeof hasPurchaseOrderByItemId[itemId] === 'undefined');
+
+    if (!itemIdsToCheck.length) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const fetchHasPurchaseOrderFlags = async () => {
+      const results = await Promise.allSettled(
+        itemIdsToCheck.map(async (itemId) => {
+          const response = await tablesAPI.getPurchaseOrdersByItem(itemId);
+          const hasPurchaseOrder = Array.isArray(response.data?.data) && response.data.data.length > 0;
+          return { itemId, hasPurchaseOrder };
+        })
+      );
+
+      if (isCancelled) {
+        return;
+      }
+
+      setHasPurchaseOrderByItemId((current) => {
+        const next = { ...current };
+        results.forEach((result) => {
+          if (result.status === 'fulfilled') {
+            next[result.value.itemId] = result.value.hasPurchaseOrder;
+          }
+        });
+        return next;
+      });
+    };
+
+    fetchHasPurchaseOrderFlags();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentPageRows, hasPurchaseOrderByItemId]);
+
+  const handleCloseRelatedOrdersModal = () => {
+    setIsRelatedOrdersModalOpen(false);
+    setRelatedOrdersLoading(false);
+    setRelatedOrdersError('');
+    setRelatedOrders([]);
+    setSelectedMiniatureForRelatedOrders(null);
+  };
+
   const handleBulkUpdateSubmit = (event: FormEvent) => {
     event.preventDefault();
     setBulkError('');
@@ -925,7 +1199,7 @@ export default function MiniatureMasterPage() {
               applyFilters();
             }}
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-8 gap-4">
               <label className="space-y-2 min-w-0">
                 <span className="text-sm font-medium text-gray-700">Collection Name</span>
                 <ComboMultiSelect
@@ -1002,26 +1276,41 @@ export default function MiniatureMasterPage() {
                   tabIndex={7}
                 />
               </label>
+              <label className="space-y-2 min-w-0">
+                <span className="text-sm font-medium text-gray-700">Owned</span>
+                <ComboSelect
+                  options={[
+                    { value: 'both', label: 'Both' },
+                    { value: 'yes', label: 'Yes' },
+                    { value: 'no', label: 'No' },
+                  ]}
+                  value={ownedFilter}
+                  onChange={(value) => handleOwnedFilterChange(value as 'both' | 'yes' | 'no')}
+                  placeholder="Both"
+                  className="w-full"
+                  tabIndex={8}
+                />
+              </label>
             </div>
 
             <div className="flex justify-end gap-3 flex-wrap">
-              <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={openBulkDeleteDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={8}>
+              <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={openBulkDeleteDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={9}>
                 Bulk Delete{selectedMiniatureIds.length ? ` (${selectedMiniatureIds.length})` : ''}
               </Button>
-              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openBulkUpdateDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={9}>
+              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openBulkUpdateDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={10}>
                 Bulk Update{selectedMiniatureIds.length ? ` (${selectedMiniatureIds.length})` : ''}
               </Button>
-              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={10}>
+              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={11}>
                 + Add Item
               </Button>
-              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={11}>
+              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={12}>
                 ++ Bulk Upload
               </Button>
-              <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={12}>
+              <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={13}>
                 {isDownloading ? 'Downloading...' : 'Download CSV'}
               </Button>
-              <Button type="submit" disabled={!filtersChanged} tabIndex={13}>Apply Filter</Button>
-              <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!filtersChanged && !hasAnyFilter} tabIndex={14}>
+              <Button type="submit" disabled={!filtersChanged} tabIndex={14}>Apply Filter</Button>
+              <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!filtersChanged && !hasAnyFilter} tabIndex={15}>
                 Clear
               </Button>
             </div>
@@ -1093,6 +1382,11 @@ export default function MiniatureMasterPage() {
                           Location <SortIndicator column="LocationName" />
                         </button>
                       </TableHead>
+                      <TableHead className="w-px whitespace-nowrap px-2 text-center">
+                        <button onClick={() => handleSort('HasPurchaseOrder')} className="flex items-center justify-center w-full hover:text-blue-600" tabIndex={24}>
+                          Is Owned <SortIndicator column="HasPurchaseOrder" />
+                        </button>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1110,7 +1404,7 @@ export default function MiniatureMasterPage() {
                               onClick={(event) => event.stopPropagation()}
                               onChange={() => toggleMiniatureSelection(miniature.MiniatureID)}
                               aria-label={`Select ${miniature.MiniatureName}`}
-                              tabIndex={24 + rowIndex}
+                              tabIndex={25 + rowIndex}
                             />
                           </TableCell>
                           <TableCell>{miniature.CollectionName}</TableCell>
@@ -1121,11 +1415,24 @@ export default function MiniatureMasterPage() {
                           <TableCell>{miniature.MiniatureRarityName}</TableCell>
                           <TableCell className="text-right">{Number(miniature.MiniatureQuantity || 0).toLocaleString()}</TableCell>
                           <TableCell>{miniature.LocationName}</TableCell>
+                          <TableCell className="w-px whitespace-nowrap px-2 text-center" onClick={(event) => event.stopPropagation()}>
+                            {hasPurchaseOrderByItemId[Number(miniature.ResolvedItemID)] ? (
+                              <button
+                                type="button"
+                                className="inline-flex items-center justify-center text-blue-600 hover:text-blue-700"
+                                onClick={(event) => handleOpenRelatedOrders(miniature, event)}
+                                title="Open related purchase orders"
+                                aria-label={`Open related purchase orders for ${miniature.ItemName || miniature.MiniatureName}`}
+                              >
+                                <Link2 className="w-5 h-5" />
+                              </button>
+                            ) : null}
+                          </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-10 text-gray-500">
+                        <TableCell colSpan={10} className="text-center py-10 text-gray-500">
                           No matching miniatures found.
                         </TableCell>
                       </TableRow>
@@ -1323,6 +1630,84 @@ export default function MiniatureMasterPage() {
             <Button type="button" className="bg-gray-200 text-gray-800 hover:bg-gray-300" onClick={closeBulkDeleteDialog}>Cancel</Button>
             <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={handleBulkDeleteConfirm} disabled={bulkDeleteMutation.isLoading || bulkDeleteConfirmText.trim() !== 'DELETE'}>
               {bulkDeleteMutation.isLoading ? 'Deleting...' : `Delete ${selectedMiniatureIds.length} Miniatures`}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={isRelatedOrdersModalOpen}
+        onOpenChange={setIsRelatedOrdersModalOpen}
+        title={
+          selectedMiniatureForRelatedOrders
+            ? `Related Purchase Orders: ${selectedMiniatureForRelatedOrders.ItemName || selectedMiniatureForRelatedOrders.MiniatureName}`
+            : 'Related Purchase Orders'
+        }
+        onClose={handleCloseRelatedOrdersModal}
+        showCloseButton={false}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          if (firstRelatedOrderOpenButtonRef.current) {
+            firstRelatedOrderOpenButtonRef.current.focus();
+            return;
+          }
+
+          relatedOrdersCloseButtonRef.current?.focus();
+        }}
+      >
+        <div className="space-y-4">
+          {relatedOrdersLoading ? <p className="text-gray-500">Loading related purchase orders...</p> : null}
+
+          {!relatedOrdersLoading && relatedOrdersError ? (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+              {relatedOrdersError}
+            </div>
+          ) : null}
+
+          {!relatedOrdersLoading && !relatedOrdersError && !relatedOrders.length ? (
+            <p className="text-gray-500">No purchase orders found for this item.</p>
+          ) : null}
+
+          {!relatedOrdersLoading && !relatedOrdersError && relatedOrders.length ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Purchase Date</TableHead>
+                    <TableHead>Invoice Number</TableHead>
+                    <TableHead>Store</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Total Amount</TableHead>
+                    <TableHead className="text-right">Open</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {relatedOrders.map((order, index) => (
+                    <TableRow key={order.PurchaseOrderID}>
+                      <TableCell>{formatPurchaseDate(order.PurchaseDate)}</TableCell>
+                      <TableCell>{order.InvoiceNumber}</TableCell>
+                      <TableCell>{order.StoreName}</TableCell>
+                      <TableCell>{order.StatusName || '-'}</TableCell>
+                      <TableCell className="text-right">${(order.TotalAmount || 0).toFixed(2)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          ref={index === 0 ? firstRelatedOrderOpenButtonRef : undefined}
+                          className="bg-blue-600 hover:bg-blue-700"
+                          onClick={() => handleOpenLinkedOrder(order)}
+                        >
+                          Open
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : null}
+
+          <div className="flex justify-end">
+            <Button ref={relatedOrdersCloseButtonRef} className="bg-gray-600 hover:bg-gray-700" onClick={handleCloseRelatedOrdersModal}>
+              Close
             </Button>
           </div>
         </div>

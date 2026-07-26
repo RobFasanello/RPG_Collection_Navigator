@@ -1572,6 +1572,7 @@ export async function getDashboardOverview(req: Request, res: Response): Promise
         (SELECT COUNT(*) FROM [Publisher]) AS PublishersTotal,
         (SELECT COUNT(*) FROM [Collection]) AS CollectionsTotal,
         (SELECT COUNT(*) FROM [Item]) AS ItemsTotal,
+        (SELECT ISNULL(SUM([MiniatureQuantity]), 0) FROM [Miniature]) AS MiniaturesTotal,
         (SELECT COUNT(*) FROM [PurchaseOrder]) AS OrdersTotal
     `;
 
@@ -1605,6 +1606,18 @@ export async function getDashboardOverview(req: Request, res: Response): Promise
       INNER JOIN [Item] ON [Item].[ItemID] = [PurchaseOrderDetail].[ItemID]
       GROUP BY [Item].[ItemID], [Item].[ItemName], [Item].[ProductID]
       ORDER BY [MaxPrice] DESC, [Item].[ItemName] ASC
+    `;
+
+    const topMiniatureItemsByQuantityQuery = `
+      SELECT TOP (@topN)
+        [Item].[ItemID],
+        [Item].[ItemName],
+        [Item].[ProductID],
+        SUM(ISNULL([Miniature].[MiniatureQuantity], 0)) AS [TotalQuantity]
+      FROM [Miniature]
+      INNER JOIN [Item] ON [Item].[ItemID] = ISNULL([Miniature].[ItemID], [Miniature].[MiniatureID])
+      GROUP BY [Item].[ItemID], [Item].[ItemName], [Item].[ProductID]
+      ORDER BY [TotalQuantity] DESC, [Item].[ItemName] ASC
     `;
 
     const topOrdersByAmountQuery = `
@@ -1689,6 +1702,11 @@ export async function getDashboardOverview(req: Request, res: Response): Promise
       .input('topN', sql.Int, topN)
       .query(topItemsByPriceQuery);
 
+    const topMiniatureItemsByQuantityResult = await pool
+      .request()
+      .input('topN', sql.Int, topN)
+      .query(topMiniatureItemsByQuantityQuery);
+
     const topOrdersByAmountResult = await pool
       .request()
       .input('topN', sql.Int, topN)
@@ -1706,6 +1724,7 @@ export async function getDashboardOverview(req: Request, res: Response): Promise
       PublishersTotal: 0,
       CollectionsTotal: 0,
       ItemsTotal: 0,
+      MiniaturesTotal: 0,
       OrdersTotal: 0,
     };
 
@@ -1714,11 +1733,13 @@ export async function getDashboardOverview(req: Request, res: Response): Promise
         publishers: Number(totals.PublishersTotal || 0),
         collections: Number(totals.CollectionsTotal || 0),
         items: Number(totals.ItemsTotal || 0),
+        miniatures: Number(totals.MiniaturesTotal || 0),
         orders: Number(totals.OrdersTotal || 0),
       },
       topPublishers: topPublishersResult.recordset,
       topCollections: topCollectionsResult.recordset,
       topItemsByPrice: topItemsByPriceResult.recordset,
+      topMiniatureItemsByQuantity: topMiniatureItemsByQuantityResult.recordset,
       topOrdersByAmount: topOrdersByAmountResult.recordset,
       publisherDashboard: publisherDashboardResult.recordset.map((row) => ({
         PublisherID: Number(row.PublisherID || 0),

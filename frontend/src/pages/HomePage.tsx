@@ -9,6 +9,7 @@ type DashboardData = {
     publishers: number;
     collections: number;
     items: number;
+    miniatures: number;
     orders: number;
   };
   publisherDashboard: Array<{
@@ -29,6 +30,7 @@ type DashboardData = {
   topPublishers: Array<{ PublisherName: string; ItemCount: number }>;
   topCollections: Array<{ CollectionName: string; ItemCount: number }>;
   topItemsByPrice: Array<{ ItemID: number; ItemName: string; ProductID?: string; MaxPrice: number }>;
+  topMiniatureItemsByQuantity: Array<{ ItemID: number; ItemName: string; ProductID?: string; TotalQuantity: number }>;
   topOrdersByAmount: Array<{
     PurchaseOrderID: number;
     InvoiceNumber: string;
@@ -69,10 +71,11 @@ async function getAllTableRows(tableName: string): Promise<any[]> {
 }
 
 async function getDashboardFallback(): Promise<DashboardData> {
-  const [publishersResp, collectionsResp, itemsResp, allPublishersRows, allCollectionsRows] = await Promise.all([
+  const [publishersResp, collectionsResp, itemsResp, miniatureRows, allPublishersRows, allCollectionsRows] = await Promise.all([
     tablesAPI.getTableData('Publisher', 1, 1),
     tablesAPI.getTableData('Collection', 1, 1),
     tablesAPI.getInventoryItems({ page: 1, pageSize: 1 }),
+    getAllTableRows('Miniature'),
     getAllTableRows('Publisher'),
     getAllTableRows('Collection'),
   ]);
@@ -230,6 +233,38 @@ async function getDashboardFallback(): Promise<DashboardData> {
     .sort((a, b) => b.MaxPrice - a.MaxPrice || a.ItemName.localeCompare(b.ItemName))
     .slice(0, 10);
 
+  const miniatureQuantityByItemId = new Map<number, number>();
+  let miniaturesTotal = 0;
+
+  miniatureRows.forEach((row) => {
+    const itemId = Number(row.ItemID ?? row.MiniatureID);
+    const quantity = Number(row.MiniatureQuantity || 0);
+    if (!Number.isFinite(quantity)) {
+      return;
+    }
+
+    miniaturesTotal += quantity;
+
+    if (!Number.isFinite(itemId) || itemId <= 0) {
+      return;
+    }
+
+    miniatureQuantityByItemId.set(itemId, (miniatureQuantityByItemId.get(itemId) || 0) + quantity);
+  });
+
+  const topMiniatureItemsByQuantity = Array.from(miniatureQuantityByItemId.entries())
+    .map(([ItemID, TotalQuantity]) => {
+      const item = itemLookupMap.get(ItemID);
+      return {
+        ItemID,
+        ItemName: item?.ItemName || `Item #${ItemID}`,
+        ProductID: item?.ProductID,
+        TotalQuantity,
+      };
+    })
+    .sort((a, b) => b.TotalQuantity - a.TotalQuantity || a.ItemName.localeCompare(b.ItemName))
+    .slice(0, 10);
+
   let topOrdersByAmount: DashboardData['topOrdersByAmount'] = [];
   try {
     const ordersResp = await tablesAPI.getPurchaseOrders({
@@ -255,11 +290,13 @@ async function getDashboardFallback(): Promise<DashboardData> {
       publishers: Number(publishersResp.data?.total || 0),
       collections: Number(collectionsResp.data?.total || 0),
       items: Number(itemsResp.data?.total || 0),
+      miniatures: miniaturesTotal,
       orders: ordersTotal,
     },
     topPublishers,
     topCollections,
     topItemsByPrice,
+    topMiniatureItemsByQuantity,
     topOrdersByAmount,
     publisherDashboard,
     collectionDashboard,
@@ -577,12 +614,14 @@ export default function HomePage() {
     publishers: 0,
     collections: 0,
     items: 0,
+    miniatures: 0,
     orders: 0,
   };
 
   const topPublishers = dashboardData?.topPublishers || [];
   const topCollections = dashboardData?.topCollections || [];
   const topItemsByPrice = dashboardData?.topItemsByPrice || [];
+  const topMiniatureItemsByQuantity = dashboardData?.topMiniatureItemsByQuantity || [];
   const topOrdersByAmount = dashboardData?.topOrdersByAmount || [];
   const publisherDashboard = dashboardData?.publisherDashboard || [];
   const collectionDashboard = dashboardData?.collectionDashboard || [];
@@ -663,7 +702,7 @@ export default function HomePage() {
 
         <section className="bg-white rounded-lg shadow p-8">
           <h3 className="text-xl font-semibold text-gray-900 mb-4">Repository Dashboard</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
             <div className="space-y-3">
               <MetricCard label="Publishers" value={totals.publishers} loading={dashboardLoading} to="/admin/publishers" />
               <TopListCard title="Top 10 Publishers by Item Count" loading={dashboardLoading}>
@@ -732,6 +771,30 @@ export default function HomePage() {
                   </ul>
                 ) : (
                   <p className="text-sm text-gray-500">No pricing data.</p>
+                )}
+              </TopListCard>
+            </div>
+
+            <div className="space-y-3">
+              <MetricCard label="Miniatures" value={totals.miniatures} loading={dashboardLoading} to="/admin/miniatures" />
+              <TopListCard title="Top 10 Miniature Items by Quantity" loading={dashboardLoading}>
+                {topMiniatureItemsByQuantity.length ? (
+                  <ul className="space-y-1 text-sm">
+                    {topMiniatureItemsByQuantity.map((row) => (
+                      <li key={row.ItemID} className="flex items-center justify-between gap-2">
+                        <Link
+                          to={`/admin/miniatures?itemId=${encodeURIComponent(String(row.ItemID))}`}
+                          className="truncate text-blue-600 hover:text-blue-700 hover:underline"
+                          title={`View miniatures for ${row.ItemName}`}
+                        >
+                          {row.ItemName}{row.ProductID ? ` (${row.ProductID})` : ''}
+                        </Link>
+                        <span className="font-semibold text-gray-900">{Number(row.TotalQuantity || 0).toLocaleString()}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-500">No miniature data.</p>
                 )}
               </TopListCard>
             </div>
