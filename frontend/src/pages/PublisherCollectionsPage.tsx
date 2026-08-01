@@ -224,14 +224,29 @@ export default function PublisherCollectionsPage() {
     setFormError('');
   };
 
+  const normalizeFilterValue = (value: string | number | null | undefined) => String(value ?? '').trim().toLowerCase();
+
   const getNewFormValuesFromFilters = () => {
-    const publisher = (publisherRecords || []).find(
-      (record: any) => String(record.PublisherName || '') === activeFilters.publisherName
-    );
+    const publisher = (publisherRecords || []).find((record: any) => {
+      const publisherId = String(record.PublisherID ?? '');
+      const publisherName = String(record.PublisherName || '');
+      return normalizeFilterValue(publisherId) === normalizeFilterValue(activeFilters.publisherName) || normalizeFilterValue(publisherName) === normalizeFilterValue(activeFilters.publisherName);
+    });
+
+    const collection = (collectionRecords || []).find((record: any) => {
+      const collectionId = String(record.CollectionID ?? '');
+      const collectionName = String(record.CollectionName || '');
+      const collectionTypeName = String(record.CollectionTypeName || '');
+      return (
+        normalizeFilterValue(collectionId) === normalizeFilterValue(activeFilters.collectionName) ||
+        normalizeFilterValue(collectionName) === normalizeFilterValue(activeFilters.collectionName) ||
+        normalizeFilterValue(`${collectionName} (${collectionTypeName})`) === normalizeFilterValue(activeFilters.collectionName)
+      );
+    });
 
     return {
       PublisherID: publisher?.PublisherID != null ? String(publisher.PublisherID) : '',
-      CollectionID: activeFilters.collectionName,
+      CollectionID: collection?.CollectionID != null ? String(collection.CollectionID) : '',
     };
   };
 
@@ -347,7 +362,6 @@ export default function PublisherCollectionsPage() {
                 onChange={(value) => setFilterInputs((prev) => ({ ...prev, publisherName: value }))}
                 placeholder="Select publisher"
                 className="w-full"
-                tabIndex={1}
                 autoFocus
               />
             </div>
@@ -359,7 +373,6 @@ export default function PublisherCollectionsPage() {
                 onChange={(value) => setFilterInputs((prev) => ({ ...prev, collectionName: value }))}
                 placeholder="Select collection"
                 className="w-full"
-                tabIndex={2}
               />
             </div>
           </div>
@@ -374,16 +387,14 @@ export default function PublisherCollectionsPage() {
                 setFormError('');
               }}
               className="gap-2 bg-green-600 hover:bg-green-700"
-              tabIndex={999}
             >
               <Plus className="w-4 h-4" />
               Add New Publisher Collection
             </Button>
-            <Button onClick={applyFilters} tabIndex={3} disabled={!hasFilterChanges}>Apply Filters</Button>
+            <Button onClick={applyFilters} disabled={!hasFilterChanges}>Apply Filters</Button>
             <Button
               onClick={clearFilters}
               className="bg-gray-600 hover:bg-gray-700"
-              tabIndex={4}
               disabled={!hasFilterChanges}
             >
               Clear
@@ -495,6 +506,7 @@ export default function PublisherCollectionsPage() {
                   onChange={(value) => setFormValues((prev) => ({ ...prev, CollectionID: value }))}
                   placeholder="Select collection"
                   className="w-full"
+                  openOnFocus={false}
                 />
               </div>
 
@@ -534,7 +546,6 @@ export default function PublisherCollectionsPage() {
                 <th 
                   className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
                   onClick={() => handleSort('publisher')}
-                  tabIndex={5}
                 >
                   <div className="flex items-center gap-2">
                     Publisher Name
@@ -544,7 +555,6 @@ export default function PublisherCollectionsPage() {
                 <th
                   className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
                   onClick={() => handleSort('collection')}
-                  tabIndex={6}
                 >
                   <div className="flex items-center gap-2">
                     Collection Name
@@ -554,7 +564,6 @@ export default function PublisherCollectionsPage() {
                 <th
                   className="px-6 py-3 text-right text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
                   onClick={() => handleSort('itemCount')}
-                  tabIndex={7}
                 >
                   <div className="flex items-center justify-end gap-2">
                     Item Count

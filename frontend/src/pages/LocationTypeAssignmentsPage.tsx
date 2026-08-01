@@ -47,6 +47,8 @@ export default function LocationTypeAssignmentsPage() {
     },
   });
 
+  const normalizeFilterValue = (value: string | number | null | undefined) => String(value ?? '').trim().toLowerCase();
+
   const locationNameById = (records || []).reduce((map: Record<number, string>, item: any) => {
     if (item?.LocationID != null) {
       map[Number(item.LocationID)] = String(item.LocationName ?? '').trim();
@@ -79,10 +81,24 @@ export default function LocationTypeAssignmentsPage() {
     filterInputs.locationName !== activeFilters.locationName ||
     filterInputs.locationTypeName !== activeFilters.locationTypeName;
 
-  const getNewFormValuesFromFilters = () => ({
-    LocationID: activeFilters.locationName,
-    LocationTypeID: activeFilters.locationTypeName,
-  });
+  const getNewFormValuesFromFilters = () => {
+    const location = (records || []).find((record: any) => {
+      const locationId = String(record.LocationID ?? '');
+      const locationName = String(record.LocationName || '').trim();
+      return normalizeFilterValue(locationId) === normalizeFilterValue(activeFilters.locationName) || normalizeFilterValue(locationName) === normalizeFilterValue(activeFilters.locationName);
+    });
+
+    const locationType = (locationTypeRecords || []).find((record: any) => {
+      const locationTypeId = String(record.LocationTypeID ?? '');
+      const locationTypeName = String(record.LocationTypeName || '').trim();
+      return normalizeFilterValue(locationTypeId) === normalizeFilterValue(activeFilters.locationTypeName) || normalizeFilterValue(locationTypeName) === normalizeFilterValue(activeFilters.locationTypeName);
+    });
+
+    return {
+      LocationID: location?.LocationID != null ? String(location.LocationID) : '',
+      LocationTypeID: locationType?.LocationTypeID != null ? String(locationType.LocationTypeID) : '',
+    };
+  };
 
   const handleAdd = () => {
     setIsAdding(true);
@@ -198,7 +214,6 @@ export default function LocationTypeAssignmentsPage() {
                 onChange={(value) => setFilterInputs((prev) => ({ ...prev, locationName: value }))}
                 placeholder="Select location"
                 className="w-full"
-                tabIndex={1}
                 autoFocus
               />
             </div>
@@ -210,18 +225,17 @@ export default function LocationTypeAssignmentsPage() {
                 onChange={(value) => setFilterInputs((prev) => ({ ...prev, locationTypeName: value }))}
                 placeholder="Select location type"
                 className="w-full"
-                tabIndex={2}
               />
             </div>
           </div>
 
           <div className="flex flex-wrap gap-2 justify-end">
-            <Button onClick={handleAdd} className="gap-2 bg-green-600 hover:bg-green-700" tabIndex={999}>
+            <Button onClick={handleAdd} className="gap-2 bg-green-600 hover:bg-green-700">
               <Plus className="w-4 h-4" />
               Add Location / Type
             </Button>
-            <Button onClick={applyFilters} tabIndex={3} disabled={!hasFilterChanges}>Apply Filters</Button>
-            <Button onClick={clearFilters} className="bg-gray-600 hover:bg-gray-700" tabIndex={4} disabled={!hasFilterChanges}>
+            <Button onClick={applyFilters} disabled={!hasFilterChanges}>Apply Filters</Button>
+            <Button onClick={clearFilters} className="bg-gray-600 hover:bg-gray-700" disabled={!hasFilterChanges}>
               Clear
             </Button>
           </div>
@@ -320,13 +334,13 @@ export default function LocationTypeAssignmentsPage() {
           <table className="w-full">
             <thead className="bg-gray-100 border-b">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition" onClick={() => handleSort('location')} tabIndex={5}>
+                <th className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition" onClick={() => handleSort('location')}>
                   <div className="flex items-center gap-2">
                     Location Name
                     {getSortIcon('location')}
                   </div>
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition" onClick={() => handleSort('locationType')} tabIndex={6}>
+                <th className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition" onClick={() => handleSort('locationType')}>
                   <div className="flex items-center gap-2">
                     Location Type
                     {getSortIcon('locationType')}

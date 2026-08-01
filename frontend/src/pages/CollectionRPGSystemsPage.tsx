@@ -157,10 +157,31 @@ export default function CollectionRPGSystemsPage() {
     setFormError('');
   };
 
-  const getNewFormValuesFromFilters = () => ({
-    CollectionID: activeFilters.collectionName,
-    RPGSystemID: activeFilters.rpgSystemName,
-  });
+  const normalizeFilterValue = (value: string | number | null | undefined) => String(value ?? '').trim().toLowerCase();
+
+  const getNewFormValuesFromFilters = () => {
+    const collection = (collectionRecords || []).find((record: any) => {
+      const collectionId = String(record.CollectionID ?? '');
+      const collectionName = String(record.CollectionName || '');
+      const collectionTypeName = String(record.CollectionTypeName || '');
+      return (
+        normalizeFilterValue(collectionId) === normalizeFilterValue(activeFilters.collectionName) ||
+        normalizeFilterValue(collectionName) === normalizeFilterValue(activeFilters.collectionName) ||
+        normalizeFilterValue(`${collectionName} (${collectionTypeName})`) === normalizeFilterValue(activeFilters.collectionName)
+      );
+    });
+
+    const rpgSystem = (rpgSystemRecords || []).find((record: any) => {
+      const rpgSystemId = String(record.RPGSystemID ?? '');
+      const rpgSystemName = String(record.RPGSystemName || '');
+      return normalizeFilterValue(rpgSystemId) === normalizeFilterValue(activeFilters.rpgSystemName) || normalizeFilterValue(rpgSystemName) === normalizeFilterValue(activeFilters.rpgSystemName);
+    });
+
+    return {
+      CollectionID: collection?.CollectionID != null ? String(collection.CollectionID) : '',
+      RPGSystemID: rpgSystem?.RPGSystemID != null ? String(rpgSystem.RPGSystemID) : '',
+    };
+  };
 
   const closeForm = () => {
     setIsAdding(false);
@@ -260,7 +281,6 @@ export default function CollectionRPGSystemsPage() {
                 onChange={(value) => setFilterInputs((prev) => ({ ...prev, collectionName: value }))}
                 placeholder="Select RPG collection"
                 className="w-full"
-                tabIndex={1}
                 autoFocus
               />
             </div>
@@ -272,7 +292,6 @@ export default function CollectionRPGSystemsPage() {
                 onChange={(value) => setFilterInputs((prev) => ({ ...prev, rpgSystemName: value }))}
                 placeholder="Select RPG system"
                 className="w-full"
-                tabIndex={2}
               />
             </div>
           </div>
@@ -287,13 +306,12 @@ export default function CollectionRPGSystemsPage() {
                 setFormError('');
               }}
               className="gap-2 bg-green-600 hover:bg-green-700"
-              tabIndex={999}
             >
               <Plus className="w-4 h-4" />
               Add New Collection / RPG System
             </Button>
-            <Button onClick={applyFilters} tabIndex={3} disabled={!hasFilterChanges}>Apply Filters</Button>
-            <Button onClick={clearFilters} className="bg-gray-600 hover:bg-gray-700" tabIndex={4} disabled={!hasFilterChanges}>
+            <Button onClick={applyFilters} disabled={!hasFilterChanges}>Apply Filters</Button>
+            <Button onClick={clearFilters} className="bg-gray-600 hover:bg-gray-700" disabled={!hasFilterChanges}>
               Clear
             </Button>
           </div>
@@ -442,13 +460,13 @@ export default function CollectionRPGSystemsPage() {
           <table className="w-full">
             <thead className="bg-gray-100 border-b">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition" onClick={() => handleSort('collection')} tabIndex={5}>
+                <th className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition" onClick={() => handleSort('collection')}>
                   <div className="flex items-center gap-2">
-                    Collection Name
+                    Collection
                     {getSortIcon('collection')}
                   </div>
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition" onClick={() => handleSort('rpgSystem')} tabIndex={6}>
+                <th className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition" onClick={() => handleSort('rpgSystem')}>
                   <div className="flex items-center gap-2">
                     RPG System Name
                     {getSortIcon('rpgSystem')}

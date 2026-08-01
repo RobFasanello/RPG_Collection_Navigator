@@ -190,13 +190,19 @@ export default function CategorySubTypesPage() {
     setFormError('');
   };
 
+  const normalizeFilterValue = (value: string | number | null | undefined) => String(value ?? '').trim().toLowerCase();
+
   const getNewFormValuesFromFilters = () => {
-    const category = (categoryRecords || []).find(
-      (record: any) => String(record.CategoryName || '') === activeFilters.categoryName
-    );
-    const subType = (subTypeRecords || []).find(
-      (record: any) => String(record.SubTypeName || '') === activeFilters.subTypeName
-    );
+    const category = (categoryRecords || []).find((record: any) => {
+      const categoryId = String(record.CategoryID ?? '');
+      const categoryName = String(record.CategoryName || '');
+      return normalizeFilterValue(categoryId) === normalizeFilterValue(activeFilters.categoryName) || normalizeFilterValue(categoryName) === normalizeFilterValue(activeFilters.categoryName);
+    });
+    const subType = (subTypeRecords || []).find((record: any) => {
+      const subTypeId = String(record.SubTypeID ?? '');
+      const subTypeName = String(record.SubTypeName || '');
+      return normalizeFilterValue(subTypeId) === normalizeFilterValue(activeFilters.subTypeName) || normalizeFilterValue(subTypeName) === normalizeFilterValue(activeFilters.subTypeName);
+    });
 
     return {
       CategoryID: category?.CategoryID != null ? String(category.CategoryID) : '',
@@ -315,7 +321,6 @@ export default function CategorySubTypesPage() {
                 onChange={(value) => setFilterInputs((prev) => ({ ...prev, categoryName: value }))}
                 placeholder="Select category"
                 className="w-full"
-                tabIndex={1}
                 autoFocus
               />
             </div>
@@ -327,7 +332,6 @@ export default function CategorySubTypesPage() {
                 onChange={(value) => setFilterInputs((prev) => ({ ...prev, subTypeName: value }))}
                 placeholder="Select sub category"
                 className="w-full"
-                tabIndex={2}
               />
             </div>
           </div>
@@ -342,16 +346,14 @@ export default function CategorySubTypesPage() {
                 setFormError('');
               }}
               className="gap-2 bg-green-600 hover:bg-green-700"
-              tabIndex={999}
             >
               <Plus className="w-4 h-4" />
               Add New Category / Sub Category
             </Button>
-            <Button onClick={applyFilters} tabIndex={3} disabled={!hasFilterChanges}>Apply Filters</Button>
+            <Button onClick={applyFilters} disabled={!hasFilterChanges}>Apply Filters</Button>
             <Button
               onClick={clearFilters}
               className="bg-gray-600 hover:bg-gray-700"
-              tabIndex={4}
               disabled={!hasFilterChanges}
             >
               Clear
@@ -502,7 +504,6 @@ export default function CategorySubTypesPage() {
                 <th 
                   className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
                   onClick={() => handleSort('CategoryName')}
-                  tabIndex={5}
                 >
                   <div className="flex items-center gap-2">
                     Category Name
@@ -512,7 +513,6 @@ export default function CategorySubTypesPage() {
                 <th
                   className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
                   onClick={() => handleSort('SubTypeName')}
-                  tabIndex={6}
                 >
                   <div className="flex items-center gap-2">
                     Sub Category Name
@@ -522,7 +522,6 @@ export default function CategorySubTypesPage() {
                 <th
                   className="px-6 py-3 text-right text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
                   onClick={() => handleSort('ItemCount')}
-                  tabIndex={7}
                 >
                   <div className="flex items-center justify-end gap-2">
                     Item Count

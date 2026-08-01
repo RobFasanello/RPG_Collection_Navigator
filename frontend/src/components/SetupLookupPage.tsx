@@ -138,6 +138,16 @@ export default function SetupLookupPage({
             />
           </div>
           <div className="flex flex-wrap gap-2 justify-end">
+            <Button
+              onClick={() => {
+                setIsAdding(true);
+                setEditingId(null);
+              }}
+              className="gap-2 bg-green-600 hover:bg-green-700"
+            >
+              <Plus className="w-4 h-4" />
+              {newButtonLabel}
+            </Button>
             <Button onClick={() => setActiveFilter(filterInput)} disabled={!hasFilterChanges}>
               Apply Filters
             </Button>
@@ -150,16 +160,6 @@ export default function SetupLookupPage({
               disabled={!filterInput && !activeFilter}
             >
               Clear
-            </Button>
-            <Button
-              onClick={() => {
-                setIsAdding(true);
-                setEditingId(null);
-              }}
-              className="gap-2 bg-green-600 hover:bg-green-700"
-            >
-              <Plus className="w-4 h-4" />
-              {newButtonLabel}
             </Button>
           </div>
         </div>

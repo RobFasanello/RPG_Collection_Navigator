@@ -357,17 +357,6 @@ export default function PublishersPage() {
           </div>
 
           <div className="flex flex-wrap gap-2 justify-end">
-            <Button onClick={() => setActiveFilters(filterInputs)} disabled={!hasFilterChanges}>Apply Filters</Button>
-            <Button
-              onClick={() => {
-                setFilterInputs({ publisherName: '', publisherUrl: '' });
-                setActiveFilters({ publisherName: '', publisherUrl: '' });
-              }}
-              className="bg-gray-600 hover:bg-gray-700"
-              disabled={!filterInputs.publisherName && !filterInputs.publisherUrl && !activeFilters.publisherName && !activeFilters.publisherUrl}
-            >
-              Clear
-            </Button>
             <Button
               onClick={() => {
                 setIsAdding(true);
@@ -381,6 +370,17 @@ export default function PublishersPage() {
             >
               <Plus className="w-4 h-4" />
               New Publisher
+            </Button>
+            <Button onClick={() => setActiveFilters(filterInputs)} disabled={!hasFilterChanges}>Apply Filters</Button>
+            <Button
+              onClick={() => {
+                setFilterInputs({ publisherName: '', publisherUrl: '' });
+                setActiveFilters({ publisherName: '', publisherUrl: '' });
+              }}
+              className="bg-gray-600 hover:bg-gray-700"
+              disabled={!filterInputs.publisherName && !filterInputs.publisherUrl && !activeFilters.publisherName && !activeFilters.publisherUrl}
+            >
+              Clear
             </Button>
           </div>
         </div>

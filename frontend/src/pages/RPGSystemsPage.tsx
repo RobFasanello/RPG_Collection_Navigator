@@ -193,17 +193,6 @@ export default function RPGSystemsPage() {
           </div>
 
           <div className="flex flex-wrap gap-2 justify-end">
-            <Button onClick={() => setActiveFilters(filterInputs)} disabled={!hasFilterChanges}>Apply Filters</Button>
-            <Button
-              onClick={() => {
-                setFilterInputs({ rpgSystemName: '', rpgSystemUrl: '' });
-                setActiveFilters({ rpgSystemName: '', rpgSystemUrl: '' });
-              }}
-              className="bg-gray-600 hover:bg-gray-700"
-              disabled={!filterInputs.rpgSystemName && !filterInputs.rpgSystemUrl && !activeFilters.rpgSystemName && !activeFilters.rpgSystemUrl}
-            >
-              Clear
-            </Button>
             <Button
               onClick={() => {
                 setIsAdding(true);
@@ -215,6 +204,17 @@ export default function RPGSystemsPage() {
             >
               <Plus className="w-4 h-4" />
               New RPG System
+            </Button>
+            <Button onClick={() => setActiveFilters(filterInputs)} disabled={!hasFilterChanges}>Apply Filters</Button>
+            <Button
+              onClick={() => {
+                setFilterInputs({ rpgSystemName: '', rpgSystemUrl: '' });
+                setActiveFilters({ rpgSystemName: '', rpgSystemUrl: '' });
+              }}
+              className="bg-gray-600 hover:bg-gray-700"
+              disabled={!filterInputs.rpgSystemName && !filterInputs.rpgSystemUrl && !activeFilters.rpgSystemName && !activeFilters.rpgSystemUrl}
+            >
+              Clear
             </Button>
           </div>
         </div>

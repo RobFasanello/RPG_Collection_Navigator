@@ -285,17 +285,6 @@ export default function CollectionsPage() {
           </div>
 
           <div className="flex flex-wrap gap-2 justify-end">
-            <Button onClick={() => setActiveFilters(filterInputs)} disabled={!hasFilterChanges}>Apply Filters</Button>
-            <Button
-              onClick={() => {
-                setFilterInputs({ collectionName: '', collectionTypeId: '' });
-                setActiveFilters({ collectionName: '', collectionTypeId: '' });
-              }}
-              className="bg-gray-600 hover:bg-gray-700"
-              disabled={!filterInputs.collectionName && !filterInputs.collectionTypeId && !activeFilters.collectionName && !activeFilters.collectionTypeId}
-            >
-              Clear
-            </Button>
             <Button
               onClick={() => {
                 setIsAdding(true);
@@ -309,6 +298,17 @@ export default function CollectionsPage() {
             >
               <Plus className="w-4 h-4" />
               New Collection
+            </Button>
+            <Button onClick={() => setActiveFilters(filterInputs)} disabled={!hasFilterChanges}>Apply Filters</Button>
+            <Button
+              onClick={() => {
+                setFilterInputs({ collectionName: '', collectionTypeId: '' });
+                setActiveFilters({ collectionName: '', collectionTypeId: '' });
+              }}
+              className="bg-gray-600 hover:bg-gray-700"
+              disabled={!filterInputs.collectionName && !filterInputs.collectionTypeId && !activeFilters.collectionName && !activeFilters.collectionTypeId}
+            >
+              Clear
             </Button>
           </div>
         </div>

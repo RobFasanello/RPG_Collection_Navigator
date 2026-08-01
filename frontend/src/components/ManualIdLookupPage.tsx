@@ -166,6 +166,10 @@ export default function ManualIdLookupPage({
             />
           </div>
           <div className="flex flex-wrap gap-2 justify-end">
+            <Button onClick={openAddForm} className="gap-2 bg-green-600 hover:bg-green-700">
+              <Plus className="w-4 h-4" />
+              {newButtonLabel}
+            </Button>
             <Button onClick={() => setActiveFilter(filterInput)} disabled={!hasFilterChanges}>
               Apply Filters
             </Button>
@@ -178,10 +182,6 @@ export default function ManualIdLookupPage({
               disabled={!filterInput && !activeFilter}
             >
               Clear
-            </Button>
-            <Button onClick={openAddForm} className="gap-2 bg-green-600 hover:bg-green-700">
-              <Plus className="w-4 h-4" />
-              {newButtonLabel}
             </Button>
           </div>
         </div>

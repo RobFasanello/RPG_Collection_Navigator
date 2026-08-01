@@ -19,6 +19,8 @@ interface Props {
   openOnFocus?: boolean;
 }
 
+const normalizeOptionValue = (value: string | number | null | undefined) => String(value ?? '').trim().toLowerCase();
+
 const ComboSelect: React.FC<Props> = ({
   options,
   value,
@@ -29,7 +31,7 @@ const ComboSelect: React.FC<Props> = ({
   disablePortal = false,
   tabIndex,
   autoFocus = false,
-  openOnFocus = true,
+  openOnFocus = false,
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -39,7 +41,7 @@ const ComboSelect: React.FC<Props> = ({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const dropdownRef = useRef<HTMLUListElement | null>(null);
 
-  const selectedOption = options.find((o) => o.value === value) ?? null;
+  const selectedOption = options.find((o) => normalizeOptionValue(o.value) === normalizeOptionValue(value)) ?? null;
 
   const recalcPosition = () => {
     if (disablePortal) {
@@ -97,7 +99,7 @@ const ComboSelect: React.FC<Props> = ({
   }, [open, disablePortal]);
 
   const filtered = options.filter((o) =>
-    o.label.toLowerCase().includes(search.toLowerCase())
+    o.label.trim().toLowerCase().includes(search.trim().toLowerCase())
   );
 
   useEffect(() => {
@@ -106,7 +108,7 @@ const ComboSelect: React.FC<Props> = ({
       return;
     }
 
-    const selectedIndex = filtered.findIndex((opt) => opt.value === value);
+    const selectedIndex = filtered.findIndex((opt) => normalizeOptionValue(opt.value) === normalizeOptionValue(value));
     if (selectedIndex >= 0) {
       setActiveIndex(selectedIndex);
       return;
