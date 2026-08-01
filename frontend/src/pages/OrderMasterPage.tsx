@@ -65,7 +65,22 @@ export default function OrderMasterPage() {
   });
   const [searchParams, setSearchParams] = useState(filterValues);
   const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<number[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [bulkDeleteConfirmText, setBulkDeleteConfirmText] = useState('');
+  const [isBulkUpdateOpen, setIsBulkUpdateOpen] = useState(false);
+  const [bulkStep, setBulkStep] = useState<'edit' | 'confirm'>('edit');
+  const [bulkValues, setBulkValues] = useState({
+    InvoiceNumber: '',
+    StoreID: '',
+    StatusID: '',
+    PurchaseDate: '',
+  });
+  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedOrder, setEditedOrder] = useState<{
     InvoiceNumber: string;
@@ -97,6 +112,22 @@ export default function OrderMasterPage() {
     () => ['purchaseOrders', searchParams, page, sortBy, sortOrder],
     [searchParams, page, sortBy, sortOrder]
   );
+
+  useEffect(() => {
+    setSelectedOrderIds([]);
+    setIsBulkUpdateOpen(false);
+    setBulkStep('edit');
+    setBulkValues({
+      InvoiceNumber: '',
+      StoreID: '',
+      StatusID: '',
+      PurchaseDate: '',
+    });
+    setBulkError(null);
+    setIsBulkDeleteOpen(false);
+    setBulkDeleteError(null);
+    setBulkDeleteConfirmText('');
+  }, [queryKey]);
 
   useEffect(() => {
     const invoice = (urlSearchParams.get('invoice') || '').trim();
@@ -419,6 +450,60 @@ export default function OrderMasterPage() {
     },
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async () => {
+      if (bulkDeleteConfirmText.trim() !== 'DELETE') {
+        throw new Error('Type DELETE exactly to enable bulk delete.');
+      }
+
+      if (selectedOrderIds.length < 2) throw new Error('Select at least 2 orders to delete.');
+
+      await Promise.all(
+        selectedOrderIds.map(async (orderId) => {
+          await tablesAPI.deleteRecord('PurchaseOrderDetail', { purchaseOrderId: orderId });
+        })
+      );
+
+      await Promise.all(
+        selectedOrderIds.map(async (orderId) => {
+          await tablesAPI.deleteRecord('PurchaseOrder', orderId);
+        })
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
+      setSelectedOrderIds([]);
+      setIsBulkDeleteOpen(false);
+      setBulkDeleteError(null);
+      setBulkDeleteConfirmText('');
+    },
+    onError: (error: any) => {
+      setBulkDeleteError(error.response?.data?.error || error.message || 'Failed to delete selected orders');
+    },
+  });
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: async (payload: { orderIds: number[]; updates: Record<string, any> }) => {
+      if (payload.orderIds.length < 2) {
+        throw new Error('Select at least 2 orders to update.');
+      }
+
+      await Promise.all(
+        payload.orderIds.map(async (orderId) => {
+          await tablesAPI.updateRecord('PurchaseOrder', orderId, payload.updates);
+        })
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
+      setSelectedOrderIds([]);
+      closeBulkUpdateDialog();
+    },
+    onError: (error: any) => {
+      setBulkError(error.response?.data?.error || error.message || 'Failed to bulk update purchase orders');
+    },
+  });
+
   const addOrderMutation = useMutation({
     mutationFn: async () => {
       const invoiceNumber = addOrderValues.InvoiceNumber.trim();
@@ -721,6 +806,75 @@ export default function OrderMasterPage() {
     setPage(1);
   };
 
+  const csvEscape = (value: string | number | null | undefined) => {
+    const stringValue = String(value ?? '').replace(/"/g, '""');
+    return /[",\n]/.test(stringValue) ? `"${stringValue}"` : stringValue;
+  };
+
+  const buildCsvContent = (rows: PurchaseOrder[]) => {
+    const header = ['Purchase Date', 'Invoice Number', 'Store Name', 'Order Status', 'Item Count', 'Total Amount'];
+    const body = rows.map((order) => [
+      formatPurchaseDate(order.PurchaseDate),
+      order.InvoiceNumber,
+      order.StoreName,
+      order.StatusName || '-',
+      order.ItemCount,
+      formatCurrency(order.TotalAmount).replace('$', ''),
+    ]);
+
+    return [header, ...body]
+      .map((row) => row.map((cell) => csvEscape(cell)).join(','))
+      .join('\n');
+  };
+
+  const handleDownloadCsv = async () => {
+    try {
+      setIsDownloading(true);
+      setDownloadError(null);
+
+      const rows: PurchaseOrder[] = [];
+      const pageSize = 100;
+      let exportPage = 1;
+
+      while (true) {
+        const response = await tablesAPI.getPurchaseOrders({
+          ...searchParams,
+          page: exportPage,
+          pageSize,
+          sortBy,
+          sortOrder,
+        });
+
+        const pageRows = (response.data?.data || []) as PurchaseOrder[];
+        rows.push(...pageRows);
+
+        const totalPages = Number(response.data?.totalPages || 1);
+        if (exportPage >= totalPages) {
+          break;
+        }
+
+        exportPage += 1;
+      }
+
+      const csvContent = buildCsvContent(rows);
+      const blob = new Blob(['\uFEFF', csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+      link.href = url;
+      link.download = `order-master-export-${timestamp}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      setDownloadError(error.message || 'Failed to download CSV');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   const openAddOrder = () => {
     const today = new Date();
     const initialDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
@@ -739,11 +893,156 @@ export default function OrderMasterPage() {
     setIsAddModalOpen(true);
   };
 
+  const openBulkDeleteDialog = () => {
+    if (selectedOrderIds.length < 2) {
+      return;
+    }
+
+    setBulkDeleteError(null);
+    setBulkDeleteConfirmText('');
+    setIsBulkDeleteOpen(true);
+  };
+
+  const closeBulkDeleteDialog = () => {
+    setIsBulkDeleteOpen(false);
+    setBulkDeleteError(null);
+    setBulkDeleteConfirmText('');
+  };
+
+  const openBulkUpdateDialog = () => {
+    if (selectedOrderIds.length < 2) {
+      return;
+    }
+
+    setBulkValues({
+      InvoiceNumber: '',
+      StoreID: '',
+      StatusID: '',
+      PurchaseDate: '',
+    });
+    setBulkError(null);
+    setBulkStep('edit');
+    setIsBulkUpdateOpen(true);
+  };
+
+  const closeBulkUpdateDialog = () => {
+    setIsBulkUpdateOpen(false);
+    setBulkStep('edit');
+    setBulkError(null);
+    setBulkValues({
+      InvoiceNumber: '',
+      StoreID: '',
+      StatusID: '',
+      PurchaseDate: '',
+    });
+  };
+
+  const toggleOrderSelection = (orderId: number, event: React.ChangeEvent<HTMLInputElement>) => {
+    event.stopPropagation();
+    setSelectedOrderIds((current) =>
+      current.includes(orderId) ? current.filter((id) => id !== orderId) : [...current, orderId]
+    );
+  };
+
   const handleAddOrderFieldChange = (
     field: 'InvoiceNumber' | 'StoreID' | 'StatusID' | 'PurchaseDate',
     value: string
   ) => {
     setAddOrderValues((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleBulkFieldChange = (field: 'InvoiceNumber' | 'StoreID' | 'StatusID' | 'PurchaseDate', value: string) => {
+    setBulkError(null);
+    setBulkValues((current) => ({ ...current, [field]: value }));
+  };
+
+  const buildBulkUpdatePayload = () => {
+    const updates: Record<string, number | string> = {};
+
+    if (bulkValues.InvoiceNumber.trim()) {
+      updates.InvoiceNumber = bulkValues.InvoiceNumber.trim();
+    }
+
+    if (bulkValues.StoreID) {
+      const storeId = parseInt(bulkValues.StoreID, 10);
+      if (!Number.isInteger(storeId) || storeId <= 0) {
+        throw new Error('Store is invalid.');
+      }
+      updates.StoreID = storeId;
+    }
+
+    if (bulkValues.StatusID) {
+      const statusId = parseInt(bulkValues.StatusID, 10);
+      if (!Number.isInteger(statusId) || statusId <= 0) {
+        throw new Error('Order Status is invalid.');
+      }
+      updates.StatusID = statusId;
+    }
+
+    if (bulkValues.PurchaseDate.trim()) {
+      const purchaseDateParts = parseDateParts(bulkValues.PurchaseDate);
+      if (!purchaseDateParts) {
+        throw new Error('Purchase Date is invalid.');
+      }
+
+      updates.PurchasedDate = `${purchaseDateParts.year}-${String(purchaseDateParts.month).padStart(2, '0')}-${String(
+        purchaseDateParts.day
+      ).padStart(2, '0')}`;
+    }
+
+    return updates;
+  };
+
+  const getBulkFieldLabel = (field: 'InvoiceNumber' | 'StoreID' | 'StatusID' | 'PurchaseDate', value: string) => {
+    if (!value) {
+      return '';
+    }
+
+    if (field === 'InvoiceNumber') {
+      return value;
+    }
+
+    if (field === 'PurchaseDate') {
+      return formatPurchaseDate(value);
+    }
+
+    const numericValue = parseInt(value, 10);
+    if (field === 'StoreID') {
+      return storesData.find((entry: any) => Number(entry.StoreID) === numericValue)?.StoreName || value;
+    }
+
+    return statusesData.find((entry: any) => Number(entry.StatusID) === numericValue)?.StatusName || value;
+  };
+
+  const handleBulkPreview = () => {
+    try {
+      const updates = buildBulkUpdatePayload();
+      if (Object.keys(updates).length === 0) {
+        setBulkError('Select at least one field to update.');
+        return;
+      }
+
+      setBulkError(null);
+      setBulkStep('confirm');
+    } catch (error: any) {
+      setBulkError(error.message || 'Unable to build bulk update payload.');
+    }
+  };
+
+  const handleBulkConfirm = () => {
+    try {
+      const updates = buildBulkUpdatePayload();
+      if (Object.keys(updates).length === 0) {
+        setBulkError('Select at least one field to update.');
+        setBulkStep('edit');
+        return;
+      }
+
+      bulkUpdateMutation.mutate({ orderIds: selectedOrderIds, updates });
+    } catch (error: any) {
+      setBulkError(error.message || 'Unable to build bulk update payload.');
+      setBulkStep('edit');
+    }
   };
 
   useEffect(() => {
@@ -920,17 +1219,37 @@ export default function OrderMasterPage() {
               </label>
             </div>
 
-            <div className="flex justify-end gap-3">
-              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddOrder} tabIndex={6}>
-                + Add Order
-              </Button>
-              <Button type="submit" disabled={!hasFilterCriteria} tabIndex={7}>
-                Apply Filter
-              </Button>
-              <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={8}>
-                Clear
-              </Button>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-3">
+                {selectedOrderIds.length >= 2 ? (
+                  <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={openBulkDeleteDialog} tabIndex={6}>
+                    Bulk Delete{selectedOrderIds.length ? ` (${selectedOrderIds.length})` : ''}
+                  </Button>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap justify-end gap-3">
+                {selectedOrderIds.length >= 2 ? (
+                  <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openBulkUpdateDialog} tabIndex={7}>
+                    Bulk Update{selectedOrderIds.length ? ` (${selectedOrderIds.length})` : ''}
+                  </Button>
+                ) : null}
+                <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddOrder} tabIndex={8}>
+                  Add Order
+                </Button>
+                <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={9}>
+                  {isDownloading ? 'Downloading...' : 'Download'}
+                </Button>
+                <Button type="submit" disabled={!hasFilterCriteria} tabIndex={10}>
+                  Apply Filter
+                </Button>
+                <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={11}>
+                  Clear
+                </Button>
+              </div>
             </div>
+            {downloadError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{downloadError}</div>
+            ) : null}
           </form>
         </section>
 
@@ -944,33 +1263,57 @@ export default function OrderMasterPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <input
+                          type="checkbox"
+                          checked={data?.data?.length ? data.data.every((order: PurchaseOrder) => selectedOrderIds.includes(order.PurchaseOrderID)) : false}
+                          onChange={(event) => {
+                            if (!data?.data?.length) {
+                              return;
+                            }
+
+                            if (event.target.checked) {
+                              setSelectedOrderIds((current) => {
+                                const next = new Set(current);
+                                data.data.forEach((order: PurchaseOrder) => next.add(order.PurchaseOrderID));
+                                return Array.from(next);
+                              });
+                              return;
+                            }
+
+                            setSelectedOrderIds((current) => current.filter((id) => !data.data.some((order: PurchaseOrder) => order.PurchaseOrderID === id)));
+                          }}
+                          onClick={(event) => event.stopPropagation()}
+                          aria-label="Select all visible orders"
+                        />
+                      </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('PurchaseDate')} className="flex items-center hover:text-blue-600" tabIndex={9}>
+                        <button onClick={() => handleSort('PurchaseDate')} className="flex items-center hover:text-blue-600" tabIndex={11}>
                           Purchase Date <SortIndicator column="PurchaseDate" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('InvoiceNumber')} className="flex items-center hover:text-blue-600" tabIndex={10}>
+                        <button onClick={() => handleSort('InvoiceNumber')} className="flex items-center hover:text-blue-600" tabIndex={12}>
                           Invoice Number <SortIndicator column="InvoiceNumber" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('StoreName')} className="flex items-center hover:text-blue-600" tabIndex={11}>
+                        <button onClick={() => handleSort('StoreName')} className="flex items-center hover:text-blue-600" tabIndex={13}>
                           Store Name <SortIndicator column="StoreName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('StatusName')} className="flex items-center hover:text-blue-600" tabIndex={12}>
+                        <button onClick={() => handleSort('StatusName')} className="flex items-center hover:text-blue-600" tabIndex={14}>
                           Order Status <SortIndicator column="StatusName" />
                         </button>
                       </TableHead>
                       <TableHead className="text-right">
-                        <button onClick={() => handleSort('ItemCount')} className="flex items-center justify-end hover:text-blue-600 w-full" tabIndex={13}>
+                        <button onClick={() => handleSort('ItemCount')} className="flex items-center justify-end hover:text-blue-600 w-full" tabIndex={15}>
                           Item Count <SortIndicator column="ItemCount" />
                         </button>
                       </TableHead>
                       <TableHead className="text-right">
-                        <button onClick={() => handleSort('TotalAmount')} className="flex items-center justify-end hover:text-blue-600 w-full" tabIndex={14}>
+                        <button onClick={() => handleSort('TotalAmount')} className="flex items-center justify-end hover:text-blue-600 w-full" tabIndex={16}>
                           Total Amount <SortIndicator column="TotalAmount" />
                         </button>
                       </TableHead>
@@ -981,9 +1324,18 @@ export default function OrderMasterPage() {
                       data.data.map((order: PurchaseOrder) => (
                         <TableRow
                           key={order.PurchaseOrderID}
-                          className="hover:bg-gray-50 cursor-pointer"
+                          className={`hover:bg-gray-50 cursor-pointer ${selectedOrderIds.includes(order.PurchaseOrderID) ? 'bg-blue-50' : ''}`}
                           onClick={() => handleOrderRowClick(order)}
                         >
+                          <TableCell>
+                            <input
+                              type="checkbox"
+                              checked={selectedOrderIds.includes(order.PurchaseOrderID)}
+                              onChange={(event) => toggleOrderSelection(order.PurchaseOrderID, event)}
+                              onClick={(event) => event.stopPropagation()}
+                              aria-label={`Select order ${order.InvoiceNumber}`}
+                            />
+                          </TableCell>
                           <TableCell>{formatPurchaseDate(order.PurchaseDate)}</TableCell>
                           <TableCell>{order.InvoiceNumber}</TableCell>
                           <TableCell>{order.StoreName}</TableCell>
@@ -1015,27 +1367,27 @@ export default function OrderMasterPage() {
 
                     return (
                       <>
-                        <Button onClick={() => setPage(1)} disabled={!hasManyPages || page === 1} tabIndex={15}>
+                        <Button onClick={() => setPage(1)} disabled={!hasManyPages || page === 1} tabIndex={17}>
                           First
                         </Button>
                         <Button
                           onClick={() => setPage(Math.max(1, page - 1))}
                           disabled={page === 1}
-                          tabIndex={16}
+                          tabIndex={18}
                         >
                           Previous
                         </Button>
                         <Button
                           onClick={() => setPage(page + 1)}
                           disabled={page >= (data?.totalPages ?? 1)}
-                          tabIndex={17}
+                          tabIndex={19}
                         >
                           Next
                         </Button>
                         <Button
                           onClick={() => setPage(totalPages)}
                           disabled={!hasManyPages || page >= totalPages}
-                          tabIndex={18}
+                          tabIndex={20}
                         >
                           Last
                         </Button>
@@ -1048,6 +1400,220 @@ export default function OrderMasterPage() {
           )}
         </section>
       </div>
+
+      <Dialog
+        open={isBulkDeleteOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setIsBulkDeleteOpen(true);
+            return;
+          }
+
+            closeBulkDeleteDialog();
+        }}
+        onClose={closeBulkDeleteDialog}
+        title="Confirm Bulk Delete"
+        showCloseButton={false}
+        contentClassName="max-w-xl"
+      >
+        <div className="space-y-5">
+          {bulkDeleteError ? (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+              {bulkDeleteError}
+            </div>
+          ) : null}
+
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+            You are about to permanently delete {selectedOrderIds.length} selected purchase orders and their associated detail rows.
+            This action cannot be undone.
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Type DELETE to confirm
+            </label>
+            <Input
+              value={bulkDeleteConfirmText}
+              onChange={(event) => {
+                setBulkDeleteError(null);
+                setBulkDeleteConfirmText(event.target.value);
+              }}
+              placeholder="DELETE"
+              disabled={bulkDeleteMutation.isPending}
+            />
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={closeBulkDeleteDialog} disabled={bulkDeleteMutation.isPending}>
+              Cancel
+            </Button>
+            {bulkDeleteConfirmText.trim() === 'DELETE' ? (
+              <Button
+                type="button"
+                className="bg-red-600 hover:bg-red-700"
+                onClick={() => bulkDeleteMutation.mutate()}
+                disabled={bulkDeleteMutation.isPending}
+              >
+                {bulkDeleteMutation.isPending ? 'Deleting...' : `Delete ${selectedOrderIds.length} Orders`}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={isBulkUpdateOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setIsBulkUpdateOpen(true);
+            return;
+          }
+
+          closeBulkUpdateDialog();
+        }}
+        title={bulkStep === 'confirm' ? 'Confirm Bulk Update' : 'Bulk Update Orders'}
+        showCloseButton={false}
+        contentClassName="max-w-3xl"
+      >
+        <div className="space-y-5">
+          {bulkError ? (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+              {bulkError}
+            </div>
+          ) : null}
+
+          {bulkStep === 'edit' ? (
+            <>
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900">
+                Bulk updates apply to {selectedOrderIds.length} selected purchase order{selectedOrderIds.length === 1 ? '' : 's'} on this page.
+                Only the fields you change will be written.
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Number</label>
+                  <Input
+                    value={bulkValues.InvoiceNumber}
+                    onChange={(event) => handleBulkFieldChange('InvoiceNumber', event.target.value)}
+                    placeholder="Leave unchanged"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Store</label>
+                  <select
+                    value={bulkValues.StoreID}
+                    onChange={(event) => handleBulkFieldChange('StoreID', event.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
+                  >
+                    <option value="">Leave unchanged</option>
+                    {storesData.map((store: any) => (
+                      <option key={store.StoreID} value={String(store.StoreID)}>
+                        {store.StoreName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Order Status</label>
+                  <select
+                    value={bulkValues.StatusID}
+                    onChange={(event) => handleBulkFieldChange('StatusID', event.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
+                  >
+                    <option value="">Leave unchanged</option>
+                    {statusesData.map((status: any) => (
+                      <option key={status.StatusID} value={String(status.StatusID)}>
+                        {status.StatusName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Date</label>
+                  <Input
+                    type="date"
+                    value={bulkValues.PurchaseDate}
+                    onChange={(event) => handleBulkFieldChange('PurchaseDate', event.target.value)}
+                    placeholder="Leave unchanged"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  className="bg-gray-600 hover:bg-gray-700"
+                  onClick={closeBulkUpdateDialog}
+                  disabled={bulkUpdateMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  className="bg-amber-600 hover:bg-amber-700"
+                  onClick={handleBulkPreview}
+                  disabled={bulkUpdateMutation.isPending}
+                >
+                  Review {selectedOrderIds.length} Update{selectedOrderIds.length === 1 ? '' : 's'}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                You are about to update {selectedOrderIds.length} purchase order{selectedOrderIds.length === 1 ? '' : 's'}.
+                Confirm only after checking the summary below.
+              </div>
+
+              <div className="rounded-lg border border-gray-200">
+                <div className="border-b border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700">
+                  Update Summary
+                </div>
+                <div className="space-y-2 px-4 py-3 text-sm text-gray-700">
+                  {Object.entries(bulkValues)
+                    .filter(([, value]) => value)
+                    .map(([field, value]) => (
+                      <div key={field} className="flex items-center justify-between gap-4">
+                        <span className="font-medium text-gray-600">
+                          {field === 'InvoiceNumber'
+                            ? 'Invoice Number'
+                            : field === 'StoreID'
+                              ? 'Store'
+                              : field === 'StatusID'
+                                ? 'Order Status'
+                                : 'Purchase Date'}
+                        </span>
+                        <span className="text-right">{getBulkFieldLabel(field as 'InvoiceNumber' | 'StoreID' | 'StatusID' | 'PurchaseDate', value)}</span>
+                      </div>
+                    ))}
+                  {!Object.values(bulkValues).some((value) => value) ? (
+                    <div className="text-gray-500">No fields selected for update.</div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                  onClick={() => setBulkStep('edit')}
+                  disabled={bulkUpdateMutation.isPending}
+                >
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  className="bg-amber-600 hover:bg-amber-700"
+                  onClick={handleBulkConfirm}
+                  disabled={bulkUpdateMutation.isPending}
+                >
+                  {bulkUpdateMutation.isPending ? 'Updating...' : `Confirm Update (${selectedOrderIds.length})`}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Dialog>
 
       {/* Order Details Modal */}
       <Dialog
@@ -1486,11 +2052,11 @@ export default function OrderMasterPage() {
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm text-gray-600">Store</span>
+              <span className="block text-sm font-medium text-gray-700 mb-1">Store</span>
               <select
                 value={addOrderValues.StoreID}
                 onChange={(e) => handleAddOrderFieldChange('StoreID', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
               >
                 <option value="">Select a store...</option>
                 {storesData.map((store: any) => (
@@ -1502,11 +2068,11 @@ export default function OrderMasterPage() {
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm text-gray-600">Order Status</span>
+              <span className="block text-sm font-medium text-gray-700 mb-1">Order Status</span>
               <select
                 value={addOrderValues.StatusID}
                 onChange={(e) => handleAddOrderFieldChange('StatusID', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
               >
                 <option value="">Select a status...</option>
                 {statusesData.map((status: any) => (
@@ -1589,7 +2155,7 @@ export default function OrderMasterPage() {
                         <TableCell className="text-right font-semibold">{formatCurrency(quantity * price)}</TableCell>
                         <TableCell className="text-right">
                           <Button
-                            className="bg-gray-600 hover:bg-gray-700"
+                            className="bg-red-600 hover:bg-red-700"
                             onClick={() => handleRemoveDetailRow(detail.id)}
                             disabled={addOrderDetails.length <= 1}
                           >
@@ -1626,7 +2192,7 @@ export default function OrderMasterPage() {
               onClick={handleCreateOrder}
               disabled={addOrderMutation.isPending || (isOnOrderStatusMissing && !addOrderValues.StatusID)}
             >
-              {addOrderMutation.isPending ? 'Creating...' : 'Create Order'}
+              {addOrderMutation.isPending ? 'Creating...' : 'Add Order'}
             </Button>
           </div>
         </div>

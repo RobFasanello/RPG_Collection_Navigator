@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import ComboSelect from '../components/ui/ComboSelect';
@@ -349,9 +349,8 @@ export default function CategorySubTypesPage() {
                 setFormValues(getNewFormValuesFromFilters());
                 setFormError('');
               }}
-              className="gap-2 bg-green-600 hover:bg-green-700"
+              className="bg-green-600 hover:bg-green-700"
             >
-              <Plus className="w-4 h-4" />
               Add Category / Sub Category
             </Button>
             <Button onClick={applyFilters} disabled={!hasFilterChanges}>Apply Filters</Button>

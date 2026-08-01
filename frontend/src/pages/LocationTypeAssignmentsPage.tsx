@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import ComboSelect from '../components/ui/ComboSelect';
@@ -230,8 +230,7 @@ export default function LocationTypeAssignmentsPage() {
           </div>
 
           <div className="flex flex-wrap gap-2 justify-end">
-            <Button onClick={handleAdd} className="gap-2 bg-green-600 hover:bg-green-700">
-              <Plus className="w-4 h-4" />
+            <Button onClick={handleAdd} className="bg-green-600 hover:bg-green-700 active:bg-green-700 disabled:bg-green-300 disabled:opacity-100">
               Add Location / Type
             </Button>
             <Button onClick={applyFilters} disabled={!hasFilterChanges}>Apply Filters</Button>
@@ -370,3 +369,4 @@ export default function LocationTypeAssignmentsPage() {
     </AdminLayout>
   );
 }
+

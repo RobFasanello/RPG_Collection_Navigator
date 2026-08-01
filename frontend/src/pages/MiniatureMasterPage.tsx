@@ -96,6 +96,7 @@ export default function MiniatureMasterPage() {
   const [editValues, setEditValues] = useState({ ItemID: '', Item: '', MiniatureName: '', MiniatureSizeID: '', MiniatureRarityID: '', MiniatureQuantity: '1', LocationID: '' });
   const [editError, setEditError] = useState('');
   const [isBulkUpdateOpen, setIsBulkUpdateOpen] = useState(false);
+  const [bulkStep, setBulkStep] = useState<'edit' | 'confirm'>('edit');
   const [bulkValues, setBulkValues] = useState({ MiniatureSizeID: '', MiniatureRarityID: '', MiniatureQuantity: '', LocationID: '' });
   const [bulkError, setBulkError] = useState('');
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
@@ -455,8 +456,9 @@ export default function MiniatureMasterPage() {
 
   useEffect(() => {
     const itemId = (urlSearchParams.get('itemId') || '').trim();
+    const miniatureName = (urlSearchParams.get('miniatureName') || '').trim();
 
-    if (!itemId) {
+    if (!itemId && !miniatureName) {
       return;
     }
 
@@ -464,7 +466,7 @@ export default function MiniatureMasterPage() {
       collectionName: [],
       subTypeName: [],
       itemId,
-      miniatureName: '',
+      miniatureName,
       miniatureSizeName: [],
       miniatureRarityName: [],
       locationName: [],
@@ -749,11 +751,13 @@ export default function MiniatureMasterPage() {
 
     setBulkValues({ MiniatureSizeID: '', MiniatureRarityID: '', MiniatureQuantity: '', LocationID: '' });
     setBulkError('');
+    setBulkStep('edit');
     setIsBulkUpdateOpen(true);
   };
 
   const closeBulkUpdateDialog = () => {
     setIsBulkUpdateOpen(false);
+    setBulkStep('edit');
     setBulkError('');
     setBulkValues({ MiniatureSizeID: '', MiniatureRarityID: '', MiniatureQuantity: '', LocationID: '' });
   };
@@ -1092,16 +1096,13 @@ export default function MiniatureMasterPage() {
     setSelectedMiniatureForRelatedOrders(null);
   };
 
-  const handleBulkUpdateSubmit = (event: FormEvent) => {
-    event.preventDefault();
-    setBulkError('');
+  const buildBulkUpdatePayload = () => {
+    const updates: Record<string, number> = {};
 
-    const updates: Record<string, any> = {};
     if (bulkValues.MiniatureSizeID) {
       const miniatureSizeId = parseInt(bulkValues.MiniatureSizeID, 10);
       if (!Number.isInteger(miniatureSizeId) || miniatureSizeId <= 0) {
-        setBulkError('Miniature Size is invalid.');
-        return;
+        throw new Error('Miniature Size is invalid.');
       }
       updates.MiniatureSizeID = miniatureSizeId;
     }
@@ -1109,8 +1110,7 @@ export default function MiniatureMasterPage() {
     if (bulkValues.MiniatureRarityID) {
       const miniatureRarityId = parseInt(bulkValues.MiniatureRarityID, 10);
       if (!Number.isInteger(miniatureRarityId) || miniatureRarityId <= 0) {
-        setBulkError('Miniature Rarity is invalid.');
-        return;
+        throw new Error('Miniature Rarity is invalid.');
       }
       updates.MiniatureRarityID = miniatureRarityId;
     }
@@ -1118,8 +1118,7 @@ export default function MiniatureMasterPage() {
     if (bulkValues.MiniatureQuantity.trim()) {
       const quantity = parseInt(bulkValues.MiniatureQuantity, 10);
       if (!Number.isInteger(quantity) || quantity < 0) {
-        setBulkError('Miniature Quantity must be zero or greater.');
-        return;
+        throw new Error('Miniature Quantity must be zero or greater.');
       }
       updates.MiniatureQuantity = quantity;
     }
@@ -1127,18 +1126,67 @@ export default function MiniatureMasterPage() {
     if (bulkValues.LocationID) {
       const locationId = parseInt(bulkValues.LocationID, 10);
       if (!Number.isInteger(locationId) || locationId <= 0) {
-        setBulkError('Location is invalid.');
-        return;
+        throw new Error('Location is invalid.');
       }
       updates.LocationID = locationId;
     }
 
-    if (!Object.keys(updates).length) {
-      setBulkError('Choose at least one field to update.');
+    return updates;
+  };
+
+  const getBulkFieldLabel = (field: 'MiniatureSizeID' | 'MiniatureRarityID' | 'MiniatureQuantity' | 'LocationID', value: string) => {
+    if (!value) {
+      return '';
+    }
+
+    if (field === 'MiniatureQuantity') {
+      return value;
+    }
+
+    const numericValue = parseInt(value, 10);
+    const source = field === 'MiniatureSizeID' ? miniatureSizeOptions : field === 'MiniatureRarityID' ? miniatureRarityOptions : locationOptions;
+    return source.find((option: { value: string; label: string }) => Number(option.value) === numericValue)?.label || value;
+  };
+
+  const handleBulkPreview = () => {
+    try {
+      const updates = buildBulkUpdatePayload();
+      if (!Object.keys(updates).length) {
+        setBulkError('Choose at least one field to update.');
+        return;
+      }
+
+      setBulkError('');
+      setBulkStep('confirm');
+    } catch (error: any) {
+      setBulkError(error.message || 'Unable to build bulk update payload.');
+    }
+  };
+
+  const handleBulkConfirm = () => {
+    try {
+      const updates = buildBulkUpdatePayload();
+      if (!Object.keys(updates).length) {
+        setBulkError('Choose at least one field to update.');
+        setBulkStep('edit');
+        return;
+      }
+
+      bulkUpdateMutation.mutate(updates);
+    } catch (error: any) {
+      setBulkError(error.message || 'Unable to build bulk update payload.');
+      setBulkStep('edit');
+    }
+  };
+
+  const handleBulkUpdateSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    if (bulkStep === 'confirm') {
+      handleBulkConfirm();
       return;
     }
 
-    bulkUpdateMutation.mutate(updates);
+    handleBulkPreview();
   };
 
   const handleBulkDeleteConfirm = () => {
@@ -1293,26 +1341,34 @@ export default function MiniatureMasterPage() {
               </label>
             </div>
 
-            <div className="flex justify-end gap-3 flex-wrap">
-              <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={openBulkDeleteDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={9}>
-                Bulk Delete{selectedMiniatureIds.length ? ` (${selectedMiniatureIds.length})` : ''}
-              </Button>
-              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openBulkUpdateDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={10}>
-                Bulk Update{selectedMiniatureIds.length ? ` (${selectedMiniatureIds.length})` : ''}
-              </Button>
-              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={11}>
-                + Add Item
-              </Button>
-              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={12}>
-                ++ Bulk Upload
-              </Button>
-              <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={13}>
-                {isDownloading ? 'Downloading...' : 'Download CSV'}
-              </Button>
-              <Button type="submit" disabled={!filtersChanged} tabIndex={14}>Apply Filter</Button>
-              <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!filtersChanged && !hasAnyFilter} tabIndex={15}>
-                Clear
-              </Button>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-3">
+                {selectedMiniatureIds.length >= 2 ? (
+                  <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={openBulkDeleteDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={9}>
+                    Bulk Delete{selectedMiniatureIds.length ? ` (${selectedMiniatureIds.length})` : ''}
+                  </Button>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap justify-end gap-3">
+                {selectedMiniatureIds.length >= 2 ? (
+                  <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openBulkUpdateDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={10}>
+                    Bulk Update{selectedMiniatureIds.length ? ` (${selectedMiniatureIds.length})` : ''}
+                  </Button>
+                ) : null}
+                <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={11}>
+                  Add Miniature
+                </Button>
+                <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={12}>
+                  Bulk Upload
+                </Button>
+                <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={13}>
+                  {isDownloading ? 'Downloading...' : 'Download'}
+                </Button>
+                <Button type="submit" disabled={!filtersChanged} tabIndex={14}>Apply Filter</Button>
+                <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!filtersChanged && !hasAnyFilter} tabIndex={15}>
+                  Clear
+                </Button>
+              </div>
             </div>
 
             {downloadError ? (
@@ -1500,15 +1556,21 @@ export default function MiniatureMasterPage() {
           </label>
           <label className="block space-y-2">
             <span className="text-sm font-medium text-gray-700">Miniature Quantity</span>
-            <Input type="number" min="0" value={addValues.MiniatureQuantity} onChange={(event) => setAddValues((current) => ({ ...current, MiniatureQuantity: event.target.value }))} />
+            <Input
+              type="number"
+              min="0"
+              className="appearance-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              value={addValues.MiniatureQuantity}
+              onChange={(event) => setAddValues((current) => ({ ...current, MiniatureQuantity: event.target.value }))}
+            />
           </label>
           <label className="block space-y-2">
             <span className="text-sm font-medium text-gray-700">Location</span>
             <ComboSelect options={locationOptions} value={addValues.LocationID} onChange={(value) => setAddValues((current) => ({ ...current, LocationID: value }))} placeholder="Select location" className="w-full" />
           </label>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" className="bg-gray-200 text-gray-800 hover:bg-gray-300" onClick={closeAddModal}>Cancel</Button>
-            <Button type="submit" disabled={addMutation.isLoading}>{addMutation.isLoading ? 'Saving...' : 'Save'}</Button>
+            <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={closeAddModal}>Cancel</Button>
+            <Button type="submit" className="bg-green-600 hover:bg-green-700" disabled={addMutation.isLoading}>{addMutation.isLoading ? 'Saving...' : 'Add Miniature'}</Button>
           </div>
         </form>
       </Dialog>
@@ -1581,11 +1643,15 @@ export default function MiniatureMasterPage() {
         open={isBulkUpdateOpen}
         onOpenChange={setIsBulkUpdateOpen}
         onClose={closeBulkUpdateDialog}
-        title="Bulk Update Miniatures"
+        title={bulkStep === 'confirm' ? 'Confirm Bulk Update' : 'Bulk Update Miniatures'}
         showCloseButton={false}
         contentClassName="max-w-2xl"
         onOpenAutoFocus={(event) => {
           event.preventDefault();
+          if (bulkStep !== 'edit') {
+            return;
+          }
+
           window.setTimeout(() => {
             const firstField = document.querySelector<HTMLInputElement>('input[placeholder="Leave blank to keep current size"]');
             firstField?.focus();
@@ -1594,43 +1660,107 @@ export default function MiniatureMasterPage() {
       >
         <form className="space-y-4" onSubmit={handleBulkUpdateSubmit}>
           {bulkError ? <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{bulkError}</div> : null}
-          <p className="text-sm text-gray-600">Bulk updates apply to {selectedMiniatureIds.length} selected miniatures.</p>
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-gray-700">Miniature Size</span>
-            <ComboSelect autoFocus options={miniatureSizeOptions} value={bulkValues.MiniatureSizeID} onChange={(value) => setBulkValues((current) => ({ ...current, MiniatureSizeID: value }))} placeholder="Leave blank to keep current size" className="w-full" />
-          </label>
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-gray-700">Miniature Rarity</span>
-            <ComboSelect options={miniatureRarityOptions} value={bulkValues.MiniatureRarityID} onChange={(value) => setBulkValues((current) => ({ ...current, MiniatureRarityID: value }))} placeholder="Leave blank to keep current rarity" className="w-full" />
-          </label>
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-gray-700">Miniature Quantity</span>
-            <Input type="number" min="0" value={bulkValues.MiniatureQuantity} onChange={(event) => setBulkValues((current) => ({ ...current, MiniatureQuantity: event.target.value }))} placeholder="Leave blank to keep current quantity" />
-          </label>
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-gray-700">Location</span>
-            <ComboSelect options={locationOptions} value={bulkValues.LocationID} onChange={(value) => setBulkValues((current) => ({ ...current, LocationID: value }))} placeholder="Leave blank to keep current location" className="w-full" />
-          </label>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" className="bg-gray-200 text-gray-800 hover:bg-gray-300" onClick={closeBulkUpdateDialog}>Cancel</Button>
-            <Button type="submit" disabled={bulkUpdateMutation.isLoading}>{bulkUpdateMutation.isLoading ? 'Updating...' : `Update ${selectedMiniatureIds.length} Miniatures`}</Button>
-          </div>
+
+          {bulkStep === 'edit' ? (
+            <>
+              <p className="text-sm text-gray-600">Bulk updates apply to {selectedMiniatureIds.length} selected miniatures.</p>
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-gray-700">Miniature Size</span>
+                <ComboSelect autoFocus options={miniatureSizeOptions} value={bulkValues.MiniatureSizeID} onChange={(value) => setBulkValues((current) => ({ ...current, MiniatureSizeID: value }))} placeholder="Leave blank to keep current size" className="w-full" />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-gray-700">Miniature Rarity</span>
+                <ComboSelect options={miniatureRarityOptions} value={bulkValues.MiniatureRarityID} onChange={(value) => setBulkValues((current) => ({ ...current, MiniatureRarityID: value }))} placeholder="Leave blank to keep current rarity" className="w-full" />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-gray-700">Miniature Quantity</span>
+                <Input type="number" min="0" value={bulkValues.MiniatureQuantity} onChange={(event) => setBulkValues((current) => ({ ...current, MiniatureQuantity: event.target.value }))} placeholder="Leave blank to keep current quantity" />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-gray-700">Location</span>
+                <ComboSelect options={locationOptions} value={bulkValues.LocationID} onChange={(value) => setBulkValues((current) => ({ ...current, LocationID: value }))} placeholder="Leave blank to keep current location" className="w-full" />
+              </label>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" className="bg-gray-200 text-gray-800 hover:bg-gray-300" onClick={closeBulkUpdateDialog}>Cancel</Button>
+                <Button type="submit" className="bg-amber-600 hover:bg-amber-700" disabled={bulkUpdateMutation.isLoading}>{bulkUpdateMutation.isLoading ? 'Updating...' : `Review ${selectedMiniatureIds.length} Update${selectedMiniatureIds.length === 1 ? '' : 's'}`}</Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                You are about to update {selectedMiniatureIds.length} miniature{selectedMiniatureIds.length === 1 ? '' : 's'}.
+                Confirm only after checking the summary below.
+              </div>
+
+              <div className="rounded-lg border border-gray-200">
+                <div className="border-b border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700">Update Summary</div>
+                <div className="space-y-2 px-4 py-3 text-sm text-gray-700">
+                  {Object.entries(bulkValues)
+                    .filter(([, value]) => value)
+                    .map(([field, value]) => (
+                      <div key={field} className="flex items-center justify-between gap-4">
+                        <span className="font-medium text-gray-600">
+                          {field === 'MiniatureSizeID'
+                            ? 'Miniature Size'
+                            : field === 'MiniatureRarityID'
+                              ? 'Miniature Rarity'
+                              : field === 'MiniatureQuantity'
+                                ? 'Miniature Quantity'
+                                : 'Location'}
+                        </span>
+                        <span className="text-right">{getBulkFieldLabel(field as 'MiniatureSizeID' | 'MiniatureRarityID' | 'MiniatureQuantity' | 'LocationID', value)}</span>
+                      </div>
+                    ))}
+                  {!Object.values(bulkValues).some((value) => value) ? <div className="text-gray-500">No fields selected for update.</div> : null}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" className="bg-gray-200 text-gray-800 hover:bg-gray-300" onClick={() => setBulkStep('edit')} disabled={bulkUpdateMutation.isLoading}>Back</Button>
+                <Button type="button" className="bg-amber-600 hover:bg-amber-700" onClick={handleBulkConfirm} disabled={bulkUpdateMutation.isLoading}>{bulkUpdateMutation.isLoading ? 'Updating...' : `Confirm Update (${selectedMiniatureIds.length})`}</Button>
+              </div>
+            </>
+          )}
         </form>
       </Dialog>
 
-      <Dialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen} onClose={closeBulkDeleteDialog} title="Confirm Bulk Delete" showCloseButton={false} contentClassName="max-w-2xl">
-        <div className="space-y-4">
-          {bulkDeleteError ? <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{bulkDeleteError}</div> : null}
-          <p className="text-sm text-gray-700">You are about to permanently delete {selectedMiniatureIds.length} selected miniature records.</p>
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-gray-700">Type DELETE to confirm</span>
-            <Input autoFocus value={bulkDeleteConfirmText} onChange={(event) => setBulkDeleteConfirmText(event.target.value)} />
-          </label>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" className="bg-gray-200 text-gray-800 hover:bg-gray-300" onClick={closeBulkDeleteDialog}>Cancel</Button>
-            <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={handleBulkDeleteConfirm} disabled={bulkDeleteMutation.isLoading || bulkDeleteConfirmText.trim() !== 'DELETE'}>
-              {bulkDeleteMutation.isLoading ? 'Deleting...' : `Delete ${selectedMiniatureIds.length} Miniatures`}
+      <Dialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen} onClose={closeBulkDeleteDialog} title="Confirm Bulk Delete" showCloseButton={false} contentClassName="max-w-xl">
+        <div className="space-y-5">
+          {bulkDeleteError ? (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+              {bulkDeleteError}
+            </div>
+          ) : null}
+
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+            You are about to permanently delete {selectedMiniatureIds.length} selected miniature record{selectedMiniatureIds.length === 1 ? '' : 's'}.
+            This action cannot be undone.
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Type DELETE to confirm
+            </label>
+            <Input
+              value={bulkDeleteConfirmText}
+              onChange={(event) => {
+                setBulkDeleteError('');
+                setBulkDeleteConfirmText(event.target.value);
+              }}
+              placeholder="DELETE"
+              disabled={bulkDeleteMutation.isLoading}
+            />
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={closeBulkDeleteDialog} disabled={bulkDeleteMutation.isLoading}>
+              Cancel
             </Button>
+            {bulkDeleteConfirmText.trim() === 'DELETE' ? (
+              <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={handleBulkDeleteConfirm} disabled={bulkDeleteMutation.isLoading}>
+                {bulkDeleteMutation.isLoading ? 'Deleting...' : `Delete ${selectedMiniatureIds.length} Miniatures`}
+              </Button>
+            ) : null}
           </div>
         </div>
       </Dialog>

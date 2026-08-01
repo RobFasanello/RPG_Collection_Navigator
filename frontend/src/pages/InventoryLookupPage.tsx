@@ -2044,47 +2044,57 @@ export default function InventoryLookupPage() {
               </label>
             </div>
 
-            <div className="flex justify-end gap-3">
-              <Button
-                type="button"
-                className="bg-red-600 hover:bg-red-700"
-                onClick={openBulkDeleteDialog}
-                disabled={selectedItemIds.length < 2}
-                tabIndex={14}
-              >
-                Bulk Delete{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
-              </Button>
-              <Button
-                type="button"
-                className="bg-green-600 hover:bg-green-700"
-                onClick={openCreateOrderModal}
-                disabled={selectedItemIds.length < 1}
-                tabIndex={15}
-              >
-                Create Order{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
-              </Button>
-              <Button
-                type="button"
-                className="bg-green-600 hover:bg-green-700"
-                onClick={openBulkUpdateDialog}
-                disabled={selectedItemIds.length < 2}
-                tabIndex={16}
-              >
-                Bulk Update{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
-              </Button>
-              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={17}>
-                + Add Item
-              </Button>
-              <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={18}>
-                ++ Bulk Upload
-              </Button>
-              <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={19}>
-                {isDownloading ? 'Downloading...' : 'Download CSV'}
-              </Button>
-              <Button type="submit" disabled={!hasFilterCriteria} tabIndex={20}>Apply Filter</Button>
-              <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={21}>
-                Clear
-              </Button>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-3">
+                {selectedItemIds.length >= 2 ? (
+                  <Button
+                    type="button"
+                    className="bg-red-600 hover:bg-red-700"
+                    onClick={openBulkDeleteDialog}
+                    disabled={selectedItemIds.length < 2}
+                    tabIndex={14}
+                  >
+                    Bulk Delete{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
+                  </Button>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap justify-end gap-3">
+                {selectedItemIds.length >= 2 ? (
+                  <Button
+                    type="button"
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={openCreateOrderModal}
+                    disabled={selectedItemIds.length < 2}
+                    tabIndex={15}
+                  >
+                    Create Order{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
+                  </Button>
+                ) : null}
+                {selectedItemIds.length >= 2 ? (
+                  <Button
+                    type="button"
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={openBulkUpdateDialog}
+                    disabled={selectedItemIds.length < 2}
+                    tabIndex={16}
+                  >
+                    Bulk Update{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
+                  </Button>
+                ) : null}
+                <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={17}>
+                  Add Item
+                </Button>
+                <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={18}>
+                  Bulk Upload
+                </Button>
+                <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={19}>
+                  {isDownloading ? 'Downloading...' : 'Download'}
+                </Button>
+                <Button type="submit" disabled={!hasFilterCriteria} tabIndex={20}>Apply Filter</Button>
+                <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={21}>
+                  Clear
+                </Button>
+              </div>
             </div>
 
             {downloadError ? (
@@ -2339,11 +2349,11 @@ export default function InventoryLookupPage() {
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm text-gray-600">Store</span>
+              <span className="block text-sm font-medium text-gray-700 mb-1">Store</span>
               <select
                 value={createOrderValues.StoreID}
                 onChange={(event) => handleCreateOrderFieldChange('StoreID', event.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
               >
                 <option value="">Select a store...</option>
                 {storesData.map((store: any) => (
@@ -2355,11 +2365,11 @@ export default function InventoryLookupPage() {
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm text-gray-600">Order Status</span>
+              <span className="block text-sm font-medium text-gray-700 mb-1">Order Status</span>
               <select
                 value={createOrderValues.StatusID}
                 onChange={(event) => handleCreateOrderFieldChange('StatusID', event.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
               >
                 <option value="">Select a status...</option>
                 {statusesData.map((status: any) => (
@@ -2680,6 +2690,7 @@ export default function InventoryLookupPage() {
                   value={addValues.ItemName}
                   onChange={(e) => handleAddChange('ItemName', e.target.value)}
                   placeholder="Item name"
+                  className="text-gray-900"
                   required
                 />
               </div>
@@ -2707,6 +2718,7 @@ export default function InventoryLookupPage() {
                   value={addValues.ReleaseDate}
                   onChange={(e) => handleAddChange('ReleaseDate', e.target.value)}
                   placeholder="Release date"
+                  className="text-gray-900"
                 />
               </div>
               <label className="flex items-center gap-2 pt-6 text-sm font-medium text-gray-700">
@@ -2726,11 +2738,11 @@ export default function InventoryLookupPage() {
                 Is Digital
               </label>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Publisher Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Publisher</label>
                 <select
                   value={addValues.PublisherID}
                   onChange={(e) => handleAddChange('PublisherID', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
+                  className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
                   required
                 >
                   <option value="">Select publisher</option>
@@ -2742,11 +2754,11 @@ export default function InventoryLookupPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Collection Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Collection</label>
                 <select
                   value={addValues.CollectionID}
                   onChange={(e) => handleAddChange('CollectionID', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
+                  className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
                   required
                 >
                   <option value="">Select collection</option>
@@ -2758,11 +2770,11 @@ export default function InventoryLookupPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                 <select
                   value={addValues.CategoryID}
                   onChange={(e) => handleAddChange('CategoryID', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
+                  className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
                   required
                 >
                   <option value="">Select category</option>
@@ -2774,11 +2786,11 @@ export default function InventoryLookupPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Sub Category Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                 <select
                   value={addValues.SubTypeID}
                   onChange={(e) => handleAddChange('SubTypeID', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
+                  className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
                   required
                 >
                   <option value="">Select sub category</option>
@@ -2794,12 +2806,12 @@ export default function InventoryLookupPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
               <Button
                 type="button"
-                className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                className="bg-gray-600 hover:bg-gray-700"
                 onClick={closeAddModal}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={addMutation.isLoading}>
+              <Button type="submit" className="bg-green-600 hover:bg-green-700" disabled={addMutation.isLoading}>
                 {addMutation.isLoading ? 'Saving...' : 'Add Item'}
               </Button>
             </div>
@@ -3026,6 +3038,7 @@ export default function InventoryLookupPage() {
             closeBulkDeleteDialog();
           }}
           title="Confirm Bulk Delete"
+          showCloseButton={false}
           contentClassName="max-w-xl"
         >
           <div className="space-y-5">
@@ -3058,20 +3071,22 @@ export default function InventoryLookupPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
               <Button
                 type="button"
-                className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                className="bg-gray-600 hover:bg-gray-700"
                 onClick={closeBulkDeleteDialog}
                 disabled={bulkDeleteMutation.isLoading}
               >
                 Cancel
               </Button>
-              <Button
-                type="button"
-                className="bg-red-600 hover:bg-red-700"
-                onClick={handleBulkDeleteConfirm}
-                disabled={bulkDeleteMutation.isLoading || bulkDeleteConfirmText.trim() !== 'DELETE'}
-              >
-                {bulkDeleteMutation.isLoading ? 'Deleting...' : `Delete ${selectedItemIds.length} Items`}
-              </Button>
+              {bulkDeleteConfirmText.trim() === 'DELETE' ? (
+                <Button
+                  type="button"
+                  className="bg-red-600 hover:bg-red-700"
+                  onClick={handleBulkDeleteConfirm}
+                  disabled={bulkDeleteMutation.isLoading}
+                >
+                  {bulkDeleteMutation.isLoading ? 'Deleting...' : `Delete ${selectedItemIds.length} Items`}
+                </Button>
+              ) : null}
             </div>
           </div>
         </Dialog>

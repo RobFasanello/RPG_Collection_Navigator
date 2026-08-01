@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
+import { Search } from 'lucide-react';
 import { appAPI } from '../services/api';
 import { FRONTEND_BUILD_TIME_ISO } from '../generated/buildInfo';
+import GlobalSearchModal from '../components/GlobalSearchModal';
 
 type TopMenuItem = {
   label: string;
@@ -10,7 +12,6 @@ type TopMenuItem = {
 };
 
 const TOP_MENU_ITEMS: TopMenuItem[] = [
-  { label: 'Home', path: '/home' },
   { label: 'Manage Inventory', path: '/home/inventory' },
   { label: 'Manage Miniatures', path: '/home/miniatures' },
   { label: 'Manage Orders', path: '/home/orders' },
@@ -32,6 +33,9 @@ function formatBuildDateTime(value?: string) {
 
 export default function HomeShell() {
   const location = useLocation();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [activeSearchQuery, setActiveSearchQuery] = useState('');
 
   const { data: buildInfoResponse } = useQuery({
     queryKey: ['buildInfo'],
@@ -61,24 +65,32 @@ export default function HomeShell() {
     return location.pathname.startsWith(path);
   };
 
+  const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = searchQuery.trim();
+    if (!trimmed) return;
+    setActiveSearchQuery(trimmed);
+    setSearchModalOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
       <header className="sticky top-0 z-50 border-b border-slate-300 bg-white shadow-sm">
-        <div className="mx-auto w-full max-w-[1800px] px-4 py-4 sm:px-6 lg:h-24 lg:px-8 lg:py-0">
-          <div className="flex flex-col gap-4 lg:h-full lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3 lg:h-full">
+        <div className="mx-auto w-full max-w-[1800px] px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Link to="/home" className="flex items-center gap-3 shrink-0 hover:opacity-80 transition-opacity">
               <img
                 src="/favicon.png"
                 alt="Arcane Library"
-                className="h-20 w-20 rounded-md bg-white object-contain lg:h-full lg:w-auto"
+                className="h-12 w-12 rounded-md bg-white object-contain"
               />
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">Arcane Repository</h1>
-                <p className="text-sm text-slate-600">A grimoire of your own making</p>
+                <h1 className="text-xl font-bold text-slate-900">Arcane Repository</h1>
+                <p className="text-xs text-slate-500">A grimoire of your own making</p>
               </div>
-            </div>
+            </Link>
 
-            <nav className="flex flex-wrap items-center justify-end gap-2 md:gap-3">
+            <nav className="flex flex-wrap items-center gap-2">
               {TOP_MENU_ITEMS.map((item, index) => {
                 const active = isTopMenuItemActive(item.path);
 
@@ -87,7 +99,7 @@ export default function HomeShell() {
                     key={item.path}
                     to={item.path}
                     tabIndex={1000 + index}
-                    className={`rounded-lg border px-4 py-3 text-center text-sm font-semibold transition sm:text-base ${
+                    className={`rounded-lg border px-4 py-2 text-center text-sm font-semibold transition sm:text-base ${
                       active
                         ? 'border-sky-600 bg-sky-600 text-white shadow'
                         : 'border-slate-300 bg-slate-50 text-slate-800 hover:border-sky-400 hover:bg-sky-50'
@@ -97,10 +109,31 @@ export default function HomeShell() {
                   </Link>
                 );
               })}
+
+              <form
+                onSubmit={handleSearchSubmit}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-200 transition"
+              >
+                <Search className="h-4 w-4 shrink-0 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search…"
+                  aria-label="Global search"
+                  className="w-32 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 sm:w-40"
+                />
+              </form>
             </nav>
           </div>
         </div>
       </header>
+
+      <GlobalSearchModal
+        open={searchModalOpen}
+        query={activeSearchQuery}
+        onClose={() => setSearchModalOpen(false)}
+      />
 
       <main className="mx-auto w-full max-w-[1800px] flex-1 px-4 py-6 pb-20 sm:px-6 lg:px-8">
         <div className="rounded-xl border border-slate-300 bg-white shadow-sm">

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import AdminLayout from './AdminLayout';
 import RecordForm from './RecordForm';
 import SetupTablePagination from './SetupTablePagination';
@@ -144,9 +144,8 @@ export default function SetupLookupPage({
                 setIsAdding(true);
                 setEditingId(null);
               }}
-              className="gap-2 bg-green-600 hover:bg-green-700"
+              className="bg-green-600 hover:bg-green-700"
             >
-              <Plus className="w-4 h-4" />
               {newButtonLabel}
             </Button>
             <Button onClick={() => setActiveFilter(filterInput)} disabled={!hasFilterChanges}>

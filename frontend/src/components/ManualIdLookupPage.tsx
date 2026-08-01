@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import AdminLayout from './AdminLayout';
 import SetupTablePagination from './SetupTablePagination';
 import { Button } from './ui/Button';
@@ -173,8 +173,7 @@ export default function ManualIdLookupPage({
             />
           </div>
           <div className="flex flex-wrap gap-2 justify-end">
-            <Button onClick={openAddForm} className="gap-2 bg-green-600 hover:bg-green-700">
-              <Plus className="w-4 h-4" />
+            <Button onClick={openAddForm} className="bg-green-600 hover:bg-green-700">
               {newButtonLabel}
             </Button>
             <Button onClick={() => setActiveFilter(filterInput)} disabled={!hasFilterChanges}>

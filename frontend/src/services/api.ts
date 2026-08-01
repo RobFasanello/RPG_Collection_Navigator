@@ -117,6 +117,9 @@ export const tablesAPI = {
     typeof idOrKeys === 'object'
       ? api.delete(`/tables/${tableName}`, { params: idOrKeys })
       : api.delete(`/tables/${tableName}/${idOrKeys}`),
+
+  globalSearch: (query: string) =>
+    api.get('/tables/global-search', { params: { q: query } }),
 };
 
 // Backwards-compatible alias used by UI pages

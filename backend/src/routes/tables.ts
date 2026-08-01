@@ -18,6 +18,7 @@ import {
   updateRecord,
   deleteRecord,
   deleteRecordByQuery,
+  globalSearch,
 } from '../controllers/tableController.js';
 import { uploadCollectionImageIfNeeded } from '../uploads.js';
 
@@ -58,6 +59,9 @@ router.patch('/items/bulk-update', bulkUpdateItemRecords);
 
 // Bulk create Item records from validated upload rows
 router.post('/items/bulk-create', bulkCreateItems);
+
+// Cross-table keyword search
+router.get('/global-search', globalSearch);
 
 // Get table data with pagination
 router.get('/:tableName/data', getTableData);

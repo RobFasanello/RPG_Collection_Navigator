@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import ComboSelect from '../components/ui/ComboSelect';
@@ -175,8 +175,7 @@ export default function LocationsPage() {
             />
           </div>
           <div className="flex flex-wrap gap-2 justify-end">
-            <Button onClick={openAddForm} className="gap-2 bg-green-600 hover:bg-green-700">
-              <Plus className="w-4 h-4" />
+            <Button onClick={openAddForm} className="bg-green-600 hover:bg-green-700">
               Add Location
             </Button>
             <Button onClick={() => setActiveFilter(filterInput)} disabled={!hasFilterChanges}>

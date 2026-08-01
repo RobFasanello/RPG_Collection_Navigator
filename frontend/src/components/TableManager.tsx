@@ -4,7 +4,7 @@ import { tablesAPI } from '../services/api';
 import { Button } from './ui/Button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/Table';
 import RecordForm from './RecordForm';
-import { ChevronLeft, Trash2, Edit2, Plus } from 'lucide-react';
+import { ChevronLeft, Trash2, Edit2 } from 'lucide-react';
 
 interface TableManagerProps {
   tableName: string;
@@ -73,7 +73,6 @@ export default function TableManager({ tableName, onBack }: TableManagerProps) {
           }}
           className="ml-auto"
         >
-          <Plus className="w-4 h-4 mr-2" />
           New Record
         </Button>
       </div>

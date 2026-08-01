@@ -2406,3 +2406,105 @@ export async function deleteRecord(req: Request, res: Response): Promise<void> {
     });
   }
 }
+
+export async function globalSearch(req: Request, res: Response): Promise<void> {
+  const rawQuery = parseOptionalTrimmedText(req.query.q);
+  if (!rawQuery || rawQuery.length < 2) {
+    res.status(400).json({ error: 'Search query must be at least 2 characters.' });
+    return;
+  }
+
+  const MAX = 10;
+  const like = `%${rawQuery}%`;
+
+  try {
+    const pool = await getPool();
+
+    const [itemsResult, miniaturesResult, ordersResult, publishersResult, collectionsResult, storesResult, locationsResult] = await Promise.all([
+      pool.request()
+        .input('q', sql.NVarChar(255), like)
+        .query(`
+          SELECT TOP (${MAX})
+            i.[ItemID], i.[ItemName], i.[ItemVersion], i.[ProductID],
+            p.[PublisherName], c.[CollectionName], cat.[CategoryName], st.[SubTypeName]
+          FROM [Item] i
+          INNER JOIN [Publisher] p ON p.[PublisherID] = i.[PublisherID]
+          INNER JOIN [Collection] c ON c.[CollectionID] = i.[CollectionID]
+          INNER JOIN [Category] cat ON cat.[CategoryID] = i.[CategoryID]
+          INNER JOIN [SubType] st ON st.[SubTypeID] = i.[SubTypeID]
+          WHERE i.[ItemName] LIKE @q
+            OR i.[ProductID] LIKE @q
+            OR p.[PublisherName] LIKE @q
+            OR c.[CollectionName] LIKE @q
+          ORDER BY i.[ItemName] ASC
+        `),
+      pool.request()
+        .input('q', sql.NVarChar(255), like)
+        .query(`
+          SELECT TOP (${MAX}) [MiniatureID], [MiniatureName], [MiniatureQuantity]
+          FROM [Miniature]
+          WHERE [MiniatureName] LIKE @q
+          ORDER BY [MiniatureName] ASC
+        `),
+      pool.request()
+        .input('q', sql.NVarChar(255), like)
+        .query(`
+          SELECT TOP (${MAX})
+            po.[PurchaseOrderID], po.[InvoiceNumber], po.[PurchasedDate],
+            s.[StoreName], st.[StatusName]
+          FROM [PurchaseOrder] po
+          INNER JOIN [Store] s ON s.[StoreID] = po.[StoreID]
+          LEFT JOIN [Status] st ON st.[StatusID] = po.[StatusID]
+          WHERE po.[InvoiceNumber] LIKE @q OR s.[StoreName] LIKE @q
+          ORDER BY po.[PurchasedDate] DESC
+        `),
+      pool.request()
+        .input('q', sql.NVarChar(255), like)
+        .query(`
+          SELECT TOP (${MAX}) [PublisherID], [PublisherName]
+          FROM [Publisher]
+          WHERE [PublisherName] LIKE @q
+          ORDER BY [PublisherName] ASC
+        `),
+      pool.request()
+        .input('q', sql.NVarChar(255), like)
+        .query(`
+          SELECT TOP (${MAX}) c.[CollectionID], c.[CollectionName], ct.[CollectionTypeName]
+          FROM [Collection] c
+          LEFT JOIN [CollectionType] ct ON ct.[CollectionTypeID] = c.[CollectionTypeID]
+          WHERE c.[CollectionName] LIKE @q
+          ORDER BY c.[CollectionName] ASC
+        `),
+      pool.request()
+        .input('q', sql.NVarChar(255), like)
+        .query(`
+          SELECT TOP (${MAX}) [StoreID], [StoreName]
+          FROM [Store]
+          WHERE [StoreName] LIKE @q
+          ORDER BY [StoreName] ASC
+        `),
+      pool.request()
+        .input('q', sql.NVarChar(255), like)
+        .query(`
+          SELECT TOP (${MAX}) l.[LocationID], l.[LocationName], lt.[LocationTypeName]
+          FROM [Location] l
+          LEFT JOIN [LocationType] lt ON lt.[LocationTypeID] = l.[LocationTypeID]
+          WHERE l.[LocationName] LIKE @q
+          ORDER BY l.[LocationName] ASC
+        `),
+    ]);
+
+    res.json({
+      items: itemsResult.recordset,
+      miniatures: miniaturesResult.recordset,
+      orders: ordersResult.recordset,
+      publishers: publishersResult.recordset,
+      collections: collectionsResult.recordset,
+      stores: storesResult.recordset,
+      locations: locationsResult.recordset,
+    });
+  } catch (error) {
+    console.error('Global search error:', error);
+    res.status(500).json({ error: 'Search failed.' });
+  }
+}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -213,9 +213,8 @@ export default function RPGSystemsPage() {
                 setFormValues({ RPGSystemName: '', RPGSystemURL: '', RPGSystemDescription: '' });
                 setFormError('');
               }}
-              className="gap-2 bg-green-600 hover:bg-green-700 text-white"
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
-              <Plus className="w-4 h-4" />
               Add RPG System
             </Button>
             <Button onClick={() => setActiveFilters(filterInputs)} disabled={!hasFilterChanges}>Apply Filters</Button>
