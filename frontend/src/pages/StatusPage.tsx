@@ -11,8 +11,8 @@ export default function StatusPage() {
       nameHeader="Name"
       filterLabel="Status Name"
       filterPlaceholder="Filter by status name"
-      newButtonLabel="New Status"
-      newTitle="New Status"
+      newButtonLabel="Add Status"
+      newTitle="Add Status"
       editTitle="Edit Status"
       deleteConflictMessage="Delete failed. This status is still referenced by one or more purchase orders. Reassign or remove the linked records first, then try again."
     />

@@ -50,6 +50,7 @@ export default function ManualIdLookupPage({
   const [filterInput, setFilterInput] = useState('');
   const [activeFilter, setActiveFilter] = useState('');
   const [formValues, setFormValues] = useState({ name: '' });
+  const [initialFormValues, setInitialFormValues] = useState({ name: '' });
   const [formError, setFormError] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -70,6 +71,9 @@ export default function ManualIdLookupPage({
     }
 
     setFormValues({
+      name: String(editingRecord[nameColumn] ?? '').trim(),
+    });
+    setInitialFormValues({
       name: String(editingRecord[nameColumn] ?? '').trim(),
     });
   }, [editingRecord, nameColumn]);
@@ -149,6 +153,9 @@ export default function ManualIdLookupPage({
 
   const hasFilterChanges = filterInput !== activeFilter;
   const isEditing = editingRecord !== null;
+  const hasFormInput = formValues.name.trim() !== '';
+  const hasChanges = isEditing ? formValues.name !== initialFormValues.name : false;
+  const addButtonLabel = newButtonLabel.startsWith('New ') ? newButtonLabel.replace(/^New /, 'Add ') : `Add ${newButtonLabel}`;
   const pagination = useSetupPagination(sortedRecords, [activeFilter, sortDirection]);
 
   return (
@@ -255,11 +262,11 @@ export default function ManualIdLookupPage({
                     ) : null}
                   </div>
                   <div className="flex gap-2 justify-end">
-                    <Button type="button" onClick={closeForm} className="bg-gray-200 text-gray-800 hover:bg-gray-300">
+                    <Button type="button" onClick={closeForm} className="bg-gray-600 hover:bg-gray-700 text-white">
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={isSaving}>
-                      {isSaving ? 'Saving...' : isEditing ? 'Update' : 'Save'}
+                    <Button type="submit" disabled={isSaving || (!isEditing && !hasFormInput) || (isEditing && !hasChanges)} className="bg-green-600 hover:bg-green-700 text-white">
+                      {isSaving ? 'Saving...' : isEditing ? `Save ${title}` : addButtonLabel}
                     </Button>
                   </div>
                 </div>

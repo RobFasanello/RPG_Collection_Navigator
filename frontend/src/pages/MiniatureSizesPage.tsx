@@ -12,8 +12,8 @@ export default function MiniatureSizesPage() {
       nameHeader="Name"
       filterLabel="Miniature Size Name"
       filterPlaceholder="Filter by miniature size name"
-      newButtonLabel="New Miniature Size"
-      newTitle="New Miniature Size"
+      newButtonLabel="Add Miniature Size"
+      newTitle="Add Miniature Size"
       editTitle="Edit Miniature Size"
       deleteConflictMessage="Delete failed. This miniature size is still referenced by one or more miniatures. Reassign or remove the linked records first, then try again."
     />

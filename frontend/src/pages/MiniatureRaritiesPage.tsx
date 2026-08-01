@@ -12,8 +12,8 @@ export default function MiniatureRaritiesPage() {
       nameHeader="Name"
       filterLabel="Miniature Rarity Name"
       filterPlaceholder="Filter by miniature rarity name"
-      newButtonLabel="New Miniature Rarity"
-      newTitle="New Miniature Rarity"
+      newButtonLabel="Add Miniature Rarity"
+      newTitle="Add Miniature Rarity"
       editTitle="Edit Miniature Rarity"
       deleteConflictMessage="Delete failed. This miniature rarity is still referenced by one or more miniatures. Reassign or remove the linked records first, then try again."
     />

@@ -11,8 +11,8 @@ export default function CollectionTypesPage() {
       nameHeader="Name"
       filterLabel="Collection Type Name"
       filterPlaceholder="Filter by collection type name"
-      newButtonLabel="New Collection Type"
-      newTitle="New Collection Type"
+      newButtonLabel="Add Collection Type"
+      newTitle="Add Collection Type"
       editTitle="Edit Collection Type"
       deleteConflictMessage="Delete failed. This collection type is still referenced by one or more collections. Reassign or remove the linked records first, then try again."
     />

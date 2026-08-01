@@ -11,8 +11,8 @@ export default function StoresPage() {
       nameHeader="Name"
       filterLabel="Store Name"
       filterPlaceholder="Filter by store name"
-      newButtonLabel="New Store"
-      newTitle="New Store"
+      newButtonLabel="Add Store"
+      newTitle="Add Store"
       editTitle="Edit Store"
       deleteConflictMessage="Delete failed. This store is still referenced by one or more purchase orders. Reassign or remove the linked records first, then try again."
     />

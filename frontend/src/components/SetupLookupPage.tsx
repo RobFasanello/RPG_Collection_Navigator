@@ -121,6 +121,7 @@ export default function SetupLookupPage({
   };
 
   const hasFilterChanges = filterInput !== activeFilter;
+  const addButtonLabel = newButtonLabel.startsWith('New ') ? newButtonLabel.replace(/^New /, 'Add ') : `Add ${newButtonLabel}`;
   const pagination = useSetupPagination(sortedRecords, [activeFilter, sortDirection]);
 
   return (
@@ -177,6 +178,8 @@ export default function SetupLookupPage({
             }}
             onDelete={editingId !== null ? handleDelete : undefined}
             deleteDisabled={deleteMutation.isLoading}
+            addButtonLabel={addButtonLabel}
+            editButtonLabel="Save"
           />
         ) : null}
 

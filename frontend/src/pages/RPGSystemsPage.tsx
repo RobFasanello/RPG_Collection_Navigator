@@ -36,7 +36,14 @@ export default function RPGSystemsPage() {
     RPGSystemURL: '',
     RPGSystemDescription: '',
   });
+  const [initialFormValues, setInitialFormValues] = useState({
+    RPGSystemName: '',
+    RPGSystemURL: '',
+    RPGSystemDescription: '',
+  });
   const modalRef = useModalFocusTrap<HTMLDivElement>(isAdding || editingId !== null, () => closeForm());
+  const hasFormInput = Boolean(formValues.RPGSystemName.trim() || formValues.RPGSystemURL.trim() || formValues.RPGSystemDescription.trim());
+  const hasChanges = editingId !== null ? JSON.stringify(formValues) !== JSON.stringify(initialFormValues) : false;
   const queryClient = useQueryClient();
   const tableName = 'RPGSystem';
 
@@ -80,6 +87,7 @@ export default function RPGSystemsPage() {
     setIsAdding(false);
     setEditingId(null);
     setFormValues({ RPGSystemName: '', RPGSystemURL: '', RPGSystemDescription: '' });
+    setInitialFormValues({ RPGSystemName: '', RPGSystemURL: '', RPGSystemDescription: '' });
     setFormError('');
   };
 
@@ -87,6 +95,11 @@ export default function RPGSystemsPage() {
     setIsAdding(false);
     setEditingId(String(record.RPGSystemID));
     setFormValues({
+      RPGSystemName: String(record.RPGSystemName ?? ''),
+      RPGSystemURL: String(record.RPGSystemURL ?? ''),
+      RPGSystemDescription: String(record.RPGSystemDescription ?? ''),
+    });
+    setInitialFormValues({
       RPGSystemName: String(record.RPGSystemName ?? ''),
       RPGSystemURL: String(record.RPGSystemURL ?? ''),
       RPGSystemDescription: String(record.RPGSystemDescription ?? ''),
@@ -203,7 +216,7 @@ export default function RPGSystemsPage() {
               className="gap-2 bg-green-600 hover:bg-green-700 text-white"
             >
               <Plus className="w-4 h-4" />
-              New RPG System
+              Add RPG System
             </Button>
             <Button onClick={() => setActiveFilters(filterInputs)} disabled={!hasFilterChanges}>Apply Filters</Button>
             <Button
@@ -224,7 +237,7 @@ export default function RPGSystemsPage() {
           <div ref={modalRef} tabIndex={-1} className="w-full max-w-2xl bg-white p-6 rounded-lg shadow-xl">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">
-                {editingId !== null ? 'Edit RPG System' : 'New RPG System'}
+                {editingId !== null ? 'Edit RPG System' : 'Add RPG System'}
               </h2>
             </div>
 
@@ -314,11 +327,11 @@ export default function RPGSystemsPage() {
                   ) : null}
                 </div>
                 <div className="flex gap-2 justify-end">
-                  <Button type="button" onClick={closeForm} className="bg-gray-200 text-gray-800 hover:bg-gray-300">
+                  <Button type="button" onClick={closeForm} className="bg-gray-600 hover:bg-gray-700 text-white">
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isSaving}>
-                    {isSaving ? 'Saving...' : 'Save RPG System'}
+                  <Button type="submit" disabled={isSaving || (!editingId && !hasFormInput) || (editingId !== null && !hasChanges)} className="bg-green-600 hover:bg-green-700 text-white">
+                    {isSaving ? 'Saving...' : editingId !== null ? 'Save RPG System' : 'Add RPG System'}
                   </Button>
                 </div>
               </div>

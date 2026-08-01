@@ -11,8 +11,8 @@ export default function SubTypesPage() {
       nameHeader="Name"
       filterLabel="Sub Category Name"
       filterPlaceholder="Filter by sub category name"
-      newButtonLabel="New Sub Category"
-      newTitle="New Sub Category"
+      newButtonLabel="Add Sub Category"
+      newTitle="Add Sub Category"
       editTitle="Edit Sub Category"
       deleteConflictMessage="Delete failed. This sub category is still referenced by one or more category/sub category links or linked items. Reassign or remove the linked records first, then try again."
     />

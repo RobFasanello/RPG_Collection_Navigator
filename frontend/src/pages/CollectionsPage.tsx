@@ -34,9 +34,16 @@ export default function CollectionsPage() {
     CollectionTypeID: '',
     ImageFileName: '',
   });
+  const [initialFormValues, setInitialFormValues] = useState({
+    CollectionName: '',
+    CollectionTypeID: '',
+    ImageFileName: '',
+  });
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [cropSourceFile, setCropSourceFile] = useState<File | null>(null);
   const modalRef = useModalFocusTrap<HTMLDivElement>(isAdding || editingId !== null, () => closeForm());
+  const hasFormInput = Boolean(formValues.CollectionName.trim() || formValues.CollectionTypeID || selectedImageFile || formValues.ImageFileName);
+  const hasChanges = editingId !== null ? JSON.stringify(formValues) !== JSON.stringify(initialFormValues) : false;
   const queryClient = useQueryClient();
   const tableName = 'Collection';
 
@@ -103,6 +110,11 @@ export default function CollectionsPage() {
       CollectionTypeID: String(record.CollectionTypeID ?? ''),
       ImageFileName: String(record.ImageFileName ?? ''),
     });
+    setInitialFormValues({
+      CollectionName: String(record.CollectionName ?? ''),
+      CollectionTypeID: String(record.CollectionTypeID ?? ''),
+      ImageFileName: String(record.ImageFileName ?? ''),
+    });
     setSelectedImageFile(null);
     setCropSourceFile(null);
     setFormError('');
@@ -112,6 +124,11 @@ export default function CollectionsPage() {
     setIsAdding(false);
     setEditingId(null);
     setFormValues({
+      CollectionName: '',
+      CollectionTypeID: '',
+      ImageFileName: '',
+    });
+    setInitialFormValues({
       CollectionName: '',
       CollectionTypeID: '',
       ImageFileName: '',
@@ -297,7 +314,7 @@ export default function CollectionsPage() {
               className="gap-2 bg-green-600 hover:bg-green-700 text-white"
             >
               <Plus className="w-4 h-4" />
-              New Collection
+              Add Collection
             </Button>
             <Button onClick={() => setActiveFilters(filterInputs)} disabled={!hasFilterChanges}>Apply Filters</Button>
             <Button
@@ -318,7 +335,7 @@ export default function CollectionsPage() {
           <div ref={modalRef} tabIndex={-1} className="w-full max-w-2xl bg-white p-6 rounded-lg shadow-xl">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">
-                {editingId !== null ? 'Edit Collection' : 'New Collection'}
+                {editingId !== null ? 'Edit Collection' : 'Add Collection'}
               </h2>
             </div>
 
@@ -445,12 +462,12 @@ export default function CollectionsPage() {
                   <Button
                     type="button"
                     onClick={closeForm}
-                    className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                    className="bg-gray-600 hover:bg-gray-700 text-white"
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isSaving}>
-                    {isSaving ? 'Saving...' : 'Save Collection'}
+                  <Button type="submit" disabled={isSaving || (!editingId && !hasFormInput) || (editingId !== null && !hasChanges)} className="bg-green-600 hover:bg-green-700 text-white">
+                    {isSaving ? 'Saving...' : editingId !== null ? 'Save Collection' : 'Add Collection'}
                   </Button>
                 </div>
               </div>

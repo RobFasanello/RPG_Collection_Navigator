@@ -40,10 +40,13 @@ export default function CategorySubTypesPage() {
   const [filterInputs, setFilterInputs] = useState({ categoryName: '', subTypeName: '' });
   const [activeFilters, setActiveFilters] = useState({ categoryName: '', subTypeName: '' });
   const [formValues, setFormValues] = useState({ CategoryID: '', SubTypeID: '' });
+  const [initialFormValues, setInitialFormValues] = useState({ CategoryID: '', SubTypeID: '' });
   const [formError, setFormError] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const modalRef = useModalFocusTrap<HTMLDivElement>(isAdding || isEditing, () => closeForm());
+  const hasFormInput = Boolean(formValues.CategoryID || formValues.SubTypeID);
+  const hasChanges = isEditing ? JSON.stringify(formValues) !== JSON.stringify(initialFormValues) : false;
   const queryClient = useQueryClient();
   const tableName = 'CategorySubType';
 
@@ -215,6 +218,7 @@ export default function CategorySubTypesPage() {
     setIsEditing(false);
     setEditingRecord(null);
     setFormValues({ CategoryID: '', SubTypeID: '' });
+    setInitialFormValues({ CategoryID: '', SubTypeID: '' });
     setFormError('');
   };
 
@@ -348,7 +352,7 @@ export default function CategorySubTypesPage() {
               className="gap-2 bg-green-600 hover:bg-green-700"
             >
               <Plus className="w-4 h-4" />
-              Add New Category / Sub Category
+              Add Category / Sub Category
             </Button>
             <Button onClick={applyFilters} disabled={!hasFilterChanges}>Apply Filters</Button>
             <Button
@@ -365,7 +369,7 @@ export default function CategorySubTypesPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div ref={modalRef} tabIndex={-1} className="w-full max-w-2xl bg-white p-6 rounded-lg shadow-xl">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">{isEditing ? 'Edit Category Subtype' : 'New Category Subtype'}</h2>
+              <h2 className="text-2xl font-bold">{isEditing ? 'Edit Category Subtype' : 'Add Category Subtype'}</h2>
             </div>
 
             {formError && (
@@ -480,12 +484,12 @@ export default function CategorySubTypesPage() {
                   <Button
                     type="button"
                     onClick={closeForm}
-                    className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                    className="bg-gray-600 hover:bg-gray-700 text-white"
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isSaving}>
-                    {isSaving ? 'Saving...' : isEditing ? 'Update' : 'Save'}
+                  <Button type="submit" disabled={isSaving || (!isEditing && !hasFormInput) || (isEditing && !hasChanges)} className="bg-green-600 hover:bg-green-700 text-white">
+                    {isSaving ? 'Saving...' : isEditing ? 'Save Category / Sub Category' : 'Add Category / Sub Category'}
                   </Button>
                 </div>
               </div>

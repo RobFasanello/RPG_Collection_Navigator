@@ -64,9 +64,16 @@ export default function PublishersPage() {
     PublisherURL: '',
     ImageFileName: '',
   });
+  const [initialFormValues, setInitialFormValues] = useState({
+    PublisherName: '',
+    PublisherURL: '',
+    ImageFileName: '',
+  });
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [cropSourceFile, setCropSourceFile] = useState<File | null>(null);
   const modalRef = useModalFocusTrap<HTMLDivElement>(isAdding || editingId !== null, () => closeForm());
+  const hasFormInput = Boolean(formValues.PublisherName.trim() || formValues.PublisherURL.trim() || selectedImageFile || formValues.ImageFileName);
+  const hasChanges = editingId !== null ? JSON.stringify(formValues) !== JSON.stringify(initialFormValues) : false;
   const queryClient = useQueryClient();
   const tableName = 'Publisher';
 
@@ -177,6 +184,11 @@ export default function PublishersPage() {
       PublisherURL: String(record.PublisherURL ?? ''),
       ImageFileName: String(record.ImageFileName ?? ''),
     });
+    setInitialFormValues({
+      PublisherName: String(record.PublisherName ?? ''),
+      PublisherURL: String(record.PublisherURL ?? ''),
+      ImageFileName: String(record.ImageFileName ?? ''),
+    });
     setSelectedImageFile(null);
     setCropSourceFile(null);
     setFormError('');
@@ -186,6 +198,11 @@ export default function PublishersPage() {
     setIsAdding(false);
     setEditingId(null);
     setFormValues({
+      PublisherName: '',
+      PublisherURL: '',
+      ImageFileName: '',
+    });
+    setInitialFormValues({
       PublisherName: '',
       PublisherURL: '',
       ImageFileName: '',
@@ -369,7 +386,7 @@ export default function PublishersPage() {
               className="gap-2 bg-green-600 hover:bg-green-700 text-white"
             >
               <Plus className="w-4 h-4" />
-              New Publisher
+              Add Publisher
             </Button>
             <Button onClick={() => setActiveFilters(filterInputs)} disabled={!hasFilterChanges}>Apply Filters</Button>
             <Button
@@ -390,7 +407,7 @@ export default function PublishersPage() {
           <div ref={modalRef} tabIndex={-1} className="w-full max-w-2xl bg-white p-6 rounded-lg shadow-xl">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">
-                {editingId !== null ? 'Edit Publisher' : 'New Publisher'}
+                {editingId !== null ? 'Edit Publisher' : 'Add Publisher'}
               </h2>
             </div>
 
@@ -507,12 +524,12 @@ export default function PublishersPage() {
                   <Button
                     type="button"
                     onClick={closeForm}
-                    className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                    className="bg-gray-600 hover:bg-gray-700 text-white"
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isSaving}>
-                    {isSaving ? 'Saving...' : 'Save Publisher'}
+                  <Button type="submit" disabled={isSaving || (!editingId && !hasFormInput) || (editingId !== null && !hasChanges)} className="bg-green-600 hover:bg-green-700 text-white">
+                    {isSaving ? 'Saving...' : editingId !== null ? 'Save Publisher' : 'Add Publisher'}
                   </Button>
                 </div>
               </div>

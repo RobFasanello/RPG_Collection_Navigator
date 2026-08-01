@@ -24,12 +24,15 @@ export default function CollectionRPGSystemsPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [sortColumn, setSortColumn] = useState<SortColumn>('collection');
   const [formValues, setFormValues] = useState({ CollectionID: '', RPGSystemID: '' });
+  const [initialFormValues, setInitialFormValues] = useState({ CollectionID: '', RPGSystemID: '' });
   const [filterInputs, setFilterInputs] = useState({ collectionName: '', rpgSystemName: '' });
   const [activeFilters, setActiveFilters] = useState({ collectionName: '', rpgSystemName: '' });
   const [formError, setFormError] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const modalRef = useModalFocusTrap<HTMLDivElement>(isAdding || isEditing, () => closeForm());
+  const hasFormInput = Boolean(formValues.CollectionID || formValues.RPGSystemID);
+  const hasChanges = isEditing ? JSON.stringify(formValues) !== JSON.stringify(initialFormValues) : false;
   const queryClient = useQueryClient();
   const tableName = 'CollectionRPGSystem';
 
@@ -188,6 +191,7 @@ export default function CollectionRPGSystemsPage() {
     setIsEditing(false);
     setEditingRecord(null);
     setFormValues({ CollectionID: '', RPGSystemID: '' });
+    setInitialFormValues({ CollectionID: '', RPGSystemID: '' });
     setFormError('');
   };
 
@@ -308,7 +312,7 @@ export default function CollectionRPGSystemsPage() {
               className="gap-2 bg-green-600 hover:bg-green-700"
             >
               <Plus className="w-4 h-4" />
-              Add New Collection / RPG System
+              Add Collection / RPG System
             </Button>
             <Button onClick={applyFilters} disabled={!hasFilterChanges}>Apply Filters</Button>
             <Button onClick={clearFilters} className="bg-gray-600 hover:bg-gray-700" disabled={!hasFilterChanges}>
@@ -321,7 +325,7 @@ export default function CollectionRPGSystemsPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div ref={modalRef} tabIndex={-1} className="w-full max-w-2xl bg-white p-6 rounded-lg shadow-xl">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">{isEditing ? 'Edit Collection / RPG System' : 'New Collection / RPG System'}</h2>
+              <h2 className="text-2xl font-bold">{isEditing ? 'Edit Collection / RPG System' : 'Add Collection / RPG System'}</h2>
             </div>
 
             {formError ? (
@@ -440,11 +444,11 @@ export default function CollectionRPGSystemsPage() {
                   ) : null}
                 </div>
                 <div className="flex gap-2 justify-end">
-                  <Button type="button" onClick={closeForm} className="bg-gray-200 text-gray-800 hover:bg-gray-300">
+                  <Button type="button" onClick={closeForm} className="bg-gray-600 hover:bg-gray-700 text-white">
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isSaving}>
-                    {isSaving ? 'Saving...' : isEditing ? 'Update' : 'Save'}
+                  <Button type="submit" disabled={isSaving || (!isEditing && !hasFormInput) || (isEditing && !hasChanges)} className="bg-green-600 hover:bg-green-700 text-white">
+                    {isSaving ? 'Saving...' : isEditing ? 'Save Collection RPG System' : 'Add Collection RPG System'}
                   </Button>
                 </div>
               </div>

@@ -11,8 +11,8 @@ export default function CategoriesPage() {
       nameHeader="Name"
       filterLabel="Category Name"
       filterPlaceholder="Filter by category name"
-      newButtonLabel="New Category"
-      newTitle="New Category"
+      newButtonLabel="Add Category"
+      newTitle="Add Category"
       editTitle="Edit Category"
       deleteConflictMessage="Delete failed. This category is still referenced by one or more category/sub category links or linked items. Reassign or remove the linked records first, then try again."
     />

@@ -25,11 +25,14 @@ export default function LocationsPage() {
   const [filterInput, setFilterInput] = useState('');
   const [activeFilter, setActiveFilter] = useState('');
   const [formValues, setFormValues] = useState({ LocationName: '', LocationTypeID: '' });
+  const [initialFormValues, setInitialFormValues] = useState({ LocationName: '', LocationTypeID: '' });
   const [formError, setFormError] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const modalRef = useModalFocusTrap<HTMLDivElement>(isAdding || editingRecord !== null, () => closeForm());
+  const hasFormInput = Boolean(formValues.LocationName.trim() || formValues.LocationTypeID);
+  const hasChanges = editingRecord !== null ? JSON.stringify(formValues) !== JSON.stringify(initialFormValues) : false;
   const queryClient = useQueryClient();
   const tableName = 'Location';
 
@@ -53,10 +56,13 @@ export default function LocationsPage() {
       return;
     }
 
-    setFormValues({
+    const nextValues = {
       LocationName: String(editingRecord.LocationName ?? '').trim(),
       LocationTypeID: String(editingRecord.LocationTypeID ?? ''),
-    });
+    };
+
+    setFormValues(nextValues);
+    setInitialFormValues(nextValues);
   }, [editingRecord]);
 
   const locationTypeNameById = (locationTypeRecords || []).reduce((map: Record<number, string>, item: any) => {
@@ -171,7 +177,7 @@ export default function LocationsPage() {
           <div className="flex flex-wrap gap-2 justify-end">
             <Button onClick={openAddForm} className="gap-2 bg-green-600 hover:bg-green-700">
               <Plus className="w-4 h-4" />
-              New Location
+              Add Location
             </Button>
             <Button onClick={() => setActiveFilter(filterInput)} disabled={!hasFilterChanges}>
               Apply Filters
@@ -193,7 +199,7 @@ export default function LocationsPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div ref={modalRef} tabIndex={-1} className="w-full max-w-2xl bg-white p-6 rounded-lg shadow-xl">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold">{isEditing ? 'Edit Location' : 'New Location'}</h2>
+                <h2 className="text-2xl font-bold">{isEditing ? 'Edit Location' : 'Add Location'}</h2>
               </div>
 
               {formError ? (
@@ -277,11 +283,11 @@ export default function LocationsPage() {
                     ) : null}
                   </div>
                   <div className="flex gap-2 justify-end">
-                    <Button type="button" onClick={closeForm} className="bg-gray-200 text-gray-800 hover:bg-gray-300">
+                    <Button type="button" onClick={closeForm} className="bg-gray-600 hover:bg-gray-700 text-white">
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={isSaving}>
-                      {isSaving ? 'Saving...' : isEditing ? 'Update' : 'Save'}
+                    <Button type="submit" disabled={isSaving || (!isEditing && !hasFormInput) || (isEditing && !hasChanges)} className="bg-green-600 hover:bg-green-700 text-white">
+                      {isSaving ? 'Saving...' : isEditing ? 'Save Location' : 'Add Location'}
                     </Button>
                   </div>
                 </div>

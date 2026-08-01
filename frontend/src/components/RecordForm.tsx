@@ -15,6 +15,8 @@ interface RecordFormProps {
   onDelete?: () => void;
   deleteDisabled?: boolean;
   deleteLabel?: string;
+  addButtonLabel?: string;
+  editButtonLabel?: string;
 }
 
 const isTruthyFlag = (value: unknown): boolean => {
@@ -38,14 +40,28 @@ export default function RecordForm({
   onDelete,
   deleteDisabled = false,
   deleteLabel = 'Delete',
+  addButtonLabel = 'Add Record',
+  editButtonLabel = 'Save Changes',
 }: RecordFormProps) {
   const [schemaState, setSchemaState] = useState<any[]>(schema ?? []);
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [initialFormData, setInitialFormData] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState('');
   const modalRef = useModalFocusTrap<HTMLDivElement>(true, onClose);
   const hiddenColumnSet = new Set(hiddenColumns.map((column) => column.toLowerCase()));
+  const isEditing = recordId !== null && recordId !== undefined;
+  const hasFormInput = Object.values(formData).some((value) => {
+    if (value === null || value === undefined) return false;
+    if (typeof value === 'string') return value.trim() !== '';
+    if (typeof value === 'number') return !Number.isNaN(value);
+    if (typeof value === 'boolean') return value;
+    return true;
+  });
+  const hasChanges = isEditing
+    ? Object.keys({ ...initialFormData, ...formData }).some((key) => String(formData[key] ?? '') !== String(initialFormData[key] ?? ''))
+    : false;
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -88,6 +104,7 @@ export default function RecordForm({
   useEffect(() => {
     if (recordId === null || recordId === undefined) {
       setFormData({});
+      setInitialFormData({});
       return;
     }
 
@@ -114,6 +131,7 @@ export default function RecordForm({
             {} as Record<string, any>
           );
           setFormData(filteredRecord);
+          setInitialFormData(filteredRecord);
         }
       } catch (err) {
         console.error('Error loading record for edit:', err);
@@ -234,12 +252,12 @@ export default function RecordForm({
               <Button
                 type="button"
                 onClick={onClose}
-                className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                className="bg-gray-600 hover:bg-gray-700 text-white"
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading || fetching}>
-                {loading ? 'Saving...' : 'Save Record'}
+              <Button type="submit" disabled={loading || fetching || (!isEditing && !hasFormInput) || (isEditing && !hasChanges)} className="bg-green-600 hover:bg-green-700 text-white">
+                {loading ? 'Saving...' : isEditing ? editButtonLabel : addButtonLabel}
               </Button>
             </div>
           </div>
