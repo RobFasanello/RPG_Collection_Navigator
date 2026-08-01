@@ -25,7 +25,6 @@ const CollectionRPGSystemsPage = lazy(() => import('./pages/CollectionRPGSystems
 const InventoryLookupPage = lazy(() => import('./pages/InventoryLookupPage'));
 const MiniatureMasterPage = lazy(() => import('./pages/MiniatureMasterPage'));
 const OrderMasterPage = lazy(() => import('./pages/OrderMasterPage'));
-const ManageSetupPage = lazy(() => import('./home/ManageSetupPage'));
 
 function RedirectWithSearch({ to }: { to: string }) {
   const location = useLocation();
@@ -45,23 +44,22 @@ function App() {
               <Route path="inventory" element={<InventoryLookupPage />} />
               <Route path="miniatures" element={<MiniatureMasterPage />} />
               <Route path="orders" element={<OrderMasterPage />} />
-              <Route path="setup" element={<ManageSetupPage />}>
-                <Route path="publishers" element={<PublishersPage />} />
-                <Route path="rpg-systems" element={<RPGSystemsPage />} />
-                <Route path="collections" element={<CollectionsPage />} />
-                <Route path="publisher-collections" element={<PublisherCollectionsPage />} />
-                <Route path="collection-rpg-systems" element={<CollectionRPGSystemsPage />} />
-                <Route path="collection-types" element={<CollectionTypesPage />} />
-                <Route path="categories" element={<CategoriesPage />} />
-                <Route path="sub-categories" element={<SubTypesPage />} />
-                <Route path="category-sub-categories" element={<CategorySubTypesPage />} />
-                <Route path="locations" element={<LocationsPage />} />
-                <Route path="location-types" element={<LocationTypesPage />} />
-                <Route path="stores" element={<StoresPage />} />
-                <Route path="miniature-sizes" element={<MiniatureSizesPage />} />
-                <Route path="miniature-rarities" element={<MiniatureRaritiesPage />} />
-                <Route path="status" element={<StatusPage />} />
-              </Route>
+              <Route path="setup" element={<Navigate to="/home/setup/publishers" replace />} />
+              <Route path="setup/publishers" element={<PublishersPage />} />
+              <Route path="setup/rpg-systems" element={<RPGSystemsPage />} />
+              <Route path="setup/collections" element={<CollectionsPage />} />
+              <Route path="setup/publisher-collections" element={<PublisherCollectionsPage />} />
+              <Route path="setup/collection-rpg-systems" element={<CollectionRPGSystemsPage />} />
+              <Route path="setup/collection-types" element={<CollectionTypesPage />} />
+              <Route path="setup/categories" element={<CategoriesPage />} />
+              <Route path="setup/sub-categories" element={<SubTypesPage />} />
+              <Route path="setup/category-sub-categories" element={<CategorySubTypesPage />} />
+              <Route path="setup/locations" element={<LocationsPage />} />
+              <Route path="setup/location-types" element={<LocationTypesPage />} />
+              <Route path="setup/stores" element={<StoresPage />} />
+              <Route path="setup/miniature-sizes" element={<MiniatureSizesPage />} />
+              <Route path="setup/miniature-rarities" element={<MiniatureRaritiesPage />} />
+              <Route path="setup/status" element={<StatusPage />} />
             </Route>
 
             <Route path="/admin/collections" element={<Navigate to="/home/setup/collections" replace />} />

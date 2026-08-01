@@ -8,6 +8,7 @@ import { Input } from '../components/ui/Input';
 import { Dialog } from '../components/ui/Dialog';
 import ImageCropDialog from '../components/ImageCropDialog';
 import SetupTablePagination from '../components/SetupTablePagination';
+import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import useSetupPagination from '../hooks/useSetupPagination';
 import { tableAPI } from '../services/api';
@@ -55,7 +56,6 @@ export default function PublishersPage() {
   const [deleteError, setDeleteError] = useState('');
   const [sortColumn, setSortColumn] = useState<SortColumn>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const [filterInputs, setFilterInputs] = useState({ publisherName: '', publisherUrl: '' });
   const [activeFilters, setActiveFilters] = useState({ publisherName: '', publisherUrl: '' });
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
@@ -343,36 +343,29 @@ export default function PublishersPage() {
   const getPublisherImageUrl = (fileName?: string | null) =>
     fileName ? `/api/uploads/publishers/${encodeURIComponent(fileName)}` : '';
 
-  const hasFilterChanges =
-    filterInputs.publisherName !== activeFilters.publisherName ||
-    filterInputs.publisherUrl !== activeFilters.publisherUrl;
+  const filterChipFields: FilterChipField[] = [
+    {
+      key: 'publisherName',
+      label: 'Publisher Name',
+      kind: 'text',
+      value: activeFilters.publisherName,
+      onApply: (value) => setActiveFilters((prev) => ({ ...prev, publisherName: value })),
+      onClear: () => setActiveFilters((prev) => ({ ...prev, publisherName: '' })),
+    },
+    {
+      key: 'publisherUrl',
+      label: 'Publisher URL',
+      kind: 'text',
+      value: activeFilters.publisherUrl,
+      onApply: (value) => setActiveFilters((prev) => ({ ...prev, publisherUrl: value })),
+      onClear: () => setActiveFilters((prev) => ({ ...prev, publisherUrl: '' })),
+    },
+  ];
 
   return (
     <AdminLayout title="Publishers" subtitle="Use this screen to view, add, remove and modify the publishers in your collection.">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Publisher Name</label>
-              <Input
-                type="text"
-                value={filterInputs.publisherName}
-                onChange={(event) => setFilterInputs((prev) => ({ ...prev, publisherName: event.target.value }))}
-                placeholder="Filter by publisher name"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Publisher URL</label>
-              <Input
-                type="text"
-                value={filterInputs.publisherUrl}
-                onChange={(event) => setFilterInputs((prev) => ({ ...prev, publisherUrl: event.target.value }))}
-                placeholder="Filter by publisher URL"
-              />
-            </div>
-          </div>
-
           <div className="flex flex-wrap gap-2 justify-end">
             <Button
               onClick={() => {
@@ -387,18 +380,8 @@ export default function PublishersPage() {
             >
               Add Publisher
             </Button>
-            <Button onClick={() => setActiveFilters(filterInputs)} disabled={!hasFilterChanges}>Apply Filters</Button>
-            <Button
-              onClick={() => {
-                setFilterInputs({ publisherName: '', publisherUrl: '' });
-                setActiveFilters({ publisherName: '', publisherUrl: '' });
-              }}
-              className="bg-gray-600 hover:bg-gray-700"
-              disabled={!filterInputs.publisherName && !filterInputs.publisherUrl && !activeFilters.publisherName && !activeFilters.publisherUrl}
-            >
-              Clear
-            </Button>
           </div>
+          <FilterChipBar fields={filterChipFields} onClearAll={() => setActiveFilters({ publisherName: '', publisherUrl: '' })} />
         </div>
 
         {isAdding || editingId !== null ? (

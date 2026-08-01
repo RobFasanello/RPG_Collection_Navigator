@@ -7,6 +7,7 @@ import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
 import { Input } from '../components/ui/Input';
 import SetupTablePagination from '../components/SetupTablePagination';
+import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import useSetupPagination from '../hooks/useSetupPagination';
 import { tableAPI } from '../services/api';
@@ -22,7 +23,6 @@ type LocationRecord = {
 export default function LocationsPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [editingRecord, setEditingRecord] = useState<LocationRecord | null>(null);
-  const [filterInput, setFilterInput] = useState('');
   const [activeFilter, setActiveFilter] = useState('');
   const [formValues, setFormValues] = useState({ LocationName: '', LocationTypeID: '' });
   const [initialFormValues, setInitialFormValues] = useState({ LocationName: '', LocationTypeID: '' });
@@ -157,41 +157,28 @@ export default function LocationsPage() {
     return null;
   };
 
-  const hasFilterChanges = filterInput !== activeFilter;
   const isEditing = editingRecord !== null;
+  const filterChipFields: FilterChipField[] = [
+    {
+      key: 'locationName',
+      label: 'Location Name',
+      kind: 'text',
+      value: activeFilter,
+      onApply: (value) => setActiveFilter(value),
+      onClear: () => setActiveFilter(''),
+    },
+  ];
 
   return (
     <AdminLayout title="Locations" subtitle="Use this screen to view, add, remove and modify locations.">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Location Name</label>
-            <Input
-              type="text"
-              value={filterInput}
-              onChange={(event) => setFilterInput(event.target.value)}
-              placeholder="Filter by location name"
-              autoFocus
-            />
-          </div>
           <div className="flex flex-wrap gap-2 justify-end">
             <Button onClick={openAddForm} className="bg-green-600 hover:bg-green-700">
               Add Location
             </Button>
-            <Button onClick={() => setActiveFilter(filterInput)} disabled={!hasFilterChanges}>
-              Apply Filters
-            </Button>
-            <Button
-              onClick={() => {
-                setFilterInput('');
-                setActiveFilter('');
-              }}
-              className="bg-gray-600 hover:bg-gray-700"
-              disabled={!filterInput && !activeFilter}
-            >
-              Clear
-            </Button>
           </div>
+          <FilterChipBar fields={filterChipFields} onClearAll={() => setActiveFilter('')} />
         </div>
 
         {isAdding || isEditing ? (

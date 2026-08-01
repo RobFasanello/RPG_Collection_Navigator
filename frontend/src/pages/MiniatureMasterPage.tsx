@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent }
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
-import ComboMultiSelect from '../components/ui/ComboMultiSelect';
 import ComboSelect from '../components/ui/ComboSelect';
+import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Input } from '../components/ui/Input';
@@ -85,9 +85,8 @@ export default function MiniatureMasterPage() {
   const queryClient = useQueryClient();
   const [sortBy, setSortBy] = useState<SortColumn>('MiniatureName');
   const [sortOrder, setSortOrder] = useState<SortOrder>('ASC');
-  const [ownedFilter, setOwnedFilter] = useState<'both' | 'yes' | 'no'>('both');
   const [filterValues, setFilterValues] = useState<FilterValues>(EMPTY_FILTERS);
-  const [searchParams, setSearchParams] = useState<FilterValues>(EMPTY_FILTERS);
+  const [searchInput, setSearchInput] = useState('');
   const [selectedMiniatureIds, setSelectedMiniatureIds] = useState<number[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [addValues, setAddValues] = useState({ ItemID: '', Item: '', MiniatureName: '', MiniatureSizeID: '', MiniatureRarityID: '', MiniatureQuantity: '1', LocationID: '' });
@@ -474,35 +473,32 @@ export default function MiniatureMasterPage() {
     };
 
     setFilterValues(nextFilters);
-    setSearchParams(nextFilters);
+    setSearchInput(miniatureName);
   }, [urlSearchParams]);
 
   useEffect(() => {
-    if (filterValues.hasPurchaseOrder === true) {
-      setOwnedFilter('yes');
-    } else if (filterValues.hasPurchaseOrder === false) {
-      setOwnedFilter('no');
-    } else {
-      setOwnedFilter('both');
-    }
-  }, [filterValues.hasPurchaseOrder]);
+    const timeout = setTimeout(() => {
+      setFilterValues((current) => (current.miniatureName === searchInput ? current : { ...current, miniatureName: searchInput }));
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [searchInput]);
 
   const filteredRows = useMemo(() => {
-    const itemFilterId = parseInt(searchParams.itemId, 10);
-    const miniatureFilter = searchParams.miniatureName.trim().toLowerCase();
+    const itemFilterId = parseInt(filterValues.itemId, 10);
+    const miniatureFilter = filterValues.miniatureName.trim().toLowerCase();
 
     const filtered = miniatureRows.filter((row) => {
-      const collectionMatches = !searchParams.collectionName.length || searchParams.collectionName.includes(row.CollectionName);
-      const subTypeMatches = !searchParams.subTypeName.length || searchParams.subTypeName.includes(row.SubTypeName);
+      const collectionMatches = !filterValues.collectionName.length || filterValues.collectionName.includes(row.CollectionName);
+      const subTypeMatches = !filterValues.subTypeName.length || filterValues.subTypeName.includes(row.SubTypeName);
       const itemMatches = !Number.isInteger(itemFilterId) || Number(row.ItemID) === itemFilterId;
       const nameMatches = !miniatureFilter || String(row.MiniatureName || '').toLowerCase().includes(miniatureFilter);
-      const miniatureSizeMatches = !searchParams.miniatureSizeName.length || searchParams.miniatureSizeName.includes(row.MiniatureSizeName);
-      const miniatureRarityMatches = !searchParams.miniatureRarityName.length || searchParams.miniatureRarityName.includes(row.MiniatureRarityName);
-      const locationMatches = !searchParams.locationName.length || searchParams.locationName.includes(row.LocationName);
+      const miniatureSizeMatches = !filterValues.miniatureSizeName.length || filterValues.miniatureSizeName.includes(row.MiniatureSizeName);
+      const miniatureRarityMatches = !filterValues.miniatureRarityName.length || filterValues.miniatureRarityName.includes(row.MiniatureRarityName);
+      const locationMatches = !filterValues.locationName.length || filterValues.locationName.includes(row.LocationName);
       const isOwned = hasPurchaseOrderByItemId[Number(row.ResolvedItemID)] === true;
       const ownedMatches =
-        typeof searchParams.hasPurchaseOrder === 'undefined' ||
-        (searchParams.hasPurchaseOrder === true ? isOwned : !isOwned);
+        typeof filterValues.hasPurchaseOrder === 'undefined' ||
+        (filterValues.hasPurchaseOrder === true ? isOwned : !isOwned);
 
       return collectionMatches && subTypeMatches && itemMatches && nameMatches && miniatureSizeMatches && miniatureRarityMatches && locationMatches && ownedMatches;
     });
@@ -525,40 +521,16 @@ export default function MiniatureMasterPage() {
       if (valueA > valueB) return sortOrder === 'ASC' ? 1 : -1;
       return String(a.MiniatureName || '').localeCompare(String(b.MiniatureName || ''), undefined, { sensitivity: 'base' });
     });
-  }, [miniatureRows, searchParams, sortBy, sortOrder, hasPurchaseOrderByItemId]);
+  }, [miniatureRows, filterValues, sortBy, sortOrder, hasPurchaseOrderByItemId]);
 
-  const pagination = useSetupPagination(filteredRows, [searchParams, sortBy, sortOrder]);
+  const pagination = useSetupPagination(filteredRows, [filterValues, sortBy, sortOrder]);
   const currentPageRows = pagination.paginatedRows;
   const selectedMiniatureIdSet = useMemo(() => new Set(selectedMiniatureIds), [selectedMiniatureIds]);
   const areAllCurrentPageRowsSelected = currentPageRows.length > 0 && currentPageRows.every((row) => selectedMiniatureIdSet.has(row.MiniatureID));
 
-  const filtersChanged =
-    filterValues.itemId !== searchParams.itemId ||
-    filterValues.miniatureName !== searchParams.miniatureName ||
-    filterValues.collectionName.join('\u0000') !== searchParams.collectionName.join('\u0000') ||
-    filterValues.subTypeName.join('\u0000') !== searchParams.subTypeName.join('\u0000') ||
-    filterValues.miniatureSizeName.join('\u0000') !== searchParams.miniatureSizeName.join('\u0000') ||
-    filterValues.miniatureRarityName.join('\u0000') !== searchParams.miniatureRarityName.join('\u0000') ||
-    filterValues.locationName.join('\u0000') !== searchParams.locationName.join('\u0000') ||
-    filterValues.hasPurchaseOrder !== searchParams.hasPurchaseOrder;
-
-  const hasAnyFilter =
-    filterValues.itemId.trim().length > 0 ||
-    filterValues.miniatureName.trim().length > 0 ||
-    filterValues.collectionName.length > 0 ||
-    filterValues.subTypeName.length > 0 ||
-    filterValues.miniatureSizeName.length > 0 ||
-    filterValues.miniatureRarityName.length > 0 ||
-    filterValues.locationName.length > 0 ||
-    filterValues.hasPurchaseOrder !== undefined ||
-    searchParams.itemId.trim().length > 0 ||
-    searchParams.miniatureName.trim().length > 0 ||
-    searchParams.collectionName.length > 0 ||
-    searchParams.subTypeName.length > 0 ||
-    searchParams.miniatureSizeName.length > 0 ||
-    searchParams.miniatureRarityName.length > 0 ||
-    searchParams.locationName.length > 0 ||
-    searchParams.hasPurchaseOrder !== undefined;
+  useEffect(() => {
+    setSelectedMiniatureIds([]);
+  }, [filterValues]);
 
   const queryKey = ['table', 'Miniature'];
 
@@ -636,13 +608,86 @@ export default function MiniatureMasterPage() {
     },
   });
 
-  const handleFilterChange = <K extends keyof FilterValues>(field: K, value: FilterValues[K]) => {
-    setFilterValues((current) => ({
-      ...current,
-      [field]: value,
-      ...(field === 'subTypeName' ? { itemId: '' } : {}),
-    }));
+  const handleChipFiltersChange = (patch: Partial<FilterValues>) => {
+    setDownloadError('');
+    setFilterValues((current) => ({ ...current, ...patch }));
   };
+
+  const clearAllChipFilters = () => {
+    handleChipFiltersChange({
+      collectionName: [],
+      subTypeName: [],
+      itemId: '',
+      miniatureSizeName: [],
+      miniatureRarityName: [],
+      locationName: [],
+      hasPurchaseOrder: undefined,
+    });
+  };
+
+  const filterChipFields: FilterChipField[] = [
+    {
+      key: 'collection',
+      label: 'Collection',
+      kind: 'multi',
+      options: collectionOptions,
+      selected: filterValues.collectionName,
+      onAdd: (value) => handleChipFiltersChange({ collectionName: [...filterValues.collectionName, value] }),
+      onRemove: (value) => handleChipFiltersChange({ collectionName: filterValues.collectionName.filter((v) => v !== value) }),
+    },
+    {
+      key: 'subType',
+      label: 'Sub Category',
+      kind: 'multi',
+      options: subTypeOptions,
+      selected: filterValues.subTypeName,
+      onAdd: (value) => handleChipFiltersChange({ subTypeName: [...filterValues.subTypeName, value], itemId: '' }),
+      onRemove: (value) => handleChipFiltersChange({ subTypeName: filterValues.subTypeName.filter((v) => v !== value), itemId: '' }),
+    },
+    {
+      key: 'item',
+      label: 'Item',
+      kind: 'singleSelect',
+      options: itemFilterOptions,
+      value: filterValues.itemId,
+      onApply: (value) => handleChipFiltersChange({ itemId: value }),
+      onClear: () => handleChipFiltersChange({ itemId: '' }),
+    },
+    {
+      key: 'miniatureSize',
+      label: 'Miniature Size',
+      kind: 'multi',
+      options: miniatureSizeFilterOptions,
+      selected: filterValues.miniatureSizeName,
+      onAdd: (value) => handleChipFiltersChange({ miniatureSizeName: [...filterValues.miniatureSizeName, value] }),
+      onRemove: (value) => handleChipFiltersChange({ miniatureSizeName: filterValues.miniatureSizeName.filter((v) => v !== value) }),
+    },
+    {
+      key: 'miniatureRarity',
+      label: 'Miniature Rarity',
+      kind: 'multi',
+      options: miniatureRarityFilterOptions,
+      selected: filterValues.miniatureRarityName,
+      onAdd: (value) => handleChipFiltersChange({ miniatureRarityName: [...filterValues.miniatureRarityName, value] }),
+      onRemove: (value) => handleChipFiltersChange({ miniatureRarityName: filterValues.miniatureRarityName.filter((v) => v !== value) }),
+    },
+    {
+      key: 'location',
+      label: 'Location',
+      kind: 'multi',
+      options: locationFilterOptions,
+      selected: filterValues.locationName,
+      onAdd: (value) => handleChipFiltersChange({ locationName: [...filterValues.locationName, value] }),
+      onRemove: (value) => handleChipFiltersChange({ locationName: filterValues.locationName.filter((v) => v !== value) }),
+    },
+    {
+      key: 'owned',
+      label: 'Owned',
+      kind: 'yesNo',
+      value: filterValues.hasPurchaseOrder,
+      onApply: (value) => handleChipFiltersChange({ hasPurchaseOrder: value }),
+    },
+  ];
 
   const handleSort = (column: SortColumn) => {
     if (sortBy === column) {
@@ -659,38 +704,6 @@ export default function MiniatureMasterPage() {
     }
 
     return <span className="ml-1">{sortOrder === 'ASC' ? '↑' : '↓'}</span>;
-  };
-
-  const handleOwnedFilterChange = (value: 'both' | 'yes' | 'no') => {
-    setDownloadError('');
-    setOwnedFilter(value);
-    setFilterValues((current) => ({
-      ...current,
-      hasPurchaseOrder: value === 'yes' ? true : value === 'no' ? false : undefined,
-    }));
-  };
-
-  const applyFilters = () => {
-    setDownloadError('');
-    setSearchParams({
-      collectionName: [...filterValues.collectionName],
-      subTypeName: [...filterValues.subTypeName],
-      itemId: filterValues.itemId,
-      miniatureName: filterValues.miniatureName,
-      miniatureSizeName: [...filterValues.miniatureSizeName],
-      miniatureRarityName: [...filterValues.miniatureRarityName],
-      locationName: [...filterValues.locationName],
-      hasPurchaseOrder: filterValues.hasPurchaseOrder,
-    });
-    setSelectedMiniatureIds([]);
-  };
-
-  const clearFilters = () => {
-    setDownloadError('');
-    setFilterValues(EMPTY_FILTERS);
-    setOwnedFilter('both');
-    setSearchParams(EMPTY_FILTERS);
-    setSelectedMiniatureIds([]);
   };
 
   const toggleMiniatureSelection = (miniatureId: number) => {
@@ -1240,133 +1253,40 @@ export default function MiniatureMasterPage() {
     <AdminLayout title="Miniature Master" subtitle="Use this screen to view, add, remove and modify miniatures in your collection.">
       <div className="max-w-[1600px] mx-auto space-y-6">
         <section className="bg-white shadow rounded-lg p-6">
-          <form
-            className="space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              applyFilters();
-            }}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-8 gap-4">
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Collection Name</span>
-                <ComboMultiSelect
-                  options={collectionOptions}
-                  selected={filterValues.collectionName}
-                  onChange={(value) => handleFilterChange('collectionName', value)}
-                  placeholder="Collection"
-                  className="w-full"
-                  autoFocus
-                  tabIndex={1}
-                />
-              </label>
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Sub Category</span>
-                <ComboMultiSelect
-                  options={subTypeOptions}
-                  selected={filterValues.subTypeName}
-                  onChange={(value) => handleFilterChange('subTypeName', value)}
-                  placeholder="Sub Category"
-                  className="w-full"
-                  tabIndex={2}
-                />
-              </label>
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Item</span>
-                <ComboSelect
-                  options={itemFilterOptions}
-                  value={filterValues.itemId}
-                  onChange={(value) => handleFilterChange('itemId', value)}
-                  placeholder="Item"
-                  className="w-full"
-                  tabIndex={3}
-                />
-              </label>
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Miniature Name</span>
-                <Input
-                  value={filterValues.miniatureName}
-                  onChange={(event) => handleFilterChange('miniatureName', event.target.value)}
-                  placeholder="Miniature name"
-                  tabIndex={4}
-                />
-              </label>
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Miniature Size</span>
-                <ComboMultiSelect
-                  options={miniatureSizeFilterOptions}
-                  selected={filterValues.miniatureSizeName}
-                  onChange={(value) => handleFilterChange('miniatureSizeName', value)}
-                  placeholder="Miniature Size"
-                  className="w-full"
-                  tabIndex={5}
-                />
-              </label>
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Miniature Rarity</span>
-                <ComboMultiSelect
-                  options={miniatureRarityFilterOptions}
-                  selected={filterValues.miniatureRarityName}
-                  onChange={(value) => handleFilterChange('miniatureRarityName', value)}
-                  placeholder="Miniature Rarity"
-                  className="w-full"
-                  tabIndex={6}
-                />
-              </label>
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Location</span>
-                <ComboMultiSelect
-                  options={locationFilterOptions}
-                  selected={filterValues.locationName}
-                  onChange={(value) => handleFilterChange('locationName', value)}
-                  placeholder="Location"
-                  className="w-full"
-                  tabIndex={7}
-                />
-              </label>
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Owned</span>
-                <ComboSelect
-                  options={[
-                    { value: 'both', label: 'Both' },
-                    { value: 'yes', label: 'Yes' },
-                    { value: 'no', label: 'No' },
-                  ]}
-                  value={ownedFilter}
-                  onChange={(value) => handleOwnedFilterChange(value as 'both' | 'yes' | 'no')}
-                  placeholder="Both"
-                  className="w-full"
-                  tabIndex={8}
-                />
-              </label>
-            </div>
+          <div className="space-y-4">
+            <Input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Search by miniature name..."
+              className="w-full max-w-md"
+              autoFocus
+              tabIndex={1}
+            />
+
+            <FilterChipBar fields={filterChipFields} onClearAll={clearAllChipFilters} />
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-3">
                 {selectedMiniatureIds.length >= 2 ? (
-                  <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={openBulkDeleteDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={9}>
+                  <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={openBulkDeleteDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={2}>
                     Bulk Delete{selectedMiniatureIds.length ? ` (${selectedMiniatureIds.length})` : ''}
                   </Button>
                 ) : null}
               </div>
               <div className="flex flex-wrap justify-end gap-3">
                 {selectedMiniatureIds.length >= 2 ? (
-                  <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openBulkUpdateDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={10}>
+                  <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openBulkUpdateDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={3}>
                     Bulk Update{selectedMiniatureIds.length ? ` (${selectedMiniatureIds.length})` : ''}
                   </Button>
                 ) : null}
-                <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={11}>
+                <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={4}>
                   Add Miniature
                 </Button>
-                <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={12}>
+                <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={5}>
                   Bulk Upload
                 </Button>
-                <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={13}>
+                <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={6}>
                   {isDownloading ? 'Downloading...' : 'Download'}
-                </Button>
-                <Button type="submit" disabled={!filtersChanged} tabIndex={14}>Apply Filter</Button>
-                <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!filtersChanged && !hasAnyFilter} tabIndex={15}>
-                  Clear
                 </Button>
               </div>
             </div>
@@ -1376,7 +1296,7 @@ export default function MiniatureMasterPage() {
                 {downloadError}
               </div>
             ) : null}
-          </form>
+          </div>
         </section>
 
         <section className="bg-white shadow rounded-lg p-6">

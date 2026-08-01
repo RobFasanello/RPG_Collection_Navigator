@@ -899,6 +899,10 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
             : `[${sortSource}].[${sortColumn}]`;
     const secondarySortExpression = sortColumn === 'ItemName' ? '' : ', [Item].[ItemName] ASC';
 
+    if (req.query.search) {
+      request.input('search', sql.NVarChar(255), `%${req.query.search}%`);
+      filters.push('([Item].[ItemName] LIKE @search OR [Item].[ProductID] LIKE @search)');
+    }
     if (req.query.itemName) {
       request.input('itemName', sql.NVarChar(255), `%${req.query.itemName}%`);
       filters.push('[Item].[ItemName] LIKE @itemName');
@@ -1132,6 +1136,11 @@ export async function getInventoryExportRows(req: Request, res: Response): Promi
     const pool = await getPool();
     const request = pool.request();
 
+    if (req.query.search) {
+      request.input('search', sql.NVarChar(255), `%${req.query.search}%`);
+      filters.push('([Item].[ItemName] LIKE @search OR [Item].[ProductID] LIKE @search)');
+    }
+
     if (req.query.itemName) {
       request.input('itemName', sql.NVarChar(255), `%${req.query.itemName}%`);
       filters.push('[Item].[ItemName] LIKE @itemName');
@@ -1252,6 +1261,27 @@ export async function getInventoryExportRows(req: Request, res: Response): Promi
     if (isDigital !== null) {
       request.input('isDigital', sql.Bit, isDigital);
       filters.push('[Item].[IsDigital] = @isDigital');
+    }
+
+    const hasPurchaseOrder = parseOptionalBoolean(req.query.hasPurchaseOrder);
+    if (hasPurchaseOrder !== null) {
+      if (hasPurchaseOrder) {
+        filters.push(`EXISTS (
+          SELECT 1
+          FROM [PurchaseOrderDetail] AS [pod]
+          INNER JOIN [PurchaseOrder] AS [po]
+            ON [po].[PurchaseOrderID] = [pod].[PurchaseOrderID]
+          WHERE [pod].[ItemID] = [Item].[ItemID]
+        )`);
+      } else {
+        filters.push(`NOT EXISTS (
+          SELECT 1
+          FROM [PurchaseOrderDetail] AS [pod]
+          INNER JOIN [PurchaseOrder] AS [po]
+            ON [po].[PurchaseOrderID] = [pod].[PurchaseOrderID]
+          WHERE [pod].[ItemID] = [Item].[ItemID]
+        )`);
+      }
     }
 
     const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';

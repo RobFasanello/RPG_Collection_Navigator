@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
 import SetupTablePagination from '../components/SetupTablePagination';
+import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import useSetupPagination from '../hooks/useSetupPagination';
 import { tableAPI } from '../services/api';
@@ -37,7 +38,6 @@ export default function CategorySubTypesPage() {
   const [editingRecord, setEditingRecord] = useState<CategorySubType | null>(null);
   const [sortColumn, setSortColumn] = useState<'CategoryName' | 'SubTypeName' | 'ItemCount'>('CategoryName');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const [filterInputs, setFilterInputs] = useState({ categoryName: '', subTypeName: '' });
   const [activeFilters, setActiveFilters] = useState({ categoryName: '', subTypeName: '' });
   const [formValues, setFormValues] = useState({ CategoryID: '', SubTypeID: '' });
   const [initialFormValues, setInitialFormValues] = useState({ CategoryID: '', SubTypeID: '' });
@@ -117,10 +117,6 @@ export default function CategorySubTypesPage() {
     value: String(subType.SubTypeID || ''),
     label: String(subType.SubTypeName || ''),
   }));
-
-  const hasFilterChanges =
-    filterInputs.categoryName !== activeFilters.categoryName ||
-    filterInputs.subTypeName !== activeFilters.subTypeName;
 
   const itemCountByCategorySubType = (allItems || []).reduce((map: Record<string, number>, item: any) => {
     const categoryId = Number(item?.CategoryID);
@@ -290,18 +286,6 @@ export default function CategorySubTypesPage() {
     return sorted;
   };
 
-  const applyFilters = () => {
-    setActiveFilters({
-      categoryName: filterInputs.categoryName,
-      subTypeName: filterInputs.subTypeName,
-    });
-  };
-
-  const clearFilters = () => {
-    setFilterInputs({ categoryName: '', subTypeName: '' });
-    setActiveFilters({ categoryName: '', subTypeName: '' });
-  };
-
   const getSortIcon = (column: 'CategoryName' | 'SubTypeName' | 'ItemCount') => {
     if (sortColumn !== column) return null;
     if (sortDirection === 'asc') return <ChevronUp className="w-4 h-4" />;
@@ -311,35 +295,31 @@ export default function CategorySubTypesPage() {
 
   const sortedRecords = getSortedRecords();
   const pagination = useSetupPagination(sortedRecords, [activeFilters.categoryName, activeFilters.subTypeName, sortColumn, sortDirection]);
+  const filterChipFields: FilterChipField[] = [
+    {
+      key: 'categoryName',
+      label: 'Category Name',
+      kind: 'singleSelect',
+      options: categoryFilterOptions,
+      value: activeFilters.categoryName,
+      onApply: (value) => setActiveFilters((prev) => ({ ...prev, categoryName: value })),
+      onClear: () => setActiveFilters((prev) => ({ ...prev, categoryName: '' })),
+    },
+    {
+      key: 'subTypeName',
+      label: 'Sub Category Name',
+      kind: 'singleSelect',
+      options: subTypeFilterOptions,
+      value: activeFilters.subTypeName,
+      onApply: (value) => setActiveFilters((prev) => ({ ...prev, subTypeName: value })),
+      onClear: () => setActiveFilters((prev) => ({ ...prev, subTypeName: '' })),
+    },
+  ];
 
   return (
     <AdminLayout title="Category / Sub Categories" subtitle="Use this screen to view, add, remove and modify the category and sub category relationships used by your collection.">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Category Name</label>
-              <ComboSelect
-                options={categoryFilterOptions}
-                value={filterInputs.categoryName}
-                onChange={(value) => setFilterInputs((prev) => ({ ...prev, categoryName: value }))}
-                placeholder="Select category"
-                className="w-full"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Sub Category Name</label>
-              <ComboSelect
-                options={subTypeFilterOptions}
-                value={filterInputs.subTypeName}
-                onChange={(value) => setFilterInputs((prev) => ({ ...prev, subTypeName: value }))}
-                placeholder="Select sub category"
-                className="w-full"
-              />
-            </div>
-          </div>
-
           <div className="flex flex-wrap gap-2 justify-end">
             <Button
               onClick={() => {
@@ -353,15 +333,8 @@ export default function CategorySubTypesPage() {
             >
               Add Category / Sub Category
             </Button>
-            <Button onClick={applyFilters} disabled={!hasFilterChanges}>Apply Filters</Button>
-            <Button
-              onClick={clearFilters}
-              className="bg-gray-600 hover:bg-gray-700"
-              disabled={!hasFilterChanges}
-            >
-              Clear
-            </Button>
           </div>
+          <FilterChipBar fields={filterChipFields} onClearAll={() => setActiveFilters({ categoryName: '', subTypeName: '' })} />
         </div>
 
         {isAdding || isEditing ? (

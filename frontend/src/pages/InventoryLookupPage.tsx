@@ -5,11 +5,11 @@ import { useNavigate, useSearchParams } from 'react-router';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import ComboMultiSelect from '../components/ui/ComboMultiSelect';
 import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
 import LinkedOrderDetailModal, { type LinkedPurchaseOrder } from '../components/order/LinkedOrderDetailModal';
 import BulkItemUploadDialog from '../components/inventory/BulkItemUploadDialog';
+import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import { tablesAPI } from '../services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
@@ -88,11 +88,10 @@ export default function InventoryLookupPage() {
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<string>('ItemName');
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('ASC');
-  const [ownedFilter, setOwnedFilter] = useState<'both' | 'yes' | 'no'>('both');
+  const [searchInput, setSearchInput] = useState('');
   const [filterValues, setFilterValues] = useState({
-    itemName: '',
+    search: '',
     itemVersion: '',
-    productID: '',
     releaseDateFrom: '',
     releaseDateTo: '',
     // publisherName is now an array of selected publisher names
@@ -104,7 +103,6 @@ export default function InventoryLookupPage() {
     isDigital: undefined as boolean | undefined,
     hasPurchaseOrder: undefined as boolean | undefined,
   });
-  const [searchParams, setSearchParams] = useState(filterValues);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const editModalRef = useModalFocusTrap<HTMLDivElement>(Boolean(editingItem), () => closeEditModal());
   const [editValues, setEditValues] = useState({
@@ -178,8 +176,8 @@ export default function InventoryLookupPage() {
   const queryClient = useQueryClient();
 
   const queryKey = useMemo(
-    () => ['inventory', searchParams, page, sortBy, sortOrder],
-    [searchParams, page, sortBy, sortOrder]
+    () => ['inventory', filterValues, page, sortBy, sortOrder],
+    [filterValues, page, sortBy, sortOrder]
   );
 
   useEffect(() => {
@@ -191,6 +189,21 @@ export default function InventoryLookupPage() {
     setBulkDeleteConfirmText('');
     setBulkDeleteError('');
   }, [queryKey]);
+
+  // Reset to page 1 whenever the active filters change (chips, search, etc.)
+  useEffect(() => {
+    setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterValues]);
+
+  // Debounce the always-visible search box (searches Item Name / Product ID) before applying it
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      const trimmed = searchInput.trim();
+      setFilterValues((current) => (trimmed === current.search ? current : { ...current, search: trimmed }));
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
 
   useEffect(() => {
     const publisher = (urlSearchParams.get('publisher') || '').trim();
@@ -205,9 +218,8 @@ export default function InventoryLookupPage() {
     }
 
     const nextFilters = {
-      itemName: item,
+      search: item,
       itemVersion: '',
-      productID: '',
       releaseDateFrom: '',
       releaseDateTo: '',
       publisherName: publisher ? [publisher] : [],
@@ -219,21 +231,10 @@ export default function InventoryLookupPage() {
       hasPurchaseOrder,
     };
 
-    setOwnedFilter(hasPurchaseOrder === true ? 'yes' : hasPurchaseOrder === false ? 'no' : 'both');
+    setSearchInput(item);
     setFilterValues(nextFilters);
-    setSearchParams(nextFilters);
     setPage(1);
   }, [urlSearchParams]);
-
-  useEffect(() => {
-    if (filterValues.hasPurchaseOrder === true) {
-      setOwnedFilter('yes');
-    } else if (filterValues.hasPurchaseOrder === false) {
-      setOwnedFilter('no');
-    } else {
-      setOwnedFilter('both');
-    }
-  }, [filterValues.hasPurchaseOrder]);
 
   const parseDateParts = (value?: string | Date | null) => {
     if (!value) {
@@ -914,7 +915,7 @@ export default function InventoryLookupPage() {
   >({
     queryKey,
     queryFn: async () => {
-      const cleanedParams = buildCleanedInventoryFilters(searchParams);
+      const cleanedParams = buildCleanedInventoryFilters(filterValues);
 
       const response = await tablesAPI.getInventoryItems({
         ...cleanedParams,
@@ -981,68 +982,102 @@ export default function InventoryLookupPage() {
     },
   });
 
-  const handleFilterChange = (field: string, value: string) => {
+  const handleChipFiltersChange = (patch: Partial<typeof filterValues>) => {
     setDownloadError('');
-    setFilterValues((current) => ({ ...current, [field]: value }));
+    setFilterValues((current) => ({ ...current, ...patch }));
   };
 
-  // handle multi-select change for publisherName
-  const handlePublisherChange = (values: string[]) => {
-    setDownloadError('');
-    setFilterValues((current) => ({ ...current, publisherName: values }));
+  const clearAllChipFilters = () => {
+    handleChipFiltersChange({
+      publisherName: [],
+      collectionName: [],
+      categoryName: [],
+      subTypeName: [],
+      itemVersion: '',
+      releaseDateFrom: '',
+      releaseDateTo: '',
+      isPhysical: undefined,
+      isDigital: undefined,
+      hasPurchaseOrder: undefined,
+    });
   };
 
-  // handle multi-select change for collectionName
-  const handleCollectionChange = (values: string[]) => {
-    setDownloadError('');
-    setFilterValues((current) => ({ ...current, collectionName: values }));
-  };
-
-  // handle multi-select change for categoryName
-  const handleCategoryChange = (values: string[]) => {
-    setDownloadError('');
-    setFilterValues((current) => ({ ...current, categoryName: values }));
-  };
-
-  // handle multi-select change for subTypeName
-  const handleSubTypeChange = (values: string[]) => {
-    setDownloadError('');
-    setFilterValues((current) => ({ ...current, subTypeName: values }));
-  };
-
-  const handleBooleanFilterChange = (field: 'isPhysical' | 'isDigital', checked: boolean) => {
-    setDownloadError('');
-    setFilterValues((current) => ({ ...current, [field]: checked }));
-  };
-
-  const handleOwnedFilterChange = (value: 'both' | 'yes' | 'no') => {
-    setDownloadError('');
-    setOwnedFilter(value);
-    setFilterValues((current) => ({
-      ...current,
-      hasPurchaseOrder: value === 'yes' ? true : value === 'no' ? false : undefined,
-    }));
-  };
-
-  const hasFilterCriteria =
-    filterValues.itemName.trim().length > 0 ||
-    filterValues.itemVersion.trim().length > 0 ||
-    filterValues.productID.trim().length > 0 ||
-    filterValues.releaseDateFrom.trim().length > 0 ||
-    filterValues.releaseDateTo.trim().length > 0 ||
-    filterValues.publisherName.length > 0 ||
-    filterValues.collectionName.length > 0 ||
-    filterValues.categoryName.length > 0 ||
-    filterValues.subTypeName.length > 0 ||
-    filterValues.isPhysical !== undefined ||
-    filterValues.isDigital !== undefined ||
-    ownedFilter !== 'both';
-
-  const applyFilters = () => {
-    setDownloadError('');
-    setPage(1);
-    setSearchParams(filterValues);
-  };
+  const filterChipFields: FilterChipField[] = [
+    {
+      key: 'publisher',
+      label: 'Publisher',
+      kind: 'multi',
+      options: publisherOptions,
+      selected: filterValues.publisherName,
+      onAdd: (value) => handleChipFiltersChange({ publisherName: [...filterValues.publisherName, value] }),
+      onRemove: (value) => handleChipFiltersChange({ publisherName: filterValues.publisherName.filter((v) => v !== value) }),
+    },
+    {
+      key: 'collection',
+      label: 'Collection',
+      kind: 'multi',
+      options: collectionOptions,
+      selected: filterValues.collectionName,
+      onAdd: (value) => handleChipFiltersChange({ collectionName: [...filterValues.collectionName, value] }),
+      onRemove: (value) => handleChipFiltersChange({ collectionName: filterValues.collectionName.filter((v) => v !== value) }),
+    },
+    {
+      key: 'category',
+      label: 'Category',
+      kind: 'multi',
+      options: categoryOptions,
+      selected: filterValues.categoryName,
+      onAdd: (value) => handleChipFiltersChange({ categoryName: [...filterValues.categoryName, value] }),
+      onRemove: (value) => handleChipFiltersChange({ categoryName: filterValues.categoryName.filter((v) => v !== value) }),
+    },
+    {
+      key: 'subType',
+      label: 'Sub Category',
+      kind: 'multi',
+      options: subTypeOptions,
+      selected: filterValues.subTypeName,
+      onAdd: (value) => handleChipFiltersChange({ subTypeName: [...filterValues.subTypeName, value] }),
+      onRemove: (value) => handleChipFiltersChange({ subTypeName: filterValues.subTypeName.filter((v) => v !== value) }),
+    },
+    {
+      key: 'version',
+      label: 'Version',
+      kind: 'text',
+      value: filterValues.itemVersion,
+      onApply: (value) => handleChipFiltersChange({ itemVersion: value }),
+      onClear: () => handleChipFiltersChange({ itemVersion: '' }),
+    },
+    {
+      key: 'releaseDate',
+      label: 'Release Date',
+      kind: 'dateRange',
+      from: filterValues.releaseDateFrom,
+      to: filterValues.releaseDateTo,
+      onApply: (from, to) => handleChipFiltersChange({ releaseDateFrom: from, releaseDateTo: to }),
+      onClear: () => handleChipFiltersChange({ releaseDateFrom: '', releaseDateTo: '' }),
+    },
+    {
+      key: 'owned',
+      label: 'Owned',
+      kind: 'yesNo',
+      value: filterValues.hasPurchaseOrder,
+      onApply: (value) => handleChipFiltersChange({ hasPurchaseOrder: value }),
+    },
+    {
+      key: 'isPhysical',
+      label: 'Is Physical',
+      kind: 'yesNo',
+      value: filterValues.isPhysical,
+      onApply: (value) => handleChipFiltersChange({ isPhysical: value }),
+    },
+    {
+      key: 'isDigital',
+      label: 'Is Digital',
+      kind: 'yesNo',
+      value: filterValues.isDigital,
+      onApply: (value) => handleChipFiltersChange({ isDigital: value }),
+    },
+  ];
 
   const handleSort = (column: string) => {
     if (sortBy === column) {
@@ -1059,40 +1094,6 @@ export default function InventoryLookupPage() {
       return <span className="ml-1 text-gray-300">↕</span>;
     }
     return <span className="ml-1">{sortOrder === 'ASC' ? '↑' : '↓'}</span>;
-  };
-
-  const clearFilters = () => {
-    setDownloadError('');
-    setFilterValues({
-      itemName: '',
-      itemVersion: '',
-      productID: '',
-      releaseDateFrom: '',
-      releaseDateTo: '',
-      publisherName: [],
-      collectionName: [],
-      categoryName: [],
-      subTypeName: [],
-      isPhysical: undefined,
-      isDigital: undefined,
-      hasPurchaseOrder: undefined,
-    });
-    setOwnedFilter('both');
-    setSearchParams({
-      itemName: '',
-      itemVersion: '',
-      productID: '',
-      releaseDateFrom: '',
-      releaseDateTo: '',
-      publisherName: [],
-      collectionName: [],
-      categoryName: [],
-      subTypeName: [],
-      isPhysical: undefined,
-      isDigital: undefined,
-      hasPurchaseOrder: undefined,
-    });
-    setPage(1);
   };
 
   const openBulkUpdateDialog = () => {
@@ -1532,7 +1533,7 @@ export default function InventoryLookupPage() {
       setIsDownloading(true);
       setDownloadError('');
 
-      const cleanedParams = buildCleanedInventoryFilters(searchParams);
+      const cleanedParams = buildCleanedInventoryFilters(filterValues);
       const response = await tablesAPI.getInventoryExportRows(cleanedParams);
       const rows = (response.data?.data || []) as InventoryExportRow[];
 
@@ -1911,138 +1912,17 @@ export default function InventoryLookupPage() {
     <AdminLayout title="Item Master" subtitle="Use this screen to view, add, remove and modify the items in your collection.">
       <div className="max-w-[1600px] mx-auto space-y-6">
         <section className="bg-white shadow rounded-lg p-6">
-          <form
-            className="space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              applyFilters();
-            }}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-4">
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Publisher</span>
-                <ComboMultiSelect
-                  options={publisherOptions}
-                  selected={filterValues.publisherName}
-                  onChange={handlePublisherChange}
-                  placeholder="Publisher"
-                  className="w-full"
-                  autoFocus
-                  tabIndex={1}
-                />
-              </label>
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Collection</span>
-                <ComboMultiSelect
-                  options={collectionOptions}
-                  selected={filterValues.collectionName}
-                  onChange={handleCollectionChange}
-                  placeholder="Collection"
-                  className="w-full"
-                  tabIndex={2}
-                />
-              </label>
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Item</span>
-                <Input
-                  value={filterValues.itemName}
-                  onChange={(event) => handleFilterChange('itemName', event.target.value)}
-                  placeholder="Item name"
-                  tabIndex={3}
-                />
-              </label>
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Version</span>
-                <Input
-                  value={filterValues.itemVersion}
-                  onChange={(event) => handleFilterChange('itemVersion', event.target.value)}
-                  placeholder="Version"
-                  tabIndex={4}
-                />
-              </label>
-              <label className="space-y-2">
-                <span className="text-sm font-medium text-gray-700">Category</span>
-                <ComboMultiSelect
-                  options={categoryOptions}
-                  selected={filterValues.categoryName}
-                  onChange={handleCategoryChange}
-                  placeholder="Category"
-                  className="w-full"
-                  tabIndex={5}
-                />
-              </label>
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Sub Category</span>
-                <ComboMultiSelect
-                  options={subTypeOptions}
-                  selected={filterValues.subTypeName}
-                  onChange={handleSubTypeChange}
-                  placeholder="Sub Category"
-                  className="w-full"
-                  tabIndex={6}
-                />
-              </label>
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Product ID</span>
-                <Input
-                  value={filterValues.productID}
-                  onChange={(event) => handleFilterChange('productID', event.target.value)}
-                  placeholder="Product ID"
-                  tabIndex={7}
-                />
-              </label>
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Release Date From</span>
-                <Input
-                  type="date"
-                  value={filterValues.releaseDateFrom}
-                  onChange={(event) => handleFilterChange('releaseDateFrom', event.target.value)}
-                  tabIndex={8}
-                />
-              </label>
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Release Date To</span>
-                <Input
-                  type="date"
-                  value={filterValues.releaseDateTo}
-                  onChange={(event) => handleFilterChange('releaseDateTo', event.target.value)}
-                  tabIndex={9}
-                />
-              </label>
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Owned</span>
-                <ComboSelect
-                  options={[
-                    { value: 'both', label: 'Both' },
-                    { value: 'yes', label: 'Yes' },
-                    { value: 'no', label: 'No' },
-                  ]}
-                  value={ownedFilter}
-                  onChange={(value) => handleOwnedFilterChange(value as 'both' | 'yes' | 'no')}
-                  placeholder="Both"
-                  className="w-full"
-                  tabIndex={10}
-                />
-              </label>
-              <label className="flex items-center gap-2 self-end min-h-10">
-                <input
-                  type="checkbox"
-                  checked={Boolean(filterValues.isPhysical)}
-                  onChange={(event) => handleBooleanFilterChange('isPhysical', event.target.checked)}
-                  tabIndex={11}
-                />
-                <span className="text-sm font-medium text-gray-700">Is Physical</span>
-              </label>
-              <label className="flex items-center gap-2 self-end min-h-10">
-                <input
-                  type="checkbox"
-                  checked={Boolean(filterValues.isDigital)}
-                  onChange={(event) => handleBooleanFilterChange('isDigital', event.target.checked)}
-                  tabIndex={12}
-                />
-                <span className="text-sm font-medium text-gray-700">Is Digital</span>
-              </label>
-            </div>
+          <div className="space-y-4">
+            <Input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Search by item name or product ID..."
+              className="w-full max-w-md"
+              autoFocus
+              tabIndex={1}
+            />
+
+            <FilterChipBar fields={filterChipFields} onClearAll={clearAllChipFilters} />
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-3">
@@ -2090,10 +1970,6 @@ export default function InventoryLookupPage() {
                 <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={19}>
                   {isDownloading ? 'Downloading...' : 'Download'}
                 </Button>
-                <Button type="submit" disabled={!hasFilterCriteria} tabIndex={20}>Apply Filter</Button>
-                <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={21}>
-                  Clear
-                </Button>
               </div>
             </div>
 
@@ -2102,7 +1978,7 @@ export default function InventoryLookupPage() {
                 {downloadError}
               </div>
             ) : null}
-          </form>
+          </div>
         </section>
 
         <section className="bg-white shadow rounded-lg p-6">

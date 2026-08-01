@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
 import SetupTablePagination from '../components/SetupTablePagination';
+import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import useSetupPagination from '../hooks/useSetupPagination';
 import { tableAPI } from '../services/api';
@@ -40,7 +41,6 @@ export default function PublisherCollectionsPage() {
   const [sortColumn, setSortColumn] = useState<SortColumn>('publisher');
   const [formValues, setFormValues] = useState({ PublisherID: '', CollectionID: '' });
   const [initialFormValues, setInitialFormValues] = useState({ PublisherID: '', CollectionID: '' });
-  const [filterInputs, setFilterInputs] = useState({ publisherName: '', collectionName: '' });
   const [activeFilters, setActiveFilters] = useState({ publisherName: '', collectionName: '' });
   const [formError, setFormError] = useState('');
   const [deleteError, setDeleteError] = useState('');
@@ -151,10 +151,6 @@ export default function PublisherCollectionsPage() {
     value: String(collection.CollectionID || ''),
     label: getCollectionLabel(collection),
   }));
-
-  const hasFilterChanges =
-    filterInputs.publisherName !== activeFilters.publisherName ||
-    filterInputs.collectionName !== activeFilters.collectionName;
 
   const itemCountByPublisherCollection = (allItems || []).reduce((map: Record<string, number>, item: any) => {
     const publisherId = Number(item?.PublisherID);
@@ -331,18 +327,6 @@ export default function PublisherCollectionsPage() {
     return sorted;
   };
 
-  const applyFilters = () => {
-    setActiveFilters({
-      publisherName: filterInputs.publisherName,
-      collectionName: filterInputs.collectionName,
-    });
-  };
-
-  const clearFilters = () => {
-    setFilterInputs({ publisherName: '', collectionName: '' });
-    setActiveFilters({ publisherName: '', collectionName: '' });
-  };
-
   const getSortIcon = (column: Exclude<SortColumn, null>) => {
     if (sortColumn !== column) return null;
     if (sortDirection === 'asc') return <ChevronUp className="w-4 h-4" />;
@@ -352,35 +336,31 @@ export default function PublisherCollectionsPage() {
 
   const sortedRecords = getSortedRecords();
   const pagination = useSetupPagination(sortedRecords, [activeFilters.publisherName, activeFilters.collectionName, sortColumn, sortDirection]);
+  const filterChipFields: FilterChipField[] = [
+    {
+      key: 'publisherName',
+      label: 'Publisher Name',
+      kind: 'singleSelect',
+      options: publisherFilterOptions,
+      value: activeFilters.publisherName,
+      onApply: (value) => setActiveFilters((prev) => ({ ...prev, publisherName: value })),
+      onClear: () => setActiveFilters((prev) => ({ ...prev, publisherName: '' })),
+    },
+    {
+      key: 'collectionName',
+      label: 'Collection Name',
+      kind: 'singleSelect',
+      options: collectionFilterOptions,
+      value: activeFilters.collectionName,
+      onApply: (value) => setActiveFilters((prev) => ({ ...prev, collectionName: value })),
+      onClear: () => setActiveFilters((prev) => ({ ...prev, collectionName: '' })),
+    },
+  ];
 
   return (
     <AdminLayout title="Publisher / Collections" subtitle="Use this screen to view, add, remove and modify the publisher and collection relationships used by your collection.">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Publisher Name</label>
-              <ComboSelect
-                options={publisherFilterOptions}
-                value={filterInputs.publisherName}
-                onChange={(value) => setFilterInputs((prev) => ({ ...prev, publisherName: value }))}
-                placeholder="Select publisher"
-                className="w-full"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Collection Name</label>
-              <ComboSelect
-                options={collectionFilterOptions}
-                value={filterInputs.collectionName}
-                onChange={(value) => setFilterInputs((prev) => ({ ...prev, collectionName: value }))}
-                placeholder="Select collection"
-                className="w-full"
-              />
-            </div>
-          </div>
-
           <div className="flex flex-wrap gap-2 justify-end">
             <Button
               onClick={() => {
@@ -394,15 +374,8 @@ export default function PublisherCollectionsPage() {
             >
               Add Publisher Collection
             </Button>
-            <Button onClick={applyFilters} disabled={!hasFilterChanges}>Apply Filters</Button>
-            <Button
-              onClick={clearFilters}
-              className="bg-gray-600 hover:bg-gray-700"
-              disabled={!hasFilterChanges}
-            >
-              Clear
-            </Button>
           </div>
+          <FilterChipBar fields={filterChipFields} onClearAll={() => setActiveFilters({ publisherName: '', collectionName: '' })} />
         </div>
 
         {isAdding || isEditing ? (

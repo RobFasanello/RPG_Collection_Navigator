@@ -6,7 +6,7 @@ import RecordForm from './RecordForm';
 import SetupTablePagination from './SetupTablePagination';
 import { Button } from './ui/Button';
 import { Dialog } from './ui/Dialog';
-import { Input } from './ui/Input';
+import FilterChipBar, { type FilterChipField } from './inventory/FilterChipBar';
 import useSetupPagination from '../hooks/useSetupPagination';
 import { tableAPI } from '../services/api';
 
@@ -37,7 +37,6 @@ export default function SetupLookupPage({
   nameColumn,
   nameHeader,
   filterLabel,
-  filterPlaceholder,
   newButtonLabel,
   newTitle,
   editTitle,
@@ -45,7 +44,6 @@ export default function SetupLookupPage({
 }: SetupLookupPageProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
-  const [filterInput, setFilterInput] = useState('');
   const [activeFilter, setActiveFilter] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -120,24 +118,23 @@ export default function SetupLookupPage({
     return null;
   };
 
-  const hasFilterChanges = filterInput !== activeFilter;
   const addButtonLabel = newButtonLabel.startsWith('New ') ? newButtonLabel.replace(/^New /, 'Add ') : `Add ${newButtonLabel}`;
   const pagination = useSetupPagination(sortedRecords, [activeFilter, sortDirection]);
+  const filterChipFields: FilterChipField[] = [
+    {
+      key: 'nameFilter',
+      label: filterLabel,
+      kind: 'text',
+      value: activeFilter,
+      onApply: (value) => setActiveFilter(value),
+      onClear: () => setActiveFilter(''),
+    },
+  ];
 
   return (
     <AdminLayout title={title} subtitle={subtitle}>
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">{filterLabel}</label>
-            <Input
-              type="text"
-              value={filterInput}
-              onChange={(event) => setFilterInput(event.target.value)}
-              placeholder={filterPlaceholder}
-              autoFocus
-            />
-          </div>
           <div className="flex flex-wrap gap-2 justify-end">
             <Button
               onClick={() => {
@@ -148,20 +145,8 @@ export default function SetupLookupPage({
             >
               {newButtonLabel}
             </Button>
-            <Button onClick={() => setActiveFilter(filterInput)} disabled={!hasFilterChanges}>
-              Apply Filters
-            </Button>
-            <Button
-              onClick={() => {
-                setFilterInput('');
-                setActiveFilter('');
-              }}
-              className="bg-gray-600 hover:bg-gray-700"
-              disabled={!filterInput && !activeFilter}
-            >
-              Clear
-            </Button>
           </div>
+          <FilterChipBar fields={filterChipFields} onClearAll={() => setActiveFilter('')} />
         </div>
 
         {isAdding || editingId !== null ? (

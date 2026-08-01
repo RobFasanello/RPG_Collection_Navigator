@@ -6,6 +6,7 @@ import SetupTablePagination from './SetupTablePagination';
 import { Button } from './ui/Button';
 import { Dialog } from './ui/Dialog';
 import { Input } from './ui/Input';
+import FilterChipBar, { type FilterChipField } from './inventory/FilterChipBar';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import useSetupPagination from '../hooks/useSetupPagination';
 import { tableAPI } from '../services/api';
@@ -37,7 +38,6 @@ export default function ManualIdLookupPage({
   nameColumn,
   nameHeader,
   filterLabel,
-  filterPlaceholder,
   newButtonLabel,
   newTitle,
   editTitle,
@@ -47,7 +47,6 @@ export default function ManualIdLookupPage({
 }: ManualIdLookupPageProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingRecord, setEditingRecord] = useState<Record<string, any> | null>(null);
-  const [filterInput, setFilterInput] = useState('');
   const [activeFilter, setActiveFilter] = useState('');
   const [formValues, setFormValues] = useState({ name: '' });
   const [initialFormValues, setInitialFormValues] = useState({ name: '' });
@@ -151,45 +150,32 @@ export default function ManualIdLookupPage({
     return null;
   };
 
-  const hasFilterChanges = filterInput !== activeFilter;
   const isEditing = editingRecord !== null;
   const hasFormInput = formValues.name.trim() !== '';
   const hasChanges = isEditing ? formValues.name !== initialFormValues.name : false;
   const addButtonLabel = newButtonLabel.startsWith('New ') ? newButtonLabel.replace(/^New /, 'Add ') : `Add ${newButtonLabel}`;
   const pagination = useSetupPagination(sortedRecords, [activeFilter, sortDirection]);
+  const filterChipFields: FilterChipField[] = [
+    {
+      key: 'nameFilter',
+      label: filterLabel,
+      kind: 'text',
+      value: activeFilter,
+      onApply: (value) => setActiveFilter(value),
+      onClear: () => setActiveFilter(''),
+    },
+  ];
 
   return (
     <AdminLayout title={title} subtitle={subtitle}>
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">{filterLabel}</label>
-            <Input
-              type="text"
-              value={filterInput}
-              onChange={(event) => setFilterInput(event.target.value)}
-              placeholder={filterPlaceholder}
-              autoFocus
-            />
-          </div>
           <div className="flex flex-wrap gap-2 justify-end">
             <Button onClick={openAddForm} className="bg-green-600 hover:bg-green-700">
               {newButtonLabel}
             </Button>
-            <Button onClick={() => setActiveFilter(filterInput)} disabled={!hasFilterChanges}>
-              Apply Filters
-            </Button>
-            <Button
-              onClick={() => {
-                setFilterInput('');
-                setActiveFilter('');
-              }}
-              className="bg-gray-600 hover:bg-gray-700"
-              disabled={!filterInput && !activeFilter}
-            >
-              Clear
-            </Button>
           </div>
+          <FilterChipBar fields={filterChipFields} onClearAll={() => setActiveFilter('')} />
         </div>
 
         {isAdding || isEditing ? (

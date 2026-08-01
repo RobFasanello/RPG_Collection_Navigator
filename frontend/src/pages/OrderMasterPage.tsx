@@ -4,8 +4,8 @@ import { useSearchParams } from 'react-router';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import ComboMultiSelect from '../components/ui/ComboMultiSelect';
 import ComboSelect from '../components/ui/ComboSelect';
+import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
 import { Dialog } from '../components/ui/Dialog';
 import { tablesAPI } from '../services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
@@ -63,7 +63,7 @@ export default function OrderMasterPage() {
     purchaseDateStart: '',
     purchaseDateEnd: '',
   });
-  const [searchParams, setSearchParams] = useState(filterValues);
+  const [searchInput, setSearchInput] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
   const [selectedOrderIds, setSelectedOrderIds] = useState<number[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -109,9 +109,20 @@ export default function OrderMasterPage() {
   const queryClient = useQueryClient();
 
   const queryKey = useMemo(
-    () => ['purchaseOrders', searchParams, page, sortBy, sortOrder],
-    [searchParams, page, sortBy, sortOrder]
+    () => ['purchaseOrders', filterValues, page, sortBy, sortOrder],
+    [filterValues, page, sortBy, sortOrder]
   );
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setFilterValues((current) => (current.invoiceNumber === searchInput ? current : { ...current, invoiceNumber: searchInput }));
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [searchInput]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filterValues]);
 
   useEffect(() => {
     setSelectedOrderIds([]);
@@ -150,7 +161,7 @@ export default function OrderMasterPage() {
     };
 
     setFilterValues(nextFilters);
-    setSearchParams(nextFilters);
+    setSearchInput(invoice);
     setPage(1);
   }, [urlSearchParams]);
 
@@ -360,7 +371,7 @@ export default function OrderMasterPage() {
     queryKey,
     queryFn: async () => {
       const response = await tablesAPI.getPurchaseOrders({
-        ...searchParams,
+        ...filterValues,
         page,
         pageSize: 50,
         sortBy,
@@ -739,37 +750,49 @@ export default function OrderMasterPage() {
     });
   };
 
-  const handleStoreChange = (values: string[]) => {
-    setFilterValues((current) => ({ ...current, storeNames: values }));
+  const handleChipFiltersChange = (patch: Partial<typeof filterValues>) => {
+    setDownloadError(null);
+    setFilterValues((current) => ({ ...current, ...patch }));
   };
 
-  const handleInvoiceNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFilterValues((current) => ({ ...current, invoiceNumber: e.target.value }));
+  const clearAllChipFilters = () => {
+    handleChipFiltersChange({
+      storeNames: [],
+      statusNames: [],
+      purchaseDateStart: '',
+      purchaseDateEnd: '',
+    });
   };
 
-  const handleStatusFilterChange = (values: string[]) => {
-    setFilterValues((current) => ({ ...current, statusNames: values }));
-  };
-
-  const handleDateStartChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFilterValues((current) => ({ ...current, purchaseDateStart: e.target.value }));
-  };
-
-  const handleDateEndChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFilterValues((current) => ({ ...current, purchaseDateEnd: e.target.value }));
-  };
-
-  const hasFilterCriteria =
-    filterValues.storeNames.length > 0 ||
-    filterValues.invoiceNumber.trim().length > 0 ||
-    filterValues.statusNames.length > 0 ||
-    filterValues.purchaseDateStart.trim().length > 0 ||
-    filterValues.purchaseDateEnd.trim().length > 0;
-
-  const applyFilters = () => {
-    setPage(1);
-    setSearchParams(filterValues);
-  };
+  const filterChipFields: FilterChipField[] = [
+    {
+      key: 'store',
+      label: 'Store',
+      kind: 'multi',
+      options: storeOptions,
+      selected: filterValues.storeNames,
+      onAdd: (value) => handleChipFiltersChange({ storeNames: [...filterValues.storeNames, value] }),
+      onRemove: (value) => handleChipFiltersChange({ storeNames: filterValues.storeNames.filter((v) => v !== value) }),
+    },
+    {
+      key: 'status',
+      label: 'Order Status',
+      kind: 'multi',
+      options: statusOptions,
+      selected: filterValues.statusNames,
+      onAdd: (value) => handleChipFiltersChange({ statusNames: [...filterValues.statusNames, value] }),
+      onRemove: (value) => handleChipFiltersChange({ statusNames: filterValues.statusNames.filter((v) => v !== value) }),
+    },
+    {
+      key: 'purchaseDate',
+      label: 'Purchase Date',
+      kind: 'dateRange',
+      from: filterValues.purchaseDateStart,
+      to: filterValues.purchaseDateEnd,
+      onApply: (from, to) => handleChipFiltersChange({ purchaseDateStart: from, purchaseDateEnd: to }),
+      onClear: () => handleChipFiltersChange({ purchaseDateStart: '', purchaseDateEnd: '' }),
+    },
+  ];
 
   const handleSort = (column: string) => {
     if (sortBy === column) {
@@ -786,24 +809,6 @@ export default function OrderMasterPage() {
       return <span className="ml-1 text-gray-300">↕</span>;
     }
     return <span className="ml-1">{sortOrder === 'ASC' ? '↑' : '↓'}</span>;
-  };
-
-  const clearFilters = () => {
-    setFilterValues({
-      storeNames: [],
-      invoiceNumber: '',
-      statusNames: [],
-      purchaseDateStart: '',
-      purchaseDateEnd: '',
-    });
-    setSearchParams({
-      storeNames: [],
-      invoiceNumber: '',
-      statusNames: [],
-      purchaseDateStart: '',
-      purchaseDateEnd: '',
-    });
-    setPage(1);
   };
 
   const csvEscape = (value: string | number | null | undefined) => {
@@ -838,7 +843,7 @@ export default function OrderMasterPage() {
 
       while (true) {
         const response = await tablesAPI.getPurchaseOrders({
-          ...searchParams,
+          ...filterValues,
           page: exportPage,
           pageSize,
           sortBy,
@@ -1154,103 +1159,44 @@ export default function OrderMasterPage() {
     <AdminLayout title="Order Master" subtitle="Use this screen to view, add, remove and modify the purchase orders associated with your collection.">
       <div className="max-w-7xl mx-auto space-y-6">
         <section className="bg-white shadow rounded-lg p-6">
-          <form
-            className="space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              applyFilters();
-            }}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Store Name</span>
-                <ComboMultiSelect
-                  options={storeOptions}
-                  selected={filterValues.storeNames}
-                  onChange={handleStoreChange}
-                  placeholder="Select stores..."
-                  className="w-full"
-                  autoFocus
-                  tabIndex={1}
-                />
-              </label>
-              <label className="space-y-2">
-                <span className="text-sm font-medium text-gray-700">Invoice Number</span>
-                <Input
-                  type="text"
-                  value={filterValues.invoiceNumber}
-                  onChange={handleInvoiceNumberChange}
-                  placeholder="Search invoices..."
-                  tabIndex={2}
-                />
-              </label>
-              <label className="space-y-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700">Order Status</span>
-                <ComboMultiSelect
-                  options={statusOptions}
-                  selected={filterValues.statusNames}
-                  onChange={handleStatusFilterChange}
-                  placeholder="Select statuses..."
-                  className="w-full"
-                  tabIndex={3}
-                />
-              </label>
-              <label className="space-y-2">
-                <span className="text-sm font-medium text-gray-700">From</span>
-                <Input
-                  type="date"
-                  value={filterValues.purchaseDateStart}
-                  onChange={handleDateStartChange}
-                  placeholder="Start date"
-                  className="w-full"
-                  tabIndex={4}
-                />
-              </label>
-              <label className="space-y-2">
-                <span className="text-sm font-medium text-gray-700">To</span>
-                <Input
-                  type="date"
-                  value={filterValues.purchaseDateEnd}
-                  onChange={handleDateEndChange}
-                  placeholder="End date"
-                  className="w-full"
-                  tabIndex={5}
-                />
-              </label>
-            </div>
+          <div className="space-y-4">
+            <Input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Search by invoice number..."
+              className="w-full max-w-md"
+              autoFocus
+              tabIndex={1}
+            />
+
+            <FilterChipBar fields={filterChipFields} onClearAll={clearAllChipFilters} />
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-3">
                 {selectedOrderIds.length >= 2 ? (
-                  <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={openBulkDeleteDialog} tabIndex={6}>
+                  <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={openBulkDeleteDialog} tabIndex={2}>
                     Bulk Delete{selectedOrderIds.length ? ` (${selectedOrderIds.length})` : ''}
                   </Button>
                 ) : null}
               </div>
               <div className="flex flex-wrap justify-end gap-3">
                 {selectedOrderIds.length >= 2 ? (
-                  <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openBulkUpdateDialog} tabIndex={7}>
+                  <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openBulkUpdateDialog} tabIndex={3}>
                     Bulk Update{selectedOrderIds.length ? ` (${selectedOrderIds.length})` : ''}
                   </Button>
                 ) : null}
-                <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddOrder} tabIndex={8}>
+                <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddOrder} tabIndex={4}>
                   Add Order
                 </Button>
-                <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={9}>
+                <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={5}>
                   {isDownloading ? 'Downloading...' : 'Download'}
-                </Button>
-                <Button type="submit" disabled={!hasFilterCriteria} tabIndex={10}>
-                  Apply Filter
-                </Button>
-                <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={clearFilters} disabled={!hasFilterCriteria} tabIndex={11}>
-                  Clear
                 </Button>
               </div>
             </div>
             {downloadError ? (
               <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{downloadError}</div>
             ) : null}
-          </form>
+          </div>
         </section>
 
         <section className="bg-white shadow rounded-lg p-6">

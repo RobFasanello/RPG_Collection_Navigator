@@ -5,17 +5,26 @@ import { Search } from 'lucide-react';
 import { appAPI } from '../services/api';
 import { FRONTEND_BUILD_TIME_ISO } from '../generated/buildInfo';
 import GlobalSearchModal from '../components/GlobalSearchModal';
+import { SETUP_NAV_ITEMS } from './setupNavItems';
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+  navigationMenuTriggerStyle,
+} from '../components/ui/NavigationMenu';
 
 type TopMenuItem = {
   label: string;
   path: string;
 };
 
-const TOP_MENU_ITEMS: TopMenuItem[] = [
-  { label: 'Manage Inventory', path: '/home/inventory' },
-  { label: 'Manage Miniatures', path: '/home/miniatures' },
-  { label: 'Manage Orders', path: '/home/orders' },
-  { label: 'Manage Setup', path: '/home/setup' },
+const MANAGE_NAV_ITEMS: TopMenuItem[] = [
+  { label: 'Inventory', path: '/home/inventory' },
+  { label: 'Miniatures', path: '/home/miniatures' },
+  { label: 'Orders', path: '/home/orders' },
 ];
 
 function formatBuildDateTime(value?: string) {
@@ -78,7 +87,7 @@ export default function HomeShell() {
       <header className="sticky top-0 z-50 border-b border-slate-300 bg-white shadow-sm">
         <div className="mx-auto w-full max-w-[1800px] px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link to="/home" className="flex items-center gap-3 shrink-0 hover:opacity-80 transition-opacity">
+            <div className="flex items-center gap-3 shrink-0">
               <img
                 src="/favicon.png"
                 alt="Arcane Library"
@@ -88,27 +97,83 @@ export default function HomeShell() {
                 <h1 className="text-xl font-bold text-slate-900">Arcane Repository</h1>
                 <p className="text-xs text-slate-500">A grimoire of your own making</p>
               </div>
-            </Link>
+            </div>
 
             <nav className="flex flex-wrap items-center gap-2">
-              {TOP_MENU_ITEMS.map((item, index) => {
-                const active = isTopMenuItemActive(item.path);
+              <NavigationMenu>
+                <NavigationMenuList>
+                  <NavigationMenuItem>
+                    <NavigationMenuLink asChild active={location.pathname === '/home'}>
+                      <Link to="/home" className={navigationMenuTriggerStyle(location.pathname === '/home')} tabIndex={1000}>
+                        Home
+                      </Link>
+                    </NavigationMenuLink>
+                  </NavigationMenuItem>
 
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    tabIndex={1000 + index}
-                    className={`rounded-lg border px-4 py-2 text-center text-sm font-semibold transition sm:text-base ${
-                      active
-                        ? 'border-sky-600 bg-sky-600 text-white shadow'
-                        : 'border-slate-300 bg-slate-50 text-slate-800 hover:border-sky-400 hover:bg-sky-50'
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
+                  <NavigationMenuItem>
+                    <NavigationMenuTrigger
+                      active={MANAGE_NAV_ITEMS.some((item) => isTopMenuItemActive(item.path))}
+                      tabIndex={1001}
+                    >
+                      Manage
+                    </NavigationMenuTrigger>
+                    <NavigationMenuContent>
+                      <ul className="grid w-[300px] grid-cols-1 gap-1 p-3 sm:w-[340px]">
+                        {MANAGE_NAV_ITEMS.map((item) => {
+                          const active = location.pathname === item.path;
+
+                          return (
+                            <li key={item.path}>
+                              <NavigationMenuLink asChild active={active}>
+                                <Link
+                                  to={item.path}
+                                  className={`block rounded-md px-3 py-2 text-sm font-medium transition ${
+                                    active
+                                      ? 'bg-sky-600 text-white'
+                                      : 'text-slate-700 hover:bg-sky-50 hover:text-sky-700'
+                                  }`}
+                                >
+                                  {item.label}
+                                </Link>
+                              </NavigationMenuLink>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </NavigationMenuContent>
+                  </NavigationMenuItem>
+
+                  <NavigationMenuItem>
+                    <NavigationMenuTrigger active={isTopMenuItemActive('/home/setup')} tabIndex={1002}>
+                      Setup
+                    </NavigationMenuTrigger>
+                    <NavigationMenuContent>
+                      <ul className="grid w-[560px] grid-cols-2 gap-1 p-3 sm:w-[640px] sm:grid-cols-3">
+                        {SETUP_NAV_ITEMS.map((item) => {
+                          const active = location.pathname === item.path;
+
+                          return (
+                            <li key={item.path}>
+                              <NavigationMenuLink asChild active={active}>
+                                <Link
+                                  to={item.path}
+                                  className={`block rounded-md px-3 py-2 text-sm font-medium transition ${
+                                    active
+                                      ? 'bg-sky-600 text-white'
+                                      : 'text-slate-700 hover:bg-sky-50 hover:text-sky-700'
+                                  }`}
+                                >
+                                  {item.label}
+                                </Link>
+                              </NavigationMenuLink>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </NavigationMenuContent>
+                  </NavigationMenuItem>
+                </NavigationMenuList>
+              </NavigationMenu>
 
               <form
                 onSubmit={handleSearchSubmit}

@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Dialog } from '../components/ui/Dialog';
 import SetupTablePagination from '../components/SetupTablePagination';
+import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import useSetupPagination from '../hooks/useSetupPagination';
 import { tableAPI } from '../services/api';
@@ -26,7 +27,6 @@ export default function RPGSystemsPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const [filterInputs, setFilterInputs] = useState({ rpgSystemName: '', rpgSystemUrl: '' });
   const [activeFilters, setActiveFilters] = useState({ rpgSystemName: '', rpgSystemUrl: '' });
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
@@ -175,36 +175,29 @@ export default function RPGSystemsPage() {
   const sortedRecordValues = getSortedRecords();
   const sortedRecords = Array.isArray(sortedRecordValues) ? sortedRecordValues : [];
   const pagination = useSetupPagination(sortedRecords, [activeFilters.rpgSystemName, activeFilters.rpgSystemUrl, sortColumn, sortDirection]);
-  const hasFilterChanges =
-    filterInputs.rpgSystemName !== activeFilters.rpgSystemName ||
-    filterInputs.rpgSystemUrl !== activeFilters.rpgSystemUrl;
+  const filterChipFields: FilterChipField[] = [
+    {
+      key: 'rpgSystemName',
+      label: 'RPG System Name',
+      kind: 'text',
+      value: activeFilters.rpgSystemName,
+      onApply: (value) => setActiveFilters((prev) => ({ ...prev, rpgSystemName: value })),
+      onClear: () => setActiveFilters((prev) => ({ ...prev, rpgSystemName: '' })),
+    },
+    {
+      key: 'rpgSystemUrl',
+      label: 'RPG System URL',
+      kind: 'text',
+      value: activeFilters.rpgSystemUrl,
+      onApply: (value) => setActiveFilters((prev) => ({ ...prev, rpgSystemUrl: value })),
+      onClear: () => setActiveFilters((prev) => ({ ...prev, rpgSystemUrl: '' })),
+    },
+  ];
 
   return (
     <AdminLayout title="RPG Systems" subtitle="Use this screen to view, add, remove and modify the RPG systems in your collection.">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">RPG System Name</label>
-              <Input
-                type="text"
-                value={filterInputs.rpgSystemName}
-                onChange={(event) => setFilterInputs((prev) => ({ ...prev, rpgSystemName: event.target.value }))}
-                placeholder="Filter by RPG system name"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">RPG System URL</label>
-              <Input
-                type="text"
-                value={filterInputs.rpgSystemUrl}
-                onChange={(event) => setFilterInputs((prev) => ({ ...prev, rpgSystemUrl: event.target.value }))}
-                placeholder="Filter by RPG system URL"
-              />
-            </div>
-          </div>
-
           <div className="flex flex-wrap gap-2 justify-end">
             <Button
               onClick={() => {
@@ -217,18 +210,8 @@ export default function RPGSystemsPage() {
             >
               Add RPG System
             </Button>
-            <Button onClick={() => setActiveFilters(filterInputs)} disabled={!hasFilterChanges}>Apply Filters</Button>
-            <Button
-              onClick={() => {
-                setFilterInputs({ rpgSystemName: '', rpgSystemUrl: '' });
-                setActiveFilters({ rpgSystemName: '', rpgSystemUrl: '' });
-              }}
-              className="bg-gray-600 hover:bg-gray-700"
-              disabled={!filterInputs.rpgSystemName && !filterInputs.rpgSystemUrl && !activeFilters.rpgSystemName && !activeFilters.rpgSystemUrl}
-            >
-              Clear
-            </Button>
           </div>
+          <FilterChipBar fields={filterChipFields} onClearAll={() => setActiveFilters({ rpgSystemName: '', rpgSystemUrl: '' })} />
         </div>
 
         {isAdding || editingId !== null ? (

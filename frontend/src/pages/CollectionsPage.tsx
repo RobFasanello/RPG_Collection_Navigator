@@ -8,6 +8,7 @@ import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
 import ImageCropDialog from '../components/ImageCropDialog';
 import SetupTablePagination from '../components/SetupTablePagination';
+import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import useSetupPagination from '../hooks/useSetupPagination';
 import { tableAPI } from '../services/api';
@@ -24,7 +25,6 @@ export default function CollectionsPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const [filterInputs, setFilterInputs] = useState({ collectionName: '', collectionTypeId: '' });
   const [activeFilters, setActiveFilters] = useState({ collectionName: '', collectionTypeId: '' });
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
@@ -251,12 +251,28 @@ export default function CollectionsPage() {
     label: String(item.CollectionTypeName ?? ''),
   }));
 
-  const hasFilterChanges =
-    filterInputs.collectionName !== activeFilters.collectionName ||
-    filterInputs.collectionTypeId !== activeFilters.collectionTypeId;
   const sortedRecordValues = getSortedRecords();
   const sortedRecords = Array.isArray(sortedRecordValues) ? sortedRecordValues : [];
   const pagination = useSetupPagination(sortedRecords, [activeFilters.collectionName, activeFilters.collectionTypeId, sortColumn, sortDirection]);
+  const filterChipFields: FilterChipField[] = [
+    {
+      key: 'collectionName',
+      label: 'Collection Name',
+      kind: 'text',
+      value: activeFilters.collectionName,
+      onApply: (value) => setActiveFilters((prev) => ({ ...prev, collectionName: value })),
+      onClear: () => setActiveFilters((prev) => ({ ...prev, collectionName: '' })),
+    },
+    {
+      key: 'collectionTypeId',
+      label: 'Collection Type',
+      kind: 'singleSelect',
+      options: collectionTypeOptions,
+      value: activeFilters.collectionTypeId,
+      onApply: (value) => setActiveFilters((prev) => ({ ...prev, collectionTypeId: value })),
+      onClear: () => setActiveFilters((prev) => ({ ...prev, collectionTypeId: '' })),
+    },
+  ];
 
   const formatImageUploadDate = (date?: string) => {
     if (!date) {
@@ -278,29 +294,6 @@ export default function CollectionsPage() {
     <AdminLayout title="Collections" subtitle="Use this screen to view, add, remove and modify the collections in your collection.">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Collection Name</label>
-              <Input
-                type="text"
-                value={filterInputs.collectionName}
-                onChange={(event) => setFilterInputs((prev) => ({ ...prev, collectionName: event.target.value }))}
-                placeholder="Filter by collection name"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Collection Type</label>
-              <ComboSelect
-                options={collectionTypeOptions}
-                value={filterInputs.collectionTypeId}
-                onChange={(value) => setFilterInputs((prev) => ({ ...prev, collectionTypeId: value }))}
-                placeholder="Filter by collection type"
-                className="w-full"
-              />
-            </div>
-          </div>
-
           <div className="flex flex-wrap gap-2 justify-end">
             <Button
               onClick={() => {
@@ -315,18 +308,8 @@ export default function CollectionsPage() {
             >
               Add Collection
             </Button>
-            <Button onClick={() => setActiveFilters(filterInputs)} disabled={!hasFilterChanges}>Apply Filters</Button>
-            <Button
-              onClick={() => {
-                setFilterInputs({ collectionName: '', collectionTypeId: '' });
-                setActiveFilters({ collectionName: '', collectionTypeId: '' });
-              }}
-              className="bg-gray-600 hover:bg-gray-700"
-              disabled={!filterInputs.collectionName && !filterInputs.collectionTypeId && !activeFilters.collectionName && !activeFilters.collectionTypeId}
-            >
-              Clear
-            </Button>
           </div>
+          <FilterChipBar fields={filterChipFields} onClearAll={() => setActiveFilters({ collectionName: '', collectionTypeId: '' })} />
         </div>
 
         {isAdding || editingId !== null ? (

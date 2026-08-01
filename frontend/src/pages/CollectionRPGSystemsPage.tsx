@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
 import SetupTablePagination from '../components/SetupTablePagination';
+import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import useSetupPagination from '../hooks/useSetupPagination';
 import { tableAPI } from '../services/api';
@@ -25,7 +26,6 @@ export default function CollectionRPGSystemsPage() {
   const [sortColumn, setSortColumn] = useState<SortColumn>('collection');
   const [formValues, setFormValues] = useState({ CollectionID: '', RPGSystemID: '' });
   const [initialFormValues, setInitialFormValues] = useState({ CollectionID: '', RPGSystemID: '' });
-  const [filterInputs, setFilterInputs] = useState({ collectionName: '', rpgSystemName: '' });
   const [activeFilters, setActiveFilters] = useState({ collectionName: '', rpgSystemName: '' });
   const [formError, setFormError] = useState('');
   const [deleteError, setDeleteError] = useState('');
@@ -112,10 +112,6 @@ export default function CollectionRPGSystemsPage() {
   })).sort((a: { value: string; label: string }, b: { value: string; label: string }) =>
     a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
   );
-
-  const hasFilterChanges =
-    filterInputs.collectionName !== activeFilters.collectionName ||
-    filterInputs.rpgSystemName !== activeFilters.rpgSystemName;
 
   const deleteMutation = useMutation({
     mutationFn: async (payload: number | string | { collectionId: number; rpgSystemId: number }) => {
@@ -250,18 +246,6 @@ export default function CollectionRPGSystemsPage() {
     });
   };
 
-  const applyFilters = () => {
-    setActiveFilters({
-      collectionName: filterInputs.collectionName,
-      rpgSystemName: filterInputs.rpgSystemName,
-    });
-  };
-
-  const clearFilters = () => {
-    setFilterInputs({ collectionName: '', rpgSystemName: '' });
-    setActiveFilters({ collectionName: '', rpgSystemName: '' });
-  };
-
   const getSortIcon = (column: Exclude<SortColumn, null>) => {
     if (sortColumn !== column) return null;
     if (sortDirection === 'asc') return <ChevronUp className="w-4 h-4" />;
@@ -271,35 +255,31 @@ export default function CollectionRPGSystemsPage() {
 
   const sortedRecords = getSortedRecords();
   const pagination = useSetupPagination(sortedRecords, [activeFilters.collectionName, activeFilters.rpgSystemName, sortColumn, sortDirection]);
+  const filterChipFields: FilterChipField[] = [
+    {
+      key: 'collectionName',
+      label: 'Collection Name',
+      kind: 'singleSelect',
+      options: collectionOptions,
+      value: activeFilters.collectionName,
+      onApply: (value) => setActiveFilters((prev) => ({ ...prev, collectionName: value })),
+      onClear: () => setActiveFilters((prev) => ({ ...prev, collectionName: '' })),
+    },
+    {
+      key: 'rpgSystemName',
+      label: 'RPG System Name',
+      kind: 'singleSelect',
+      options: rpgSystemOptions,
+      value: activeFilters.rpgSystemName,
+      onApply: (value) => setActiveFilters((prev) => ({ ...prev, rpgSystemName: value })),
+      onClear: () => setActiveFilters((prev) => ({ ...prev, rpgSystemName: '' })),
+    },
+  ];
 
   return (
     <AdminLayout title="Collection / RPG Systems" subtitle="Use this screen to view, add, remove and modify collection and RPG system relationships.">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Collection Name</label>
-              <ComboSelect
-                options={collectionOptions}
-                value={filterInputs.collectionName}
-                onChange={(value) => setFilterInputs((prev) => ({ ...prev, collectionName: value }))}
-                placeholder="Select RPG collection"
-                className="w-full"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">RPG System Name</label>
-              <ComboSelect
-                options={rpgSystemOptions}
-                value={filterInputs.rpgSystemName}
-                onChange={(value) => setFilterInputs((prev) => ({ ...prev, rpgSystemName: value }))}
-                placeholder="Select RPG system"
-                className="w-full"
-              />
-            </div>
-          </div>
-
           <div className="flex flex-wrap gap-2 justify-end">
             <Button
               onClick={() => {
@@ -313,11 +293,8 @@ export default function CollectionRPGSystemsPage() {
             >
               Add Collection / RPG System
             </Button>
-            <Button onClick={applyFilters} disabled={!hasFilterChanges}>Apply Filters</Button>
-            <Button onClick={clearFilters} className="bg-gray-600 hover:bg-gray-700" disabled={!hasFilterChanges}>
-              Clear
-            </Button>
           </div>
+          <FilterChipBar fields={filterChipFields} onClearAll={() => setActiveFilters({ collectionName: '', rpgSystemName: '' })} />
         </div>
 
         {isAdding || isEditing ? (
