@@ -4,8 +4,8 @@ import Sidebar from './Sidebar';
 
 interface AdminLayoutProps {
   children: ReactNode;
-  title?: string;
-  subtitle?: string;
+  title?: ReactNode;
+  subtitle?: string | null;
 }
 
 export default function AdminLayout({ children, title, subtitle = 'Manage your database records' }: AdminLayoutProps) {
@@ -18,7 +18,7 @@ export default function AdminLayout({ children, title, subtitle = 'Manage your d
         {title && (
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-            <p className="text-sm text-gray-600 mt-2">{subtitle}</p>
+            {subtitle ? <p className="text-sm text-gray-600 mt-2">{subtitle}</p> : null}
           </div>
         )}
         {children}
@@ -33,7 +33,7 @@ export default function AdminLayout({ children, title, subtitle = 'Manage your d
         {title && (
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-gray-900">{title}</h1>
-            <p className="text-gray-600 mt-2">{subtitle}</p>
+            {subtitle ? <p className="text-gray-600 mt-2">{subtitle}</p> : null}
           </div>
         )}
         {children}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link2 } from 'lucide-react';
+import { CircleHelp, Link2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
@@ -1097,7 +1097,7 @@ export default function InventoryLookupPage() {
   };
 
   const openBulkUpdateDialog = () => {
-    if (selectedItemIds.length < 2) {
+    if (selectedItemIds.length < 1) {
       return;
     }
 
@@ -1107,7 +1107,7 @@ export default function InventoryLookupPage() {
   };
 
   const openBulkDeleteDialog = () => {
-    if (selectedItemIds.length < 2) {
+    if (selectedItemIds.length < 1) {
       return;
     }
 
@@ -1909,69 +1909,109 @@ export default function InventoryLookupPage() {
   };
 
   return (
-    <AdminLayout title="Item Master" subtitle="Use this screen to view, add, remove and modify the items in your collection.">
+    <AdminLayout
+      title={
+        <span className="inline-flex items-center gap-2">
+          <span>Item Master</span>
+          <span
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-400 hover:text-gray-600"
+            title="Use this screen to view, add, remove and modify the items in your collection."
+            aria-label="Item Master page information"
+          >
+            <CircleHelp className="h-4 w-4" aria-hidden="true" />
+          </span>
+        </span>
+      }
+      subtitle={null}
+    >
       <div className="max-w-[1600px] mx-auto space-y-6">
         <section className="bg-white shadow rounded-lg p-6">
           <div className="space-y-4">
-            <Input
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Search by item name or product ID..."
-              className="w-full max-w-md"
-              autoFocus
-              tabIndex={1}
-            />
-
-            <FilterChipBar fields={filterChipFields} onClearAll={clearAllChipFilters} />
-
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-3">
-                {selectedItemIds.length >= 2 ? (
-                  <Button
+            {selectedItemIds.length > 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="font-semibold text-blue-900">{selectedItemIds.length} selected</span>
+                  <button
                     type="button"
-                    className="bg-red-600 hover:bg-red-700"
-                    onClick={openBulkDeleteDialog}
-                    disabled={selectedItemIds.length < 2}
+                    className="text-blue-700 hover:text-blue-900 underline underline-offset-2"
+                    onClick={() => setSelectedItemIds([])}
                     tabIndex={14}
                   >
-                    Bulk Delete{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
-                  </Button>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap justify-end gap-3">
-                {selectedItemIds.length >= 2 ? (
+                    Clear
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {selectedCurrentPageItems.length > 0 ? (
+                    <Button
+                      type="button"
+                      className="border border-gray-300 !bg-white !text-gray-800 hover:!bg-gray-50"
+                      onClick={openCreateOrderModal}
+                      tabIndex={15}
+                    >
+                      Create Order
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
-                    className="bg-green-600 hover:bg-green-700"
-                    onClick={openCreateOrderModal}
-                    disabled={selectedItemIds.length < 2}
-                    tabIndex={15}
-                  >
-                    Create Order{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
-                  </Button>
-                ) : null}
-                {selectedItemIds.length >= 2 ? (
-                  <Button
-                    type="button"
-                    className="bg-green-600 hover:bg-green-700"
+                    className="border border-gray-300 !bg-white !text-gray-800 hover:!bg-gray-50"
                     onClick={openBulkUpdateDialog}
-                    disabled={selectedItemIds.length < 2}
                     tabIndex={16}
                   >
-                    Bulk Update{selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}
+                    Bulk Update
                   </Button>
-                ) : null}
-                <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={17}>
-                  Add Item
-                </Button>
-                <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={18}>
-                  Bulk Upload
-                </Button>
-                <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={19}>
-                  {isDownloading ? 'Downloading...' : 'Download'}
-                </Button>
+                  <Button
+                    type="button"
+                    className="border border-red-300 !bg-white !text-red-700 hover:!bg-red-50"
+                    onClick={openBulkDeleteDialog}
+                    tabIndex={17}
+                  >
+                    Delete
+                  </Button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+                  <Input
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    placeholder="Search by item name or product ID..."
+                    className="w-full max-w-md"
+                    autoFocus
+                    tabIndex={1}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <FilterChipBar fields={filterChipFields} onClearAll={clearAllChipFilters} />
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center justify-end gap-2">
+                  <Button
+                    type="button"
+                    className="border border-gray-300 !bg-white !text-gray-700 hover:!bg-gray-50"
+                    onClick={() => setIsBulkUploadOpen(true)}
+                    title="Bulk Upload"
+                    aria-label="Bulk Upload"
+                    tabIndex={18}
+                  >
+                    Bulk Upload
+                  </Button>
+                  <Button
+                    type="button"
+                    className="border border-gray-300 !bg-white !text-gray-700 hover:!bg-gray-50"
+                    onClick={handleDownloadCsv}
+                    disabled={isDownloading}
+                    title={isDownloading ? 'Downloading...' : 'Download CSV'}
+                    aria-label={isDownloading ? 'Downloading CSV' : 'Download CSV'}
+                    tabIndex={19}
+                  >
+                    Download
+                  </Button>
+                  <Button type="button" className="!bg-blue-600 !text-white hover:!bg-blue-700" onClick={openAddModal} tabIndex={20}>
+                    Add Item
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {downloadError ? (
               <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">

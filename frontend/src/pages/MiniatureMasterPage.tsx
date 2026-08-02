@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link2 } from 'lucide-react';
+import { CircleHelp, Link2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import ComboSelect from '../components/ui/ComboSelect';
 import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
@@ -758,7 +758,7 @@ export default function MiniatureMasterPage() {
   };
 
   const openBulkUpdateDialog = () => {
-    if (selectedMiniatureIds.length < 2) {
+    if (selectedMiniatureIds.length < 1) {
       return;
     }
 
@@ -776,7 +776,7 @@ export default function MiniatureMasterPage() {
   };
 
   const openBulkDeleteDialog = () => {
-    if (selectedMiniatureIds.length < 2) {
+    if (selectedMiniatureIds.length < 1) {
       return;
     }
 
@@ -1250,46 +1250,90 @@ export default function MiniatureMasterPage() {
   };
 
   return (
-    <AdminLayout title="Miniature Master" subtitle="Use this screen to view, add, remove and modify miniatures in your collection.">
+    <AdminLayout
+      title={
+        <span className="inline-flex items-center gap-2">
+          <span>Miniature Master</span>
+          <span
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-400 hover:text-gray-600"
+            title="Use this screen to view, add, remove and modify miniatures in your collection."
+            aria-label="Miniature Master page information"
+          >
+            <CircleHelp className="h-4 w-4" aria-hidden="true" />
+          </span>
+        </span>
+      }
+      subtitle={null}
+    >
       <div className="max-w-[1600px] mx-auto space-y-6">
         <section className="bg-white shadow rounded-lg p-6">
           <div className="space-y-4">
-            <Input
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Search by miniature name..."
-              className="w-full max-w-md"
-              autoFocus
-              tabIndex={1}
-            />
-
-            <FilterChipBar fields={filterChipFields} onClearAll={clearAllChipFilters} />
-
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-3">
-                {selectedMiniatureIds.length >= 2 ? (
-                  <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={openBulkDeleteDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={2}>
-                    Bulk Delete{selectedMiniatureIds.length ? ` (${selectedMiniatureIds.length})` : ''}
+            {selectedMiniatureIds.length > 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="font-semibold text-blue-900">{selectedMiniatureIds.length} selected</span>
+                  <button
+                    type="button"
+                    className="text-blue-700 hover:text-blue-900 underline underline-offset-2"
+                    onClick={() => setSelectedMiniatureIds([])}
+                    tabIndex={2}
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Button
+                    type="button"
+                    className="border border-gray-300 !bg-white !text-gray-800 hover:!bg-gray-50"
+                    onClick={openBulkUpdateDialog}
+                    tabIndex={3}
+                  >
+                    Bulk Update
                   </Button>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap justify-end gap-3">
-                {selectedMiniatureIds.length >= 2 ? (
-                  <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openBulkUpdateDialog} disabled={selectedMiniatureIds.length < 2} tabIndex={3}>
-                    Bulk Update{selectedMiniatureIds.length ? ` (${selectedMiniatureIds.length})` : ''}
+                  <Button
+                    type="button"
+                    className="border border-red-300 !bg-white !text-red-700 hover:!bg-red-50"
+                    onClick={openBulkDeleteDialog}
+                    tabIndex={4}
+                  >
+                    Delete
                   </Button>
-                ) : null}
-                <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddModal} tabIndex={4}>
-                  Add Miniature
-                </Button>
-                <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={() => setIsBulkUploadOpen(true)} tabIndex={5}>
-                  Bulk Upload
-                </Button>
-                <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={6}>
-                  {isDownloading ? 'Downloading...' : 'Download'}
-                </Button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+                  <Input
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    placeholder="Search by miniature name..."
+                    className="w-full max-w-md"
+                    autoFocus
+                    tabIndex={1}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <FilterChipBar fields={filterChipFields} onClearAll={clearAllChipFilters} />
+                  </div>
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                  <Button type="button" className="border border-gray-300 !bg-white !text-gray-700 hover:!bg-gray-50" onClick={() => setIsBulkUploadOpen(true)} tabIndex={5}>
+                    Bulk Upload
+                  </Button>
+                  <Button
+                    type="button"
+                    className="border border-gray-300 !bg-white !text-gray-700 hover:!bg-gray-50"
+                    onClick={handleDownloadCsv}
+                    disabled={isDownloading}
+                    tabIndex={6}
+                  >
+                    Download
+                  </Button>
+                  <Button type="button" className="!bg-blue-600 !text-white hover:!bg-blue-700" onClick={openAddModal} tabIndex={7}>
+                    Add Miniature
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {downloadError ? (
               <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">

@@ -9,7 +9,7 @@ import FilterChipBar, { type FilterChipField } from '../components/inventory/Fil
 import { Dialog } from '../components/ui/Dialog';
 import { tablesAPI } from '../services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
-import { Edit2, Trash2 } from 'lucide-react';
+import { CircleHelp, Edit2, Trash2 } from 'lucide-react';
 
 interface PurchaseOrder {
   PurchaseOrderID: number;
@@ -467,7 +467,7 @@ export default function OrderMasterPage() {
         throw new Error('Type DELETE exactly to enable bulk delete.');
       }
 
-      if (selectedOrderIds.length < 2) throw new Error('Select at least 2 orders to delete.');
+      if (selectedOrderIds.length < 1) throw new Error('Select at least 1 order to delete.');
 
       await Promise.all(
         selectedOrderIds.map(async (orderId) => {
@@ -495,8 +495,8 @@ export default function OrderMasterPage() {
 
   const bulkUpdateMutation = useMutation({
     mutationFn: async (payload: { orderIds: number[]; updates: Record<string, any> }) => {
-      if (payload.orderIds.length < 2) {
-        throw new Error('Select at least 2 orders to update.');
+      if (payload.orderIds.length < 1) {
+        throw new Error('Select at least 1 order to update.');
       }
 
       await Promise.all(
@@ -899,7 +899,7 @@ export default function OrderMasterPage() {
   };
 
   const openBulkDeleteDialog = () => {
-    if (selectedOrderIds.length < 2) {
+    if (selectedOrderIds.length < 1) {
       return;
     }
 
@@ -915,7 +915,7 @@ export default function OrderMasterPage() {
   };
 
   const openBulkUpdateDialog = () => {
-    if (selectedOrderIds.length < 2) {
+    if (selectedOrderIds.length < 1) {
       return;
     }
 
@@ -1156,43 +1156,87 @@ export default function OrderMasterPage() {
   };
 
   return (
-    <AdminLayout title="Order Master" subtitle="Use this screen to view, add, remove and modify the purchase orders associated with your collection.">
+    <AdminLayout
+      title={
+        <span className="inline-flex items-center gap-2">
+          <span>Order Master</span>
+          <span
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-400 hover:text-gray-600"
+            title="Use this screen to view, add, remove and modify the purchase orders associated with your collection."
+            aria-label="Order Master page information"
+          >
+            <CircleHelp className="h-4 w-4" aria-hidden="true" />
+          </span>
+        </span>
+      }
+      subtitle={null}
+    >
       <div className="max-w-7xl mx-auto space-y-6">
         <section className="bg-white shadow rounded-lg p-6">
           <div className="space-y-4">
-            <Input
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Search by invoice number..."
-              className="w-full max-w-md"
-              autoFocus
-              tabIndex={1}
-            />
-
-            <FilterChipBar fields={filterChipFields} onClearAll={clearAllChipFilters} />
-
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-3">
-                {selectedOrderIds.length >= 2 ? (
-                  <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={openBulkDeleteDialog} tabIndex={2}>
-                    Bulk Delete{selectedOrderIds.length ? ` (${selectedOrderIds.length})` : ''}
+            {selectedOrderIds.length > 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="font-semibold text-blue-900">{selectedOrderIds.length} selected</span>
+                  <button
+                    type="button"
+                    className="text-blue-700 hover:text-blue-900 underline underline-offset-2"
+                    onClick={() => setSelectedOrderIds([])}
+                    tabIndex={2}
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Button
+                    type="button"
+                    className="border border-gray-300 !bg-white !text-gray-800 hover:!bg-gray-50"
+                    onClick={openBulkUpdateDialog}
+                    tabIndex={3}
+                  >
+                    Bulk Update
                   </Button>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap justify-end gap-3">
-                {selectedOrderIds.length >= 2 ? (
-                  <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openBulkUpdateDialog} tabIndex={3}>
-                    Bulk Update{selectedOrderIds.length ? ` (${selectedOrderIds.length})` : ''}
+                  <Button
+                    type="button"
+                    className="border border-red-300 !bg-white !text-red-700 hover:!bg-red-50"
+                    onClick={openBulkDeleteDialog}
+                    tabIndex={4}
+                  >
+                    Delete
                   </Button>
-                ) : null}
-                <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={openAddOrder} tabIndex={4}>
-                  Add Order
-                </Button>
-                <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleDownloadCsv} disabled={isDownloading} tabIndex={5}>
-                  {isDownloading ? 'Downloading...' : 'Download'}
-                </Button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+                  <Input
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    placeholder="Search by invoice number..."
+                    className="w-full max-w-md"
+                    autoFocus
+                    tabIndex={1}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <FilterChipBar fields={filterChipFields} onClearAll={clearAllChipFilters} />
+                  </div>
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                  <Button
+                    type="button"
+                    className="border border-gray-300 !bg-white !text-gray-700 hover:!bg-gray-50"
+                    onClick={handleDownloadCsv}
+                    disabled={isDownloading}
+                    tabIndex={5}
+                  >
+                    Download
+                  </Button>
+                  <Button type="button" className="!bg-blue-600 !text-white hover:!bg-blue-700" onClick={openAddOrder} tabIndex={6}>
+                    Add Order
+                  </Button>
+                </div>
+              </div>
+            )}
             {downloadError ? (
               <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{downloadError}</div>
             ) : null}
