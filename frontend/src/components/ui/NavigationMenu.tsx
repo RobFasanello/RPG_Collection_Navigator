@@ -40,7 +40,7 @@ NavigationMenuItem.displayName = NavigationMenuPrimitive.Item.displayName;
 
 const navigationMenuTriggerStyle = (active?: boolean) =>
   cx(
-    'inline-flex h-10 items-center gap-1 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+    'inline-flex h-10 items-center gap-1 rounded-md px-3 py-2 text-sm font-semibold transition-colors',
     'focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 disabled:pointer-events-none disabled:opacity-50',
     active
       ? 'text-sky-700'

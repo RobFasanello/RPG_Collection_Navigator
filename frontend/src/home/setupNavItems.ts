@@ -1,22 +1,33 @@
 export type SetupNavItem = {
   label: string;
   path: string;
+  description: string;
 };
 
 export const SETUP_NAV_ITEMS: SetupNavItem[] = [
-  { label: 'Publishers', path: '/home/setup/publishers' },
-  { label: 'RPG Systems', path: '/home/setup/rpg-systems' },
-  { label: 'Collections', path: '/home/setup/collections' },
-  { label: 'Publisher / Collections', path: '/home/setup/publisher-collections' },
-  { label: 'Collection / RPG Systems', path: '/home/setup/collection-rpg-systems' },
-  { label: 'Collection Types', path: '/home/setup/collection-types' },
-  { label: 'Categories', path: '/home/setup/categories' },
-  { label: 'Sub Categories', path: '/home/setup/sub-categories' },
-  { label: 'Category / Sub Categories', path: '/home/setup/category-sub-categories' },
-  { label: 'Locations', path: '/home/setup/locations' },
-  { label: 'Location Types', path: '/home/setup/location-types' },
-  { label: 'Stores', path: '/home/setup/stores' },
-  { label: 'Miniature Size', path: '/home/setup/miniature-sizes' },
-  { label: 'Miniature Rarity', path: '/home/setup/miniature-rarities' },
-  { label: 'Status', path: '/home/setup/status' },
+  {
+    label: 'Publishers',
+    path: '/home/setup/publishers',
+    description: 'Select to view, add, delete or update Publisher reference data and associated reference data.',
+  },
+  {
+    label: 'Reference Lists',
+    path: '/home/setup/reference-lists',
+    description: 'Select to view, add, delete or update Reference List data and associated reference data.',
+  },
+  {
+    label: 'Locations',
+    path: '/home/setup/locations',
+    description: 'Select to view, add, delete or update Location reference data and associated reference data.',
+  },
+  {
+    label: 'Collections',
+    path: '/home/setup/collections',
+    description: 'Select to view, add, delete or update Collection reference data and associated reference data.',
+  },
+  {
+    label: 'Categories',
+    path: '/home/setup/categories',
+    description: 'Select to view, add, delete or update Category reference data and associated reference data.',
+  },
 ];

@@ -15,6 +15,7 @@ function usesServerGeneratedManualId(tableName: string): boolean {
     tableName === 'Location' ||
     tableName === 'LocationType' ||
     tableName === 'Miniature' ||
+    tableName === 'Terrain' ||
     tableName === 'MiniatureSize' ||
     tableName === 'MiniatureRarity'
   );

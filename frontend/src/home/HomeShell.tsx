@@ -19,12 +19,30 @@ import {
 type TopMenuItem = {
   label: string;
   path: string;
+  description: string;
 };
 
 const MANAGE_NAV_ITEMS: TopMenuItem[] = [
-  { label: 'Inventory', path: '/home/inventory' },
-  { label: 'Miniatures', path: '/home/miniatures' },
-  { label: 'Orders', path: '/home/orders' },
+  {
+    label: 'Terrain',
+    path: '/home/terrain',
+    description: 'Select to view, add, delete or update Terrain within your collection.',
+  },
+  {
+    label: 'Orders',
+    path: '/home/orders',
+    description: 'Select to view, add, delete or update Orders within your collection.',
+  },
+  {
+    label: 'Miniatures',
+    path: '/home/miniatures',
+    description: 'Select to view, add, delete or update Miniatures within your collection.',
+  },
+  {
+    label: 'Items',
+    path: '/home/inventory',
+    description: 'Select to view, add, delete or update Items within your collection.',
+  },
 ];
 
 function formatBuildDateTime(value?: string) {
@@ -118,7 +136,7 @@ export default function HomeShell() {
                       Manage
                     </NavigationMenuTrigger>
                     <NavigationMenuContent>
-                      <ul className="grid w-[300px] grid-cols-1 gap-1 p-3 sm:w-[340px]">
+                      <ul className="grid w-[360px] grid-cols-1 gap-1 p-3 sm:w-[420px]">
                         {MANAGE_NAV_ITEMS.map((item) => {
                           const active = location.pathname === item.path;
 
@@ -127,13 +145,18 @@ export default function HomeShell() {
                               <NavigationMenuLink asChild active={active}>
                                 <Link
                                   to={item.path}
-                                  className={`block rounded-md px-3 py-2 text-sm font-medium transition ${
+                                  className={`block rounded-md px-3 py-2 transition ${
                                     active
                                       ? 'bg-sky-600 text-white'
                                       : 'text-slate-700 hover:bg-sky-50 hover:text-sky-700'
                                   }`}
                                 >
-                                  {item.label}
+                                  <div className="space-y-0.5">
+                                    <div className="text-sm font-semibold leading-5">{item.label}</div>
+                                    <div className={`text-xs leading-4 ${active ? 'text-sky-50' : 'text-slate-500'}`}>
+                                      {item.description}
+                                    </div>
+                                  </div>
                                 </Link>
                               </NavigationMenuLink>
                             </li>
@@ -148,7 +171,7 @@ export default function HomeShell() {
                       Setup
                     </NavigationMenuTrigger>
                     <NavigationMenuContent>
-                      <ul className="grid w-[560px] grid-cols-2 gap-1 p-3 sm:w-[640px] sm:grid-cols-3">
+                      <ul className="grid w-[420px] grid-cols-1 gap-1 p-3 sm:w-[520px]">
                         {SETUP_NAV_ITEMS.map((item) => {
                           const active = location.pathname === item.path;
 
@@ -157,13 +180,18 @@ export default function HomeShell() {
                               <NavigationMenuLink asChild active={active}>
                                 <Link
                                   to={item.path}
-                                  className={`block rounded-md px-3 py-2 text-sm font-medium transition ${
+                                  className={`block rounded-md px-3 py-2 transition ${
                                     active
                                       ? 'bg-sky-600 text-white'
                                       : 'text-slate-700 hover:bg-sky-50 hover:text-sky-700'
                                   }`}
                                 >
-                                  {item.label}
+                                  <div className="space-y-0.5">
+                                    <div className="text-sm font-semibold leading-5">{item.label}</div>
+                                    <div className={`text-xs leading-4 ${active ? 'text-sky-50' : 'text-slate-500'}`}>
+                                      {item.description}
+                                    </div>
+                                  </div>
                                 </Link>
                               </NavigationMenuLink>
                             </li>

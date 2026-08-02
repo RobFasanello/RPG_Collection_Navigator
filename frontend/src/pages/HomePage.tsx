@@ -895,17 +895,19 @@ export default function HomePage() {
                       {hasPublisherImage ? <div className="absolute inset-0 bg-black/55" /> : null}
                       <Link
                         to={baseInventoryLink}
-                        className="relative z-10 block pr-36 pb-14 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
+                        className="relative z-10 block h-full pr-36 pb-16 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
                         title={`Open Item Master for ${publisher.EntityName}`}
                       >
-                        <p className={`text-sm font-medium truncate ${titleClass}`} title={publisher.EntityName}>
+                        <p className={`text-3xl font-bold leading-tight truncate ${titleClass}`} title={publisher.EntityName}>
                           {publisher.EntityName}
                         </p>
-                        <p className={`mt-2 text-3xl font-bold ${valueClass}`}>{formatPercent(publisher.CoveragePercent)}</p>
                         <p className={`mt-2 text-sm ${detailClass}`}>
                           {publisher.ItemsInPurchaseOrder.toLocaleString()} / {publisher.TotalItems.toLocaleString()} items in orders
                         </p>
                       </Link>
+                      <p className={`absolute bottom-3 left-3 z-10 text-3xl font-bold ${valueClass}`}>
+                        {formatPercent(publisher.CoveragePercent)}
+                      </p>
                       <CollectionStatusLinks
                         collectedTo={buildInventoryLink({ publisher: publisher.EntityName, hasPurchaseOrder: true })}
                         uncollectedTo={uncollectedInventoryLink}
