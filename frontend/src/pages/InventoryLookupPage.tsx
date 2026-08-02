@@ -1975,6 +1975,9 @@ export default function InventoryLookupPage() {
                   <Input
                     value={searchInput}
                     onChange={(event) => setSearchInput(event.target.value)}
+                    onClear={() => setSearchInput('')}
+                    clearable
+                    clearAriaLabel="Clear item search"
                     placeholder="Search by item name or product ID..."
                     className="w-full max-w-md"
                     autoFocus

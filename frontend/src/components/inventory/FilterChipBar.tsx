@@ -134,6 +134,12 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
     }
   };
 
+  const closePicker = () => {
+    setIsOpen(false);
+    setActiveFieldKey(null);
+    setPickerSearch('');
+  };
+
   const chips: Chip[] = useMemo(() => {
     const list: Chip[] = [];
 
@@ -214,14 +220,27 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
 
     return (
       <div className="w-64">
-        <input
-          type="text"
-          autoFocus
-          value={pickerSearch}
-          onChange={(event) => setPickerSearch(event.target.value)}
-          placeholder="Search..."
-          className="mb-2 w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
-        />
+        <div className="relative mb-2">
+          <input
+            type="text"
+            autoFocus
+            value={pickerSearch}
+            onChange={(event) => setPickerSearch(event.target.value)}
+            placeholder="Search..."
+            className="w-full rounded border border-gray-300 px-2 py-1 pr-7 text-sm focus:border-blue-500 focus:outline-none"
+          />
+          {pickerSearch ? (
+            <button
+              type="button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => setPickerSearch('')}
+              aria-label="Clear filter search"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center rounded text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
+            >
+              x
+            </button>
+          ) : null}
+        </div>
         <ul className="max-h-48 overflow-y-auto">
           {available.length === 0 ? (
             <li className="px-2 py-1 text-sm text-gray-400">No matching options</li>
@@ -276,11 +295,14 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
 
     switch (activeField.kind) {
       case 'multi':
-        return renderPickList(activeField.options, activeField.selected, (value) => activeField.onAdd(value));
+        return renderPickList(activeField.options, activeField.selected, (value) => {
+          activeField.onAdd(value);
+          closePicker();
+        });
       case 'singleSelect':
         return renderPickList(activeField.options, activeField.value ? [activeField.value] : [], (value) => {
           activeField.onApply(value);
-          setActiveFieldKey(null);
+          closePicker();
         });
       case 'text':
         return (
@@ -348,7 +370,10 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
           </div>
         );
       case 'yesNo':
-        return renderYesNoToggle(activeField.value, (next) => activeField.onApply(next));
+        return renderYesNoToggle(activeField.value, (next) => {
+          activeField.onApply(next);
+          closePicker();
+        });
       default:
         return null;
     }

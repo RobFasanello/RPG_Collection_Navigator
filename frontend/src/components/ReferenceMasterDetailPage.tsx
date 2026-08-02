@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router';
 import AdminLayout from './AdminLayout';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -7,6 +8,11 @@ import { Dialog } from './ui/Dialog';
 import { tableAPI } from '../services/api';
 
 type FieldType = 'text' | 'url' | 'textarea';
+
+type QuickLink = {
+  label: string;
+  to: string;
+};
 
 export type ReferenceFieldConfig = {
   key: string;
@@ -37,6 +43,62 @@ const makeInitialFormValues = (fields: ReferenceFieldConfig[]) => {
     values[field.key] = '';
     return values;
   }, {} as Record<string, string>);
+};
+
+const buildQueryLink = (path: string, params: Record<string, string>) => {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (String(value).trim()) {
+      searchParams.set(key, value);
+    }
+  });
+
+  const query = searchParams.toString();
+  return query ? `${path}?${query}` : path;
+};
+
+const buildReferenceQuickLinks = (tableName: string, selectedName: string): QuickLink[] => {
+  switch (tableName) {
+    case 'CollectionType':
+      return [
+        { label: 'Open Collections setup', to: '/home/setup/collections' },
+      ];
+
+    case 'RPGSystem':
+      return [
+        { label: 'View collections for this RPG system', to: buildQueryLink('/home/setup/collections', { rpgSystem: selectedName }) },
+      ];
+
+    case 'LocationType':
+      return [
+        { label: 'Open Locations setup', to: '/home/setup/locations' },
+      ];
+
+    case 'Store':
+      return [
+        { label: 'View orders for this store', to: buildQueryLink('/home/orders', { store: selectedName }) },
+        { label: 'Open all orders', to: '/home/orders' },
+      ];
+
+    case 'MiniatureSize':
+      return [
+        { label: 'View miniatures with this size', to: buildQueryLink('/home/miniatures', { miniatureSize: selectedName }) },
+      ];
+
+    case 'MiniatureRarity':
+      return [
+        { label: 'View miniatures with this rarity', to: buildQueryLink('/home/miniatures', { miniatureRarity: selectedName }) },
+      ];
+
+    case 'Status':
+      return [
+        { label: 'View orders with this status', to: buildQueryLink('/home/orders', { status: selectedName }) },
+        { label: 'Open all orders', to: '/home/orders' },
+      ];
+
+    default:
+      return [];
+  }
 };
 
 export default function ReferenceMasterDetailPage({
@@ -253,6 +315,14 @@ export default function ReferenceMasterDetailPage({
   const hasChanges = mode === 'existing'
     ? allFields.some((field) => String(formValues[field.key] ?? '').trim() !== String(initialSelectedValues[field.key] ?? '').trim())
     : false;
+  const selectedRecordName = selectedRecord ? String(selectedRecord[nameColumn] ?? '').trim() : '';
+  const quickLinks = useMemo(() => {
+    if (!selectedRecord || mode !== 'existing') {
+      return [];
+    }
+
+    return buildReferenceQuickLinks(tableName, selectedRecordName);
+  }, [mode, selectedRecord, selectedRecordName, tableName]);
 
   return (
     <AdminLayout title={title} subtitle={subtitle}>
@@ -266,7 +336,14 @@ export default function ReferenceMasterDetailPage({
             <Button onClick={handleAdd} className="w-full bg-green-600 hover:bg-green-700">
               {newButtonLabel}
             </Button>
-            <Input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder={`Search ${title.toLowerCase()}...`} />
+            <Input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              onClear={() => setSearchInput('')}
+              clearable
+              clearAriaLabel={`Clear ${title.toLowerCase()} search`}
+              placeholder={`Search ${title.toLowerCase()}...`}
+            />
           </div>
 
           <div className="max-h-[calc(100vh-260px)] overflow-y-auto p-2">
@@ -429,6 +506,19 @@ export default function ReferenceMasterDetailPage({
                     <div>Selected: {selectedRecord ? String(selectedRecord[nameColumn] ?? '').trim() : '-'}</div>
                   </div>
                 </div>
+
+                {quickLinks.length > 0 ? (
+                  <div className="rounded-lg bg-white p-3 shadow-sm">
+                    <div className="text-sm font-semibold text-slate-900">Quick Links</div>
+                    <div className="mt-2 space-y-2 text-sm">
+                      {quickLinks.map((link) => (
+                        <Link key={`${link.label}-${link.to}`} to={link.to} className="block text-blue-600 underline hover:text-blue-700">
+                          {link.label}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </aside>
             </div>
           </div>

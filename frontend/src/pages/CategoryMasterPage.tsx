@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import ComboSelect from '../components/ui/ComboSelect';
@@ -53,6 +54,16 @@ async function getAllTableRows(tableName: string): Promise<any[]> {
   }
 
   return rows;
+}
+
+function buildCategoryInventoryLink(categoryName: string, ownedOnly: boolean) {
+  const params = new URLSearchParams();
+  params.set('category', categoryName);
+  if (ownedOnly) {
+    params.set('hasPurchaseOrder', 'true');
+  }
+
+  return `/admin/inventory?${params.toString()}`;
 }
 
 export default function CategoryMasterPage() {
@@ -221,7 +232,6 @@ export default function CategoryMasterPage() {
   const handleSelectCategory = (categoryId: number) => {
     setMode('existing');
     setSelectedCategoryId(categoryId);
-    setActiveTab('details');
     setSubTypeToLinkId('');
     setLinkError('');
     setDeleteError('');
@@ -421,7 +431,14 @@ export default function CategoryMasterPage() {
             <Button onClick={handleAddCategory} className="w-full bg-green-600 hover:bg-green-700">
               Add Category
             </Button>
-            <Input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Search categories..." />
+            <Input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              onClear={() => setSearchInput('')}
+              clearable
+              clearAriaLabel="Clear categories search"
+              placeholder="Search categories..."
+            />
           </div>
 
           <div className="max-h-[calc(100vh-260px)] overflow-y-auto p-2">
@@ -480,10 +497,22 @@ export default function CategoryMasterPage() {
 
               {selectedCategoryId !== null && mode === 'existing' ? (
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" className="border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50" onClick={() => setActiveTab('details')}>
+                  <Button
+                    type="button"
+                    className={activeTab === 'details'
+                      ? 'border border-sky-600 !bg-sky-600 !text-white hover:!bg-sky-700'
+                      : 'border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50'}
+                    onClick={() => setActiveTab('details')}
+                  >
                     Details
                   </Button>
-                  <Button type="button" className="border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50" onClick={() => setActiveTab('sub-categories')}>
+                  <Button
+                    type="button"
+                    className={activeTab === 'sub-categories'
+                      ? 'border border-sky-600 !bg-sky-600 !text-white hover:!bg-sky-700'
+                      : 'border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50'}
+                    onClick={() => setActiveTab('sub-categories')}
+                  >
                     Sub Categories
                   </Button>
                 </div>
@@ -614,9 +643,23 @@ export default function CategoryMasterPage() {
                   </div>
                 </div>
 
-                {selectedCategory ? (
-                  <div className="rounded-lg bg-white p-3 text-sm text-slate-500 shadow-sm">
-                    Select a category to see summary information.
+                {selectedCategory && mode === 'existing' ? (
+                  <div className="rounded-lg bg-white p-3 shadow-sm">
+                    <div className="text-sm font-semibold text-slate-900">Quick Links</div>
+                    <div className="mt-2 space-y-2 text-sm">
+                      <Link
+                        to={buildCategoryInventoryLink(String(selectedCategory.CategoryName || ''), false)}
+                        className="block text-blue-600 underline hover:text-blue-700"
+                      >
+                        View items for this category
+                      </Link>
+                      <Link
+                        to={buildCategoryInventoryLink(String(selectedCategory.CategoryName || ''), true)}
+                        className="block text-blue-600 underline hover:text-blue-700"
+                      >
+                        View owned items for this category
+                      </Link>
+                    </div>
                   </div>
                 ) : (
                   <div className="rounded-lg bg-white p-3 text-sm text-slate-500 shadow-sm">Select a category to see summary information.</div>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useSearchParams } from 'react-router';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import ComboSelect from '../components/ui/ComboSelect';
@@ -71,8 +72,19 @@ function getCollectionImageUrl(fileName?: string | null) {
   return fileName ? `/api/uploads/collections/${encodeURIComponent(fileName)}` : '';
 }
 
+function buildCollectionInventoryLink(collectionName: string, ownedOnly: boolean) {
+  const params = new URLSearchParams();
+  params.set('collection', collectionName);
+  if (ownedOnly) {
+    params.set('hasPurchaseOrder', 'true');
+  }
+
+  return `/admin/inventory?${params.toString()}`;
+}
+
 export default function CollectionMasterPage() {
   const queryClient = useQueryClient();
+  const [urlSearchParams] = useSearchParams();
   const [selectedCollectionId, setSelectedCollectionId] = useState<number | null>(null);
   const [mode, setMode] = useState<Mode>('existing');
   const [activeTab, setActiveTab] = useState<EditorTab>('details');
@@ -131,6 +143,23 @@ export default function CollectionMasterPage() {
       return map;
     }, {});
   }, [rpgSystemRecords]);
+
+  const linkedRpgSearchTextByCollection = useMemo(() => {
+    return (collectionRPGSystemRecords || []).reduce((map: Record<number, string[]>, record: CollectionRPGSystemRecord) => {
+      const collectionId = Number(record.CollectionID);
+      if (!Number.isInteger(collectionId)) {
+        return map;
+      }
+
+      const rpgName = String(rpgSystemNameById[Number(record.RPGSystemID)] ?? '').trim().toLowerCase();
+      if (!rpgName) {
+        return map;
+      }
+
+      map[collectionId] = [...(map[collectionId] || []), rpgName];
+      return map;
+    }, {});
+  }, [collectionRPGSystemRecords, rpgSystemNameById]);
 
   const itemCountByCollection = useMemo(() => {
     return (allItems || []).reduce((map: Record<number, number>, item: ItemRecord) => {
@@ -203,14 +232,24 @@ export default function CollectionMasterPage() {
 
         const name = String(collection.CollectionName || '').toLowerCase();
         const type = String(collectionTypeNameById[Number(collection.CollectionTypeID)] ?? collection.CollectionTypeName ?? '').toLowerCase();
-        return name.includes(search) || type.includes(search);
+        const linkedRpgSystems = (linkedRpgSearchTextByCollection[Number(collection.CollectionID)] || []).join(' ');
+        return name.includes(search) || type.includes(search) || linkedRpgSystems.includes(search);
       })
       .sort((a, b) => {
         const nameA = String(a.CollectionName ?? '').toLowerCase();
         const nameB = String(b.CollectionName ?? '').toLowerCase();
         return nameA.localeCompare(nameB);
       });
-  }, [collectionRecords, collectionTypeNameById, searchInput]);
+  }, [collectionRecords, collectionTypeNameById, linkedRpgSearchTextByCollection, searchInput]);
+
+  useEffect(() => {
+    const rpgSystem = (urlSearchParams.get('rpgSystem') || '').trim();
+    if (!rpgSystem) {
+      return;
+    }
+
+    setSearchInput(rpgSystem);
+  }, [urlSearchParams]);
 
   const populateFormFromCollection = (collection: CollectionRecord | null) => {
     if (!collection) {
@@ -275,7 +314,6 @@ export default function CollectionMasterPage() {
   const handleSelectCollection = (collectionId: number) => {
     setMode('existing');
     setSelectedCollectionId(collectionId);
-    setActiveTab('details');
     setRpgSystemToLinkId('');
     setLinkError('');
     setDeleteError('');
@@ -521,6 +559,9 @@ export default function CollectionMasterPage() {
             <Input
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
+              onClear={() => setSearchInput('')}
+              clearable
+              clearAriaLabel="Clear collections search"
               placeholder="Search collections..."
             />
           </div>
@@ -584,10 +625,22 @@ export default function CollectionMasterPage() {
 
               {selectedCollectionId !== null && mode === 'existing' ? (
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" className="border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50" onClick={() => setActiveTab('details')}>
+                  <Button
+                    type="button"
+                    className={activeTab === 'details'
+                      ? 'border border-sky-600 !bg-sky-600 !text-white hover:!bg-sky-700'
+                      : 'border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50'}
+                    onClick={() => setActiveTab('details')}
+                  >
                     Details
                   </Button>
-                  <Button type="button" className="border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50" onClick={() => setActiveTab('rpg-systems')}>
+                  <Button
+                    type="button"
+                    className={activeTab === 'rpg-systems'
+                      ? 'border border-sky-600 !bg-sky-600 !text-white hover:!bg-sky-700'
+                      : 'border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50'}
+                    onClick={() => setActiveTab('rpg-systems')}
+                  >
                     RPG Systems
                   </Button>
                 </div>
@@ -758,19 +811,39 @@ export default function CollectionMasterPage() {
                 </div>
 
                 {selectedCollection && mode === 'existing' ? (
-                  <div className="rounded-lg bg-white p-3 shadow-sm">
-                    <div className="text-sm font-semibold text-slate-900">Image Preview</div>
-                    <div className="mt-2">
-                      {formValues.ImageFileName ? (
-                        <a href={getCollectionImageUrl(formValues.ImageFileName)} target="_blank" rel="noreferrer" className="text-blue-600 underline hover:text-blue-700">
-                          {formValues.ImageFileName}
-                        </a>
-                      ) : (
-                        <div className="text-sm text-slate-500">No image uploaded.</div>
-                      )}
+                  <>
+                    <div className="rounded-lg bg-white p-3 shadow-sm">
+                      <div className="text-sm font-semibold text-slate-900">Quick Links</div>
+                      <div className="mt-2 space-y-2 text-sm">
+                        <Link
+                          to={buildCollectionInventoryLink(String(selectedCollection.CollectionName || ''), false)}
+                          className="block text-blue-600 underline hover:text-blue-700"
+                        >
+                          View items for this collection
+                        </Link>
+                        <Link
+                          to={buildCollectionInventoryLink(String(selectedCollection.CollectionName || ''), true)}
+                          className="block text-blue-600 underline hover:text-blue-700"
+                        >
+                          View owned items for this collection
+                        </Link>
+                      </div>
                     </div>
-                    <div className="mt-2 text-xs text-slate-500">Upload date: {formatImageUploadDate(selectedCollection.ImageUploadDate)}</div>
-                  </div>
+
+                    <div className="rounded-lg bg-white p-3 shadow-sm">
+                      <div className="text-sm font-semibold text-slate-900">Image Preview</div>
+                      <div className="mt-2">
+                        {formValues.ImageFileName ? (
+                          <a href={getCollectionImageUrl(formValues.ImageFileName)} target="_blank" rel="noreferrer" className="text-blue-600 underline hover:text-blue-700">
+                            {formValues.ImageFileName}
+                          </a>
+                        ) : (
+                          <div className="text-sm text-slate-500">No image uploaded.</div>
+                        )}
+                      </div>
+                      <div className="mt-2 text-xs text-slate-500">Upload date: {formatImageUploadDate(selectedCollection.ImageUploadDate)}</div>
+                    </div>
+                  </>
                 ) : (
                   <div className="rounded-lg bg-white p-3 text-sm text-slate-500 shadow-sm">Select a collection to see summary information.</div>
                 )}

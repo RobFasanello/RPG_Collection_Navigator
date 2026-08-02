@@ -166,14 +166,27 @@ const ComboMultiSelect: React.FC<Props> = ({
       {open && (
         <div className="mt-1 z-50 bg-white border rounded-md shadow-lg w-full left-0 absolute max-h-64 overflow-auto">
           <div className="p-2">
-            <input
-              ref={searchInputRef}
-              className="w-full border rounded-md p-2 mb-2"
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={handleSearchKeyDown}
-            />
+            <div className="relative mb-2">
+              <input
+                ref={searchInputRef}
+                className="w-full border rounded-md p-2 pr-8"
+                placeholder="Search..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+              />
+              {search ? (
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => setSearch('')}
+                  aria-label="Clear option search"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center rounded text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
+                >
+                  x
+                </button>
+              ) : null}
+            </div>
 
             <label className="flex items-center gap-2 mb-2">
               <input type="checkbox" checked={selectAllChecked} onChange={toggleSelectAll} />

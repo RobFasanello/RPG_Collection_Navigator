@@ -425,8 +425,9 @@ export default function TerrainMasterPage() {
   useEffect(() => {
     const itemId = (urlSearchParams.get('itemId') || '').trim();
     const terrainName = (urlSearchParams.get('terrainName') || '').trim();
+    const location = (urlSearchParams.get('location') || '').trim();
 
-    if (!itemId && !terrainName) {
+    if (!itemId && !terrainName && !location) {
       return;
     }
 
@@ -435,7 +436,7 @@ export default function TerrainMasterPage() {
       subTypeName: [],
       itemId,
       terrainName,
-      locationName: [],
+      locationName: location ? [location] : [],
       hasPurchaseOrder: undefined,
     };
 
@@ -1231,6 +1232,9 @@ export default function TerrainMasterPage() {
                   <Input
                     value={searchInput}
                     onChange={(event) => setSearchInput(event.target.value)}
+                    onClear={() => setSearchInput('')}
+                    clearable
+                    clearAriaLabel="Clear terrain search"
                     placeholder="Search by terrain name..."
                     className="w-full max-w-md"
                     autoFocus

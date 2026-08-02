@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { appAPI } from '../services/api';
 import { FRONTEND_BUILD_TIME_ISO } from '../generated/buildInfo';
 import GlobalSearchModal from '../components/GlobalSearchModal';
@@ -24,14 +24,9 @@ type TopMenuItem = {
 
 const MANAGE_NAV_ITEMS: TopMenuItem[] = [
   {
-    label: 'Terrain',
-    path: '/home/terrain',
-    description: 'Select to view, add, delete or update Terrain within your collection.',
-  },
-  {
-    label: 'Orders',
-    path: '/home/orders',
-    description: 'Select to view, add, delete or update Orders within your collection.',
+    label: 'Items',
+    path: '/home/inventory',
+    description: 'Select to view, add, delete or update Items within your collection.',
   },
   {
     label: 'Miniatures',
@@ -39,9 +34,14 @@ const MANAGE_NAV_ITEMS: TopMenuItem[] = [
     description: 'Select to view, add, delete or update Miniatures within your collection.',
   },
   {
-    label: 'Items',
-    path: '/home/inventory',
-    description: 'Select to view, add, delete or update Items within your collection.',
+    label: 'Orders',
+    path: '/home/orders',
+    description: 'Select to view, add, delete or update Orders within your collection.',
+  },
+  {
+    label: 'Terrain',
+    path: '/home/terrain',
+    description: 'Select to view, add, delete or update Terrain within your collection.',
   },
 ];
 
@@ -216,6 +216,16 @@ export default function HomeShell() {
                   aria-label="Global search"
                   className="w-32 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 sm:w-40"
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    aria-label="Clear global search"
+                    className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </form>
             </nav>
           </div>

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router';
 import AdminLayout from '../components/AdminLayout';
 import { tablesAPI } from '../services/api';
@@ -8,8 +8,11 @@ type DashboardData = {
   totals: {
     publishers: number;
     collections: number;
+    categories: number;
+    stores: number;
     items: number;
     miniatures: number;
+    terrain: number;
     orders: number;
   };
   publisherDashboard: Array<{
@@ -29,8 +32,11 @@ type DashboardData = {
   }>;
   topPublishers: Array<{ PublisherName: string; ItemCount: number }>;
   topCollections: Array<{ CollectionName: string; ItemCount: number }>;
+  topCategories: Array<{ CategoryName: string; ItemCount: number }>;
   topItemsByPrice: Array<{ ItemID: number; ItemName: string; ProductID?: string; MaxPrice: number }>;
   topMiniatureItemsByQuantity: Array<{ ItemID: number; ItemName: string; ProductID?: string; TotalQuantity: number }>;
+  topTerrainItemsByQuantity: Array<{ ItemID: number; ItemName: string; ProductID?: string; TotalQuantity: number }>;
+  topStoresByOrderCount: Array<{ StoreName: string; OrderCount: number }>;
   topOrdersByAmount: Array<{
     PurchaseOrderID: number;
     InvoiceNumber: string;
@@ -38,6 +44,15 @@ type DashboardData = {
     PurchaseDate: string;
     TotalAmount: number;
   }>;
+};
+
+type CategoryTerrainMetrics = {
+  categoriesTotal: number;
+  terrainTotal: number;
+  storesTotal: number;
+  topCategories: Array<{ CategoryName: string; ItemCount: number }>;
+  topTerrainItemsByQuantity: Array<{ ItemID: number; ItemName: string; ProductID?: string; TotalQuantity: number }>;
+  topStoresByOrderCount: Array<{ StoreName: string; OrderCount: number }>;
 };
 
 async function getAllInventoryRows(): Promise<any[]> {
@@ -71,11 +86,14 @@ async function getAllTableRows(tableName: string): Promise<any[]> {
 }
 
 async function getDashboardFallback(): Promise<DashboardData> {
-  const [publishersResp, collectionsResp, itemsResp, miniatureRows, allPublishersRows, allCollectionsRows] = await Promise.all([
+  const [publishersResp, collectionsResp, categoriesResp, storesResp, itemsResp, miniatureRows, terrainRows, allPublishersRows, allCollectionsRows] = await Promise.all([
     tablesAPI.getTableData('Publisher', 1, 1),
     tablesAPI.getTableData('Collection', 1, 1),
+    tablesAPI.getTableData('Category', 1, 1),
+    tablesAPI.getTableData('Store', 1, 1),
     tablesAPI.getInventoryItems({ page: 1, pageSize: 1 }),
     getAllTableRows('Miniature'),
+    getAllTableRows('Terrain'),
     getAllTableRows('Publisher'),
     getAllTableRows('Collection'),
   ]);
@@ -114,6 +132,19 @@ async function getDashboardFallback(): Promise<DashboardData> {
   const topCollections = Array.from(collectionCounts.entries())
     .map(([CollectionName, ItemCount]) => ({ CollectionName, ItemCount }))
     .sort((a, b) => b.ItemCount - a.ItemCount || a.CollectionName.localeCompare(b.CollectionName))
+    .slice(0, 10);
+
+  const categoryCounts = new Map<string, number>();
+  inventoryRows.forEach((row) => {
+    const categoryName = String(row.CategoryName || '').trim();
+    if (categoryName) {
+      categoryCounts.set(categoryName, (categoryCounts.get(categoryName) || 0) + 1);
+    }
+  });
+
+  const topCategories = Array.from(categoryCounts.entries())
+    .map(([CategoryName, ItemCount]) => ({ CategoryName, ItemCount }))
+    .sort((a, b) => b.ItemCount - a.ItemCount || a.CategoryName.localeCompare(b.CategoryName))
     .slice(0, 10);
 
   const publisherCoverageMap = new Map<string, { itemIds: Set<number>; coveredItemIds: Set<number> }>();
@@ -193,9 +224,11 @@ async function getDashboardFallback(): Promise<DashboardData> {
     })
     .sort((a, b) => a.CollectionName.localeCompare(b.CollectionName));
 
-  const [purchaseOrderDetailsRows, itemLookupResp] = await Promise.all([
+  const [purchaseOrderDetailsRows, itemLookupResp, allPurchaseOrders, allStores] = await Promise.all([
     getAllTableRows('PurchaseOrderDetail'),
     tablesAPI.getItemsForLookup(),
+    getAllTableRows('PurchaseOrder'),
+    getAllTableRows('Store'),
   ]);
 
   const itemLookupMap = new Map<number, { ItemName: string; ProductID?: string }>();
@@ -265,6 +298,63 @@ async function getDashboardFallback(): Promise<DashboardData> {
     .sort((a, b) => b.TotalQuantity - a.TotalQuantity || a.ItemName.localeCompare(b.ItemName))
     .slice(0, 10);
 
+  const terrainQuantityByItemId = new Map<number, number>();
+  let terrainTotal = 0;
+
+  terrainRows.forEach((row) => {
+    const itemId = Number(row.ItemID ?? row.TerrainID);
+    const quantity = Number(row.TerrainQuantity || 0);
+    if (!Number.isFinite(quantity)) {
+      return;
+    }
+
+    terrainTotal += quantity;
+
+    if (!Number.isFinite(itemId) || itemId <= 0) {
+      return;
+    }
+
+    terrainQuantityByItemId.set(itemId, (terrainQuantityByItemId.get(itemId) || 0) + quantity);
+  });
+
+  const topTerrainItemsByQuantity = Array.from(terrainQuantityByItemId.entries())
+    .map(([ItemID, TotalQuantity]) => {
+      const item = itemLookupMap.get(ItemID);
+      return {
+        ItemID,
+        ItemName: item?.ItemName || `Item #${ItemID}`,
+        ProductID: item?.ProductID,
+        TotalQuantity,
+      };
+    })
+    .sort((a, b) => b.TotalQuantity - a.TotalQuantity || a.ItemName.localeCompare(b.ItemName))
+    .slice(0, 10);
+
+  const storeNameById = new Map<number, string>();
+  allStores.forEach((store: any) => {
+    const storeId = Number(store.StoreID);
+    const storeName = String(store.StoreName || '').trim();
+    if (Number.isFinite(storeId) && storeId > 0 && storeName) {
+      storeNameById.set(storeId, storeName);
+    }
+  });
+
+  const storeOrderCounts = new Map<string, number>();
+  allPurchaseOrders.forEach((order: any) => {
+    const storeId = Number(order.StoreID);
+    const resolvedStoreName = String(order.StoreName || storeNameById.get(storeId) || '').trim();
+    if (!resolvedStoreName) {
+      return;
+    }
+
+    storeOrderCounts.set(resolvedStoreName, (storeOrderCounts.get(resolvedStoreName) || 0) + 1);
+  });
+
+  const topStoresByOrderCount = Array.from(storeOrderCounts.entries())
+    .map(([StoreName, OrderCount]) => ({ StoreName, OrderCount }))
+    .sort((a, b) => b.OrderCount - a.OrderCount || a.StoreName.localeCompare(b.StoreName))
+    .slice(0, 10);
+
   let topOrdersByAmount: DashboardData['topOrdersByAmount'] = [];
   try {
     const ordersResp = await tablesAPI.getPurchaseOrders({
@@ -289,14 +379,20 @@ async function getDashboardFallback(): Promise<DashboardData> {
     totals: {
       publishers: Number(publishersResp.data?.total || 0),
       collections: Number(collectionsResp.data?.total || 0),
+      categories: Number(categoriesResp.data?.total || 0),
+      stores: Number(storesResp.data?.total || 0),
       items: Number(itemsResp.data?.total || 0),
       miniatures: miniaturesTotal,
+      terrain: terrainTotal,
       orders: ordersTotal,
     },
     topPublishers,
     topCollections,
+    topCategories,
     topItemsByPrice,
     topMiniatureItemsByQuantity,
+    topTerrainItemsByQuantity,
+    topStoresByOrderCount,
     topOrdersByAmount,
     publisherDashboard,
     collectionDashboard,
@@ -490,27 +586,12 @@ function TopListCard({ title, loading, children }: { title: string; loading: boo
   );
 }
 
-const COVERAGE_VIEW_STORAGE_KEY = 'rpg-collection-navigator.coverageView';
-
-function getStoredCoverageView(): 'publisher' | 'collection' | 'collectionDetail' {
-  if (typeof window === 'undefined') {
-    return 'publisher';
-  }
-
-  const storedValue = window.localStorage.getItem(COVERAGE_VIEW_STORAGE_KEY);
-  if (storedValue === 'publisher' || storedValue === 'collection' || storedValue === 'collectionDetail') {
-    return storedValue;
-  }
-
-  return 'publisher';
+function getStoredCoverageView(): 'repository' | 'publisher' | 'collection' | 'collectionDetail' {
+  return 'repository';
 }
 
 export default function HomePage() {
-  const [coverageView, setCoverageView] = useState<'publisher' | 'collection' | 'collectionDetail'>(getStoredCoverageView);
-
-  useEffect(() => {
-    window.localStorage.setItem(COVERAGE_VIEW_STORAGE_KEY, coverageView);
-  }, [coverageView]);
+  const [coverageView, setCoverageView] = useState<'repository' | 'publisher' | 'collection' | 'collectionDetail'>(getStoredCoverageView);
 
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery({
     queryKey: ['homeMetrics', 'dashboardOverview'],
@@ -521,6 +602,111 @@ export default function HomePage() {
       } catch {
         return getDashboardFallback();
       }
+    },
+  });
+
+  const { data: categoryTerrainMetrics, isLoading: categoryTerrainLoading } = useQuery({
+    queryKey: ['homeMetrics', 'categoryTerrain'],
+    queryFn: async (): Promise<CategoryTerrainMetrics> => {
+      const [categoriesResp, terrainRows, inventoryRows, itemLookupResp] = await Promise.all([
+        tablesAPI.getTableData('Category', 1, 1),
+        getAllTableRows('Terrain'),
+        getAllInventoryRows(),
+        tablesAPI.getItemsForLookup(),
+      ]);
+
+      const [storesResp, allPurchaseOrders, allStores] = await Promise.all([
+        tablesAPI.getTableData('Store', 1, 1),
+        getAllTableRows('PurchaseOrder'),
+        getAllTableRows('Store'),
+      ]);
+
+      const categoryCounts = new Map<string, number>();
+      inventoryRows.forEach((row) => {
+        const categoryName = String(row.CategoryName || '').trim();
+        if (categoryName) {
+          categoryCounts.set(categoryName, (categoryCounts.get(categoryName) || 0) + 1);
+        }
+      });
+
+      const topCategories = Array.from(categoryCounts.entries())
+        .map(([CategoryName, ItemCount]) => ({ CategoryName, ItemCount }))
+        .sort((a, b) => b.ItemCount - a.ItemCount || a.CategoryName.localeCompare(b.CategoryName))
+        .slice(0, 10);
+
+      const itemLookupMap = new Map<number, { ItemName: string; ProductID?: string }>();
+      (itemLookupResp.data?.data || []).forEach((item: any) => {
+        itemLookupMap.set(Number(item.ItemID), {
+          ItemName: item.ItemName,
+          ProductID: item.ProductID,
+        });
+      });
+
+      const terrainQuantityByItemId = new Map<number, number>();
+      let terrainTotal = 0;
+
+      terrainRows.forEach((row) => {
+        const itemId = Number(row.ItemID ?? row.TerrainID);
+        const quantity = Number(row.TerrainQuantity || 0);
+        if (!Number.isFinite(quantity)) {
+          return;
+        }
+
+        terrainTotal += quantity;
+
+        if (!Number.isFinite(itemId) || itemId <= 0) {
+          return;
+        }
+
+        terrainQuantityByItemId.set(itemId, (terrainQuantityByItemId.get(itemId) || 0) + quantity);
+      });
+
+      const topTerrainItemsByQuantity = Array.from(terrainQuantityByItemId.entries())
+        .map(([ItemID, TotalQuantity]) => {
+          const item = itemLookupMap.get(ItemID);
+          return {
+            ItemID,
+            ItemName: item?.ItemName || `Item #${ItemID}`,
+            ProductID: item?.ProductID,
+            TotalQuantity,
+          };
+        })
+        .sort((a, b) => b.TotalQuantity - a.TotalQuantity || a.ItemName.localeCompare(b.ItemName))
+        .slice(0, 10);
+
+      const storeNameById = new Map<number, string>();
+      allStores.forEach((store: any) => {
+        const storeId = Number(store.StoreID);
+        const storeName = String(store.StoreName || '').trim();
+        if (Number.isFinite(storeId) && storeId > 0 && storeName) {
+          storeNameById.set(storeId, storeName);
+        }
+      });
+
+      const storeOrderCounts = new Map<string, number>();
+      allPurchaseOrders.forEach((order: any) => {
+        const storeId = Number(order.StoreID);
+        const resolvedStoreName = String(order.StoreName || storeNameById.get(storeId) || '').trim();
+        if (!resolvedStoreName) {
+          return;
+        }
+
+        storeOrderCounts.set(resolvedStoreName, (storeOrderCounts.get(resolvedStoreName) || 0) + 1);
+      });
+
+      const topStoresByOrderCount = Array.from(storeOrderCounts.entries())
+        .map(([StoreName, OrderCount]) => ({ StoreName, OrderCount }))
+        .sort((a, b) => b.OrderCount - a.OrderCount || a.StoreName.localeCompare(b.StoreName))
+        .slice(0, 10);
+
+      return {
+        categoriesTotal: Number(categoriesResp.data?.total || 0),
+        terrainTotal,
+        storesTotal: Number(storesResp.data?.total || 0),
+        topCategories,
+        topTerrainItemsByQuantity,
+        topStoresByOrderCount,
+      };
     },
   });
 
@@ -610,18 +796,30 @@ export default function HomePage() {
     },
   });
 
-  const totals = dashboardData?.totals || {
-    publishers: 0,
-    collections: 0,
-    items: 0,
-    miniatures: 0,
-    orders: 0,
+  const totals = {
+    publishers: Number(dashboardData?.totals?.publishers || 0),
+    collections: Number(dashboardData?.totals?.collections || 0),
+    categories: Number(categoryTerrainMetrics?.categoriesTotal ?? dashboardData?.totals?.categories ?? 0),
+    stores: Number(categoryTerrainMetrics?.storesTotal ?? dashboardData?.totals?.stores ?? 0),
+    items: Number(dashboardData?.totals?.items || 0),
+    miniatures: Number(dashboardData?.totals?.miniatures || 0),
+    terrain: Number(categoryTerrainMetrics?.terrainTotal ?? dashboardData?.totals?.terrain ?? 0),
+    orders: Number(dashboardData?.totals?.orders || 0),
   };
 
   const topPublishers = dashboardData?.topPublishers || [];
   const topCollections = dashboardData?.topCollections || [];
+  const topCategories = dashboardData?.topCategories?.length
+    ? dashboardData.topCategories
+    : (categoryTerrainMetrics?.topCategories || []);
   const topItemsByPrice = dashboardData?.topItemsByPrice || [];
   const topMiniatureItemsByQuantity = dashboardData?.topMiniatureItemsByQuantity || [];
+  const topTerrainItemsByQuantity = dashboardData?.topTerrainItemsByQuantity?.length
+    ? dashboardData.topTerrainItemsByQuantity
+    : (categoryTerrainMetrics?.topTerrainItemsByQuantity || []);
+  const topStoresByOrderCount = dashboardData?.topStoresByOrderCount?.length
+    ? dashboardData.topStoresByOrderCount
+    : (categoryTerrainMetrics?.topStoresByOrderCount || []);
   const topOrdersByAmount = dashboardData?.topOrdersByAmount || [];
   const publisherDashboard = dashboardData?.publisherDashboard || [];
   const collectionDashboard = dashboardData?.collectionDashboard || [];
@@ -701,134 +899,20 @@ export default function HomePage() {
         </section>
 
         <section className="bg-white rounded-lg shadow p-8">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">Repository Dashboard</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
-            <div className="space-y-3">
-              <MetricCard label="Publishers" value={totals.publishers} loading={dashboardLoading} to="/admin/publishers" />
-              <TopListCard title="Top 10 Publishers by Item Count" loading={dashboardLoading}>
-                {topPublishers.length ? (
-                  <ul className="space-y-1 text-sm">
-                    {topPublishers.map((row) => (
-                      <li key={row.PublisherName} className="flex items-center justify-between gap-2">
-                        <Link
-                          to={`/admin/inventory?publisher=${encodeURIComponent(row.PublisherName)}`}
-                          className="truncate text-blue-600 hover:text-blue-700 hover:underline"
-                          title={`View items for ${row.PublisherName}`}
-                        >
-                          {row.PublisherName}
-                        </Link>
-                        <span className="font-semibold text-gray-900">{row.ItemCount}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-gray-500">No data.</p>
-                )}
-              </TopListCard>
-            </div>
-
-            <div className="space-y-3">
-              <MetricCard label="Collections" value={totals.collections} loading={dashboardLoading} to="/admin/collections" />
-              <TopListCard title="Top 10 Collections by Item Count" loading={dashboardLoading}>
-                {topCollections.length ? (
-                  <ul className="space-y-1 text-sm">
-                    {topCollections.map((row) => (
-                      <li key={row.CollectionName} className="flex items-center justify-between gap-2">
-                        <Link
-                          to={`/admin/inventory?collection=${encodeURIComponent(row.CollectionName)}`}
-                          className="truncate text-blue-600 hover:text-blue-700 hover:underline"
-                          title={`View items for ${row.CollectionName}`}
-                        >
-                          {row.CollectionName}
-                        </Link>
-                        <span className="font-semibold text-gray-900">{row.ItemCount}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-gray-500">No data.</p>
-                )}
-              </TopListCard>
-            </div>
-
-            <div className="space-y-3">
-              <MetricCard label="Items" value={totals.items} loading={dashboardLoading} to="/admin/inventory" />
-              <TopListCard title="Top 10 Most Expensive Items" loading={dashboardLoading}>
-                {topItemsByPrice.length ? (
-                  <ul className="space-y-1 text-sm">
-                    {topItemsByPrice.map((row) => (
-                      <li key={row.ItemID} className="flex items-center justify-between gap-2">
-                        <Link
-                          to={`/admin/inventory?item=${encodeURIComponent(row.ItemName)}`}
-                          className="truncate text-blue-600 hover:text-blue-700 hover:underline"
-                          title={`View item ${row.ItemName}`}
-                        >
-                          {row.ItemName}{row.ProductID ? ` (${row.ProductID})` : ''}
-                        </Link>
-                        <span className="font-semibold text-gray-900">{formatCurrency(Number(row.MaxPrice || 0))}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-gray-500">No pricing data.</p>
-                )}
-              </TopListCard>
-            </div>
-
-            <div className="space-y-3">
-              <MetricCard label="Miniatures" value={totals.miniatures} loading={dashboardLoading} to="/admin/miniatures" />
-              <TopListCard title="Top 10 Miniature Items by Quantity" loading={dashboardLoading}>
-                {topMiniatureItemsByQuantity.length ? (
-                  <ul className="space-y-1 text-sm">
-                    {topMiniatureItemsByQuantity.map((row) => (
-                      <li key={row.ItemID} className="flex items-center justify-between gap-2">
-                        <Link
-                          to={`/admin/miniatures?itemId=${encodeURIComponent(String(row.ItemID))}`}
-                          className="truncate text-blue-600 hover:text-blue-700 hover:underline"
-                          title={`View miniatures for ${row.ItemName}`}
-                        >
-                          {row.ItemName}{row.ProductID ? ` (${row.ProductID})` : ''}
-                        </Link>
-                        <span className="font-semibold text-gray-900">{Number(row.TotalQuantity || 0).toLocaleString()}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-gray-500">No miniature data.</p>
-                )}
-              </TopListCard>
-            </div>
-
-            <div className="space-y-3">
-              <MetricCard label="Orders" value={totals.orders} loading={dashboardLoading} to="/admin/order-master" />
-              <TopListCard title="Top 10 Most Expensive Orders" loading={dashboardLoading}>
-                {topOrdersByAmount.length ? (
-                  <ul className="space-y-1 text-sm">
-                    {topOrdersByAmount.map((row) => (
-                      <li key={row.PurchaseOrderID} className="flex items-center justify-between gap-2">
-                        <Link
-                          to={`/admin/order-master?invoice=${encodeURIComponent(row.InvoiceNumber)}&store=${encodeURIComponent(row.StoreName)}`}
-                          className="truncate text-blue-600 hover:text-blue-700 hover:underline"
-                          title={`View order ${row.InvoiceNumber}`}
-                        >
-                          #{row.InvoiceNumber} - {row.StoreName}
-                        </Link>
-                        <span className="font-semibold text-gray-900">{formatCurrency(Number(row.TotalAmount || 0))}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-gray-500">No order data.</p>
-                )}
-              </TopListCard>
-            </div>
-          </div>
-        </section>
-
-        <section className="bg-white rounded-lg shadow p-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-            <h3 className="text-xl font-semibold text-gray-900">Coverage Dashboard</h3>
-            <div className="grid grid-cols-3 gap-2 bg-gray-100 rounded-lg p-1 w-full sm:w-auto">
+            <h3 className="text-xl font-semibold text-gray-900">Coverage Metrics</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-gray-100 rounded-lg p-1 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => setCoverageView('repository')}
+                className={`px-3 py-2 text-sm rounded-md transition ${
+                  coverageView === 'repository'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Repository Metrics
+              </button>
               <button
                 type="button"
                 onClick={() => setCoverageView('publisher')}
@@ -865,7 +949,201 @@ export default function HomePage() {
             </div>
           </div>
 
-          {coverageView === 'publisher' ? (
+          {coverageView === 'repository' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="space-y-3">
+                <MetricCard label="Publishers" value={totals.publishers} loading={dashboardLoading} to="/admin/publishers" />
+                <TopListCard title="Top 10 Publishers by Item Count" loading={dashboardLoading}>
+                  {topPublishers.length ? (
+                    <ul className="space-y-1 text-sm">
+                      {topPublishers.map((row) => (
+                        <li key={row.PublisherName} className="flex items-center justify-between gap-2">
+                          <Link
+                            to={`/admin/inventory?publisher=${encodeURIComponent(row.PublisherName)}`}
+                            className="truncate text-blue-600 hover:text-blue-700 hover:underline"
+                            title={`View items for ${row.PublisherName}`}
+                          >
+                            {row.PublisherName}
+                          </Link>
+                          <span className="font-semibold text-gray-900">{row.ItemCount}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">No data.</p>
+                  )}
+                </TopListCard>
+              </div>
+
+              <div className="space-y-3">
+                <MetricCard label="Collections" value={totals.collections} loading={dashboardLoading} to="/admin/collections" />
+                <TopListCard title="Top 10 Collections by Item Count" loading={dashboardLoading}>
+                  {topCollections.length ? (
+                    <ul className="space-y-1 text-sm">
+                      {topCollections.map((row) => (
+                        <li key={row.CollectionName} className="flex items-center justify-between gap-2">
+                          <Link
+                            to={`/admin/inventory?collection=${encodeURIComponent(row.CollectionName)}`}
+                            className="truncate text-blue-600 hover:text-blue-700 hover:underline"
+                            title={`View items for ${row.CollectionName}`}
+                          >
+                            {row.CollectionName}
+                          </Link>
+                          <span className="font-semibold text-gray-900">{row.ItemCount}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">No data.</p>
+                  )}
+                </TopListCard>
+              </div>
+
+              <div className="space-y-3">
+                <MetricCard label="Categories" value={totals.categories} loading={dashboardLoading || categoryTerrainLoading} to="/admin/categories" />
+                <TopListCard title="Top 10 Category Counts" loading={dashboardLoading || categoryTerrainLoading}>
+                  {topCategories.length ? (
+                    <ul className="space-y-1 text-sm">
+                      {topCategories.map((row) => (
+                        <li key={row.CategoryName} className="flex items-center justify-between gap-2">
+                          <Link
+                            to={`/admin/inventory?category=${encodeURIComponent(row.CategoryName)}`}
+                            className="truncate text-blue-600 hover:text-blue-700 hover:underline"
+                            title={`View items for ${row.CategoryName}`}
+                          >
+                            {row.CategoryName}
+                          </Link>
+                          <span className="font-semibold text-gray-900">{row.ItemCount}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">No data.</p>
+                  )}
+                </TopListCard>
+              </div>
+
+              <div className="space-y-3">
+                <MetricCard label="Items" value={totals.items} loading={dashboardLoading} to="/admin/inventory" />
+                <TopListCard title="Top 10 Most Expensive Items" loading={dashboardLoading}>
+                  {topItemsByPrice.length ? (
+                    <ul className="space-y-1 text-sm">
+                      {topItemsByPrice.map((row) => (
+                        <li key={row.ItemID} className="flex items-center justify-between gap-2">
+                          <Link
+                            to={`/admin/inventory?item=${encodeURIComponent(row.ItemName)}`}
+                            className="truncate text-blue-600 hover:text-blue-700 hover:underline"
+                            title={`View item ${row.ItemName}`}
+                          >
+                            {row.ItemName}{row.ProductID ? ` (${row.ProductID})` : ''}
+                          </Link>
+                          <span className="font-semibold text-gray-900">{formatCurrency(Number(row.MaxPrice || 0))}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">No pricing data.</p>
+                  )}
+                </TopListCard>
+              </div>
+
+              <div className="space-y-3">
+                <MetricCard label="Miniatures" value={totals.miniatures} loading={dashboardLoading} to="/admin/miniatures" />
+                <TopListCard title="Top 10 Miniature Items by Quantity" loading={dashboardLoading}>
+                  {topMiniatureItemsByQuantity.length ? (
+                    <ul className="space-y-1 text-sm">
+                      {topMiniatureItemsByQuantity.map((row) => (
+                        <li key={row.ItemID} className="flex items-center justify-between gap-2">
+                          <Link
+                            to={`/admin/miniatures?itemId=${encodeURIComponent(String(row.ItemID))}`}
+                            className="truncate text-blue-600 hover:text-blue-700 hover:underline"
+                            title={`View miniatures for ${row.ItemName}`}
+                          >
+                            {row.ItemName}{row.ProductID ? ` (${row.ProductID})` : ''}
+                          </Link>
+                          <span className="font-semibold text-gray-900">{Number(row.TotalQuantity || 0).toLocaleString()}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">No miniature data.</p>
+                  )}
+                </TopListCard>
+              </div>
+
+              <div className="space-y-3">
+                <MetricCard label="Terrain" value={totals.terrain} loading={dashboardLoading || categoryTerrainLoading} to="/admin/terrain" />
+                <TopListCard title="Top 10 Terrain Items by Quantity" loading={dashboardLoading || categoryTerrainLoading}>
+                  {topTerrainItemsByQuantity.length ? (
+                    <ul className="space-y-1 text-sm">
+                      {topTerrainItemsByQuantity.map((row) => (
+                        <li key={row.ItemID} className="flex items-center justify-between gap-2">
+                          <Link
+                            to={`/admin/terrain?itemId=${encodeURIComponent(String(row.ItemID))}`}
+                            className="truncate text-blue-600 hover:text-blue-700 hover:underline"
+                            title={`View terrain for ${row.ItemName}`}
+                          >
+                            {row.ItemName}{row.ProductID ? ` (${row.ProductID})` : ''}
+                          </Link>
+                          <span className="font-semibold text-gray-900">{Number(row.TotalQuantity || 0).toLocaleString()}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">No terrain data.</p>
+                  )}
+                </TopListCard>
+              </div>
+
+              <div className="space-y-3">
+                <MetricCard label="Orders" value={totals.orders} loading={dashboardLoading} to="/admin/order-master" />
+                <TopListCard title="Top 10 Most Expensive Orders" loading={dashboardLoading}>
+                  {topOrdersByAmount.length ? (
+                    <ul className="space-y-1 text-sm">
+                      {topOrdersByAmount.map((row) => (
+                        <li key={row.PurchaseOrderID} className="flex items-center justify-between gap-2">
+                          <Link
+                            to={`/admin/order-master?invoice=${encodeURIComponent(row.InvoiceNumber)}&store=${encodeURIComponent(row.StoreName)}`}
+                            className="truncate text-blue-600 hover:text-blue-700 hover:underline"
+                            title={`View order ${row.InvoiceNumber}`}
+                          >
+                            #{row.InvoiceNumber} - {row.StoreName}
+                          </Link>
+                          <span className="font-semibold text-gray-900">{formatCurrency(Number(row.TotalAmount || 0))}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">No order data.</p>
+                  )}
+                </TopListCard>
+              </div>
+
+              <div className="space-y-3">
+                <MetricCard label="Stores" value={totals.stores} loading={dashboardLoading || categoryTerrainLoading} to="/admin/stores" />
+                <TopListCard title="Top 10 Stores by Order Count" loading={dashboardLoading || categoryTerrainLoading}>
+                  {topStoresByOrderCount.length ? (
+                    <ul className="space-y-1 text-sm">
+                      {topStoresByOrderCount.map((row) => (
+                        <li key={row.StoreName} className="flex items-center justify-between gap-2">
+                          <Link
+                            to={`/admin/order-master?store=${encodeURIComponent(row.StoreName)}`}
+                            className="truncate text-blue-600 hover:text-blue-700 hover:underline"
+                            title={`View orders for ${row.StoreName}`}
+                          >
+                            {row.StoreName}
+                          </Link>
+                          <span className="font-semibold text-gray-900">{row.OrderCount.toLocaleString()}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">No store order data.</p>
+                  )}
+                </TopListCard>
+              </div>
+            </div>
+          ) : coverageView === 'publisher' ? (
             dashboardLoading && !publisherBoxes.length ? (
               <p className="text-sm text-gray-500">Loading publisher coverage...</p>
             ) : publishersLoading && !publisherBoxes.length ? (

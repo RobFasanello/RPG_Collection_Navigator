@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import ComboSelect from '../components/ui/ComboSelect';
@@ -26,6 +27,18 @@ interface ItemRecord {
   LocationID?: number;
 }
 
+interface MiniatureRecord {
+  [key: string]: any;
+  MiniatureID?: number;
+  LocationID?: number | null;
+}
+
+interface TerrainRecord {
+  [key: string]: any;
+  TerrainID?: number;
+  LocationID?: number | null;
+}
+
 type Mode = 'existing' | 'new';
 
 const emptyFormValues = {
@@ -46,6 +59,12 @@ async function getAllTableRows(tableName: string): Promise<any[]> {
   }
 
   return rows;
+}
+
+function buildLocationEntityLink(path: '/admin/miniatures' | '/admin/terrain', locationName: string) {
+  const params = new URLSearchParams();
+  params.set('location', locationName);
+  return `${path}?${params.toString()}`;
 }
 
 export default function LocationMasterPage() {
@@ -70,9 +89,18 @@ export default function LocationMasterPage() {
     queryFn: async () => tableAPI.getTableData('LocationType', 1, 500).then((response) => response.data.data),
   });
 
-  const { data: allItems = [] } = useQuery<ItemRecord[], Error>({
-    queryKey: ['table', 'Item', 'all-for-location-counts'],
-    queryFn: async () => getAllTableRows('Item'),
+  const { data: locationLinkedRows = [] } = useQuery<Array<{ LocationID?: number | null }>, Error>({
+    queryKey: ['table', 'Location', 'usage-counts'],
+    queryFn: async () => {
+      const [items, miniatures, terrain] = await Promise.all([
+        getAllTableRows('Item') as Promise<ItemRecord[]>,
+        getAllTableRows('Miniature') as Promise<MiniatureRecord[]>,
+        getAllTableRows('Terrain') as Promise<TerrainRecord[]>,
+      ]);
+
+      // Location usage can be stored on multiple entity tables.
+      return [...items, ...miniatures, ...terrain];
+    },
   });
 
   const locationTypeNameById = useMemo(() => {
@@ -85,16 +113,16 @@ export default function LocationMasterPage() {
   }, [locationTypeRecords]);
 
   const itemCountByLocation = useMemo(() => {
-    return (allItems || []).reduce((map: Record<number, number>, item: ItemRecord) => {
-      const locationId = Number(item?.LocationID);
-      if (!Number.isFinite(locationId)) {
+    return (locationLinkedRows || []).reduce((map: Record<number, number>, row) => {
+      const locationId = Number(row?.LocationID);
+      if (!Number.isInteger(locationId) || locationId <= 0) {
         return map;
       }
 
       map[locationId] = (map[locationId] || 0) + 1;
       return map;
     }, {});
-  }, [allItems]);
+  }, [locationLinkedRows]);
 
   const selectedLocation = useMemo(() => {
     if (mode === 'new' || selectedLocationId === null) {
@@ -328,7 +356,14 @@ export default function LocationMasterPage() {
             <Button onClick={handleAddLocation} className="w-full bg-green-600 hover:bg-green-700">
               Add Location
             </Button>
-            <Input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Search locations..." />
+            <Input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              onClear={() => setSearchInput('')}
+              clearable
+              clearAriaLabel="Clear locations search"
+              placeholder="Search locations..."
+            />
           </div>
 
           <div className="max-h-[calc(100vh-260px)] overflow-y-auto p-2">
@@ -466,8 +501,22 @@ export default function LocationMasterPage() {
                 </div>
 
                 {selectedLocation ? (
-                  <div className="rounded-lg bg-white p-3 text-sm text-slate-500 shadow-sm">
-                    Select a location to see summary information.
+                  <div className="rounded-lg bg-white p-3 shadow-sm">
+                    <div className="text-sm font-semibold text-slate-900">Quick Links</div>
+                    <div className="mt-2 space-y-2 text-sm">
+                      <Link
+                        to={buildLocationEntityLink('/admin/miniatures', String(selectedLocation.LocationName || ''))}
+                        className="block text-blue-600 underline hover:text-blue-700"
+                      >
+                        View miniatures at this location
+                      </Link>
+                      <Link
+                        to={buildLocationEntityLink('/admin/terrain', String(selectedLocation.LocationName || ''))}
+                        className="block text-blue-600 underline hover:text-blue-700"
+                      >
+                        View terrain at this location
+                      </Link>
+                    </div>
                   </div>
                 ) : (
                   <div className="rounded-lg bg-white p-3 text-sm text-slate-500 shadow-sm">Select a location to see summary information.</div>

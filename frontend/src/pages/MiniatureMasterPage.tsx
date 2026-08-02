@@ -456,8 +456,11 @@ export default function MiniatureMasterPage() {
   useEffect(() => {
     const itemId = (urlSearchParams.get('itemId') || '').trim();
     const miniatureName = (urlSearchParams.get('miniatureName') || '').trim();
+    const location = (urlSearchParams.get('location') || '').trim();
+    const miniatureSize = (urlSearchParams.get('miniatureSize') || '').trim();
+    const miniatureRarity = (urlSearchParams.get('miniatureRarity') || '').trim();
 
-    if (!itemId && !miniatureName) {
+    if (!itemId && !miniatureName && !location && !miniatureSize && !miniatureRarity) {
       return;
     }
 
@@ -466,9 +469,9 @@ export default function MiniatureMasterPage() {
       subTypeName: [],
       itemId,
       miniatureName,
-      miniatureSizeName: [],
-      miniatureRarityName: [],
-      locationName: [],
+      miniatureSizeName: miniatureSize ? [miniatureSize] : [],
+      miniatureRarityName: miniatureRarity ? [miniatureRarity] : [],
+      locationName: location ? [location] : [],
       hasPurchaseOrder: undefined,
     };
 
@@ -1306,6 +1309,9 @@ export default function MiniatureMasterPage() {
                   <Input
                     value={searchInput}
                     onChange={(event) => setSearchInput(event.target.value)}
+                    onClear={() => setSearchInput('')}
+                    clearable
+                    clearAriaLabel="Clear miniature search"
                     placeholder="Search by miniature name..."
                     className="w-full max-w-md"
                     autoFocus

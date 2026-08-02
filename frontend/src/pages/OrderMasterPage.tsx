@@ -143,19 +143,20 @@ export default function OrderMasterPage() {
   useEffect(() => {
     const invoice = (urlSearchParams.get('invoice') || '').trim();
     const store = (urlSearchParams.get('store') || '').trim();
+    const status = (urlSearchParams.get('status') || '').trim();
 
     if (urlSearchParams.get('purchaseOrderId')) {
       return;
     }
 
-    if (!invoice && !store) {
+    if (!invoice && !store && !status) {
       return;
     }
 
     const nextFilters = {
       storeNames: store ? [store] : [],
       invoiceNumber: invoice,
-      statusNames: [],
+      statusNames: status ? [status] : [],
       purchaseDateStart: '',
       purchaseDateEnd: '',
     };
@@ -1212,6 +1213,9 @@ export default function OrderMasterPage() {
                   <Input
                     value={searchInput}
                     onChange={(event) => setSearchInput(event.target.value)}
+                    onClear={() => setSearchInput('')}
+                    clearable
+                    clearAriaLabel="Clear invoice search"
                     placeholder="Search by invoice number..."
                     className="w-full max-w-md"
                     autoFocus

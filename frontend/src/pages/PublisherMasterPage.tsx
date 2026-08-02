@@ -360,7 +360,6 @@ export default function PublisherMasterPage() {
   const handleSelectPublisher = (publisherId: number) => {
     setMode('existing');
     setSelectedPublisherId(publisherId);
-    setActiveTab('details');
     setCollectionToAddId('');
     setCollectionLinkError('');
     setDeleteError('');
@@ -607,6 +606,9 @@ export default function PublisherMasterPage() {
             <Input
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
+              onClear={() => setSearchInput('')}
+              clearable
+              clearAriaLabel="Clear publishers search"
               placeholder="Search publishers..."
             />
           </div>
@@ -674,14 +676,18 @@ export default function PublisherMasterPage() {
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
-                    className="border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50"
+                    className={activeTab === 'details'
+                      ? 'border border-sky-600 !bg-sky-600 !text-white hover:!bg-sky-700'
+                      : 'border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50'}
                     onClick={() => setActiveTab('details')}
                   >
                     Details
                   </Button>
                   <Button
                     type="button"
-                    className="border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50"
+                    className={activeTab === 'collections'
+                      ? 'border border-sky-600 !bg-sky-600 !text-white hover:!bg-sky-700'
+                      : 'border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50'}
                     onClick={() => setActiveTab('collections')}
                   >
                     Collections
