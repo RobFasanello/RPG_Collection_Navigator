@@ -5,6 +5,7 @@ import { Trash2 } from 'lucide-react';
 import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import ComboSelect from '../ui/ComboSelect';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table';
 import { tablesAPI } from '../../services/api';
 
@@ -52,7 +53,7 @@ const REQUIRED_ROW_FIELDS: BulkField[] = ['Item', 'TerrainName', 'TerrainQuantit
 const ALL_FIELDS: BulkField[] = ['Item', 'TerrainName', 'TerrainCode', 'TerrainQuantity', 'Location'];
 const BULK_UPLOAD_TERRAIN_TEMPLATE_URL = '/templates/Bulk%20Upload%20Terrain%20Template.xlsx';
 const BASE_SELECT_CLASS_NAME =
-  'mt-1 block w-full border rounded-md p-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500';
+  'text-sm';
 const ERROR_FIELD_CLASS_NAME = 'border-red-500 bg-red-50 focus:ring-red-500';
 
 const HEADER_ALIASES: Record<string, BulkField> = {
@@ -542,19 +543,15 @@ export default function BulkTerrainUploadDialog({
                     <TableRow key={row.id} className={row.success ? 'bg-green-50' : ''}>
                       <TableCell className="whitespace-nowrap align-top">{row.rowNumber}</TableCell>
                       <TableCell className="align-top">
-                        <select
+                        <ComboSelect
+                          options={itemSelectOptions.map((option) => ({ value: option.value, label: option.label }))}
                           value={row.values.Item}
-                          onChange={(event) => handleCellChange(row.id, 'Item', event.target.value)}
+                          onChange={(value) => handleCellChange(row.id, 'Item', value)}
                           disabled={row.success}
-                          className={getSelectClassName(errorFields, 'Item')}
-                        >
-                          <option value="">Select item</option>
-                          {itemSelectOptions.map((option) => (
-                            <option key={`${option.itemId}-${option.value}`} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
+                          placeholder="Select item"
+                          className="w-full"
+                          triggerClassName={getSelectClassName(errorFields, 'Item')}
+                        />
                       </TableCell>
                       <TableCell className="align-top">
                         <Input
@@ -586,19 +583,15 @@ export default function BulkTerrainUploadDialog({
                         />
                       </TableCell>
                       <TableCell className="align-top">
-                        <select
+                        <ComboSelect
+                          options={locationSelectOptions}
                           value={row.values.Location}
-                          onChange={(event) => handleCellChange(row.id, 'Location', event.target.value)}
+                          onChange={(value) => handleCellChange(row.id, 'Location', value)}
                           disabled={row.success}
-                          className={getSelectClassName(errorFields, 'Location')}
-                        >
-                          <option value="">Select location</option>
-                          {locationSelectOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
+                          placeholder="Select location"
+                          className="w-full"
+                          triggerClassName={getSelectClassName(errorFields, 'Location')}
+                        />
                       </TableCell>
                       <TableCell className="align-top">
                         {row.success ? (

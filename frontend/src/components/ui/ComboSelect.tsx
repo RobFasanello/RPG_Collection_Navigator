@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Check, ChevronsUpDown, X } from 'lucide-react';
 
 interface Option {
   value: string;
@@ -13,6 +14,7 @@ interface Props {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  triggerClassName?: string;
   disablePortal?: boolean;
   tabIndex?: number;
   autoFocus?: boolean;
@@ -28,6 +30,7 @@ const ComboSelect: React.FC<Props> = ({
   placeholder = 'Select...',
   disabled = false,
   className,
+  triggerClassName,
   disablePortal = false,
   tabIndex,
   autoFocus = false,
@@ -38,7 +41,8 @@ const ComboSelect: React.FC<Props> = ({
   const [activeIndex, setActiveIndex] = useState(0);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const ref = useRef<HTMLDivElement | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const dropdownRef = useRef<HTMLUListElement | null>(null);
 
   const selectedOption = options.find((o) => normalizeOptionValue(o.value) === normalizeOptionValue(value)) ?? null;
@@ -47,8 +51,8 @@ const ComboSelect: React.FC<Props> = ({
     if (disablePortal) {
       return;
     }
-    if (inputRef.current) {
-      const rect = inputRef.current.getBoundingClientRect();
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
       setDropdownStyle({
         position: 'fixed',
         top: rect.bottom + 2,
@@ -62,12 +66,11 @@ const ComboSelect: React.FC<Props> = ({
     }
   };
 
-  // When a value is selected from outside (e.g. reset), keep the search text in sync
   useEffect(() => {
     if (!open) {
-      setSearch(selectedOption?.label ?? '');
+      setSearch('');
     }
-  }, [selectedOption, open]);
+  }, [open]);
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -77,13 +80,12 @@ const ComboSelect: React.FC<Props> = ({
 
       if (!clickedInsideInput && !clickedInsideDropdown) {
         setOpen(false);
-        // Restore the label on blur-away so the input shows the selection
-        setSearch(selectedOption?.label ?? '');
+        setSearch('');
       }
     }
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
-  }, [selectedOption]);
+  }, []);
 
   // Reposition on scroll or resize so the portal stays aligned
   useEffect(() => {
@@ -103,6 +105,16 @@ const ComboSelect: React.FC<Props> = ({
   );
 
   useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
+  }, [open]);
+
+  useEffect(() => {
     if (!filtered.length) {
       setActiveIndex(0);
       return;
@@ -117,20 +129,11 @@ const ComboSelect: React.FC<Props> = ({
     setActiveIndex((current) => Math.min(current, filtered.length - 1));
   }, [filtered, value]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearch(e.target.value);
-    setOpen(true);
-    setActiveIndex(0);
-    // Clear the stored value when the user starts typing something new
-    if (value && e.target.value !== selectedOption?.label) {
-      onChange('');
-    }
-  };
-
   const handleSelect = (opt: Option) => {
     onChange(opt.value);
-    setSearch(opt.label);
+    setSearch('');
     setOpen(false);
+    triggerRef.current?.focus();
   };
 
   const openDropdown = () => {
@@ -141,7 +144,7 @@ const ComboSelect: React.FC<Props> = ({
     setOpen(true);
   };
 
-  const handleInputFocus = () => {
+  const handleTriggerFocus = () => {
     if (openOnFocus) {
       openDropdown();
       return;
@@ -152,28 +155,20 @@ const ComboSelect: React.FC<Props> = ({
     }
   };
 
-  const handleInputMouseDown = () => {
+  const handleTriggerClick = () => {
     if (disabled) {
+      return;
+    }
+
+    if (open) {
+      setOpen(false);
       return;
     }
 
     openDropdown();
   };
 
-  const handleInputBlur = () => {
-    window.setTimeout(() => {
-      const activeElement = document.activeElement;
-      const focusInsideInput = !!ref.current && !!activeElement && ref.current.contains(activeElement);
-      const focusInsideDropdown = !!dropdownRef.current && !!activeElement && dropdownRef.current.contains(activeElement);
-
-      if (!focusInsideInput && !focusInsideDropdown) {
-        setOpen(false);
-        setSearch(selectedOption?.label ?? '');
-      }
-    }, 0);
-  };
-
-  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (!open) {
@@ -196,6 +191,16 @@ const ComboSelect: React.FC<Props> = ({
       return;
     }
 
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (open) {
+        setOpen(false);
+      } else {
+        openDropdown();
+      }
+      return;
+    }
+
     if (e.key === 'Enter') {
       if (!open) {
         return;
@@ -209,10 +214,51 @@ const ComboSelect: React.FC<Props> = ({
     }
 
     if (e.key === 'Tab') {
-      if (!open) {
-        return;
-      }
+      setOpen(false);
+      return;
+    }
 
+    if (e.key === 'Escape') {
+      setOpen(false);
+      setSearch('');
+    }
+  };
+
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      if (filtered.length) {
+        setActiveIndex((current) => (current + 1) % filtered.length);
+      }
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (filtered.length) {
+        setActiveIndex((current) => (current - 1 + filtered.length) % filtered.length);
+      }
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const option = filtered[activeIndex] ?? filtered[0];
+      if (option) {
+        handleSelect(option);
+      }
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setOpen(false);
+      setSearch('');
+      triggerRef.current?.focus();
+      return;
+    }
+
+    if (event.key === 'Tab') {
       if (search.trim()) {
         const option = filtered[activeIndex] ?? filtered[0];
         if (option) {
@@ -222,13 +268,7 @@ const ComboSelect: React.FC<Props> = ({
       }
 
       setOpen(false);
-      setSearch(selectedOption?.label ?? '');
-      return;
-    }
-
-    if (e.key === 'Escape') {
-      setOpen(false);
-      setSearch(selectedOption?.label ?? '');
+      setSearch('');
     }
   };
 
@@ -237,7 +277,7 @@ const ComboSelect: React.FC<Props> = ({
     onChange('');
     setSearch('');
     setOpen(false);
-    inputRef.current?.focus();
+    triggerRef.current?.focus();
   };
 
   const dropdown = open && !disabled ? (
@@ -250,68 +290,76 @@ const ComboSelect: React.FC<Props> = ({
       }`}
       onWheel={(e) => e.stopPropagation()}
     >
+      <li className="p-2 border-b border-gray-100">
+        <input
+          ref={searchInputRef}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={handleSearchKeyDown}
+          placeholder="Search..."
+          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </li>
       {filtered.length === 0 ? (
         <li className="px-3 py-2 text-sm text-gray-500">No matching items</li>
       ) : (
-        filtered.map((opt) => (
-          <li
-            key={opt.value}
-            onMouseEnter={() => setActiveIndex(filtered.findIndex((candidate) => candidate.value === opt.value))}
-            onMouseDown={(e) => {
-              // mousedown fires before blur so the dropdown doesn't close before we register the click
-              e.preventDefault();
-              handleSelect(opt);
-            }}
-            className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${
-              opt.value === value
-                ? 'bg-blue-100 font-medium'
-                : filtered[activeIndex]?.value === opt.value
-                  ? 'bg-blue-50'
-                  : ''
-            }`}
-          >
-            {opt.label}
-          </li>
-        ))
+        filtered.map((opt, index) => {
+          const isSelected = normalizeOptionValue(opt.value) === normalizeOptionValue(value);
+          const isActive = filtered[activeIndex]?.value === opt.value;
+
+          return (
+            <li
+              key={opt.value}
+              onMouseEnter={() => setActiveIndex(index)}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleSelect(opt);
+              }}
+              className={`px-3 py-2 text-sm cursor-pointer flex items-center gap-2 ${
+                isActive ? 'bg-blue-50' : 'hover:bg-gray-50'
+              } ${isSelected ? 'font-medium' : ''}`}
+            >
+              <Check className={`h-4 w-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`} />
+              <span>{opt.label}</span>
+            </li>
+          );
+        })
       )}
     </ul>
   ) : null;
 
   return (
     <div className={`relative ${className ?? ''}`} ref={ref}>
-      <div className="relative flex items-center">
-        <input
-          ref={inputRef}
-          type="text"
-          value={search}
-          onChange={handleInputChange}
-          onKeyDown={handleInputKeyDown}
-          onFocus={handleInputFocus}
-          onMouseDown={handleInputMouseDown}
-          onBlur={handleInputBlur}
-          placeholder={disabled ? 'Loading...' : placeholder}
+      <div className="relative">
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={handleTriggerClick}
+          onKeyDown={handleTriggerKeyDown}
+          onFocus={handleTriggerFocus}
           disabled={disabled}
           tabIndex={tabIndex}
           autoFocus={autoFocus}
-          className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
-        />
+          className={`w-full flex h-10 items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${triggerClassName ?? ''}`}
+          aria-expanded={open}
+          aria-haspopup="listbox"
+        >
+          <span className={`truncate ${selectedOption ? 'text-gray-900' : 'text-gray-500'}`}>
+            {selectedOption?.label || (disabled ? 'Loading...' : placeholder)}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </button>
         {value && !disabled ? (
           <button
             type="button"
             onClick={handleClear}
-            className="absolute right-2 text-gray-400 hover:text-gray-600"
+            className="absolute right-7 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             tabIndex={-1}
             aria-label="Clear selection"
           >
-            ✕
+            <X className="h-4 w-4" />
           </button>
-        ) : (
-          <span className="absolute right-2 text-gray-400 pointer-events-none">
-            <svg className={`w-4 h-4 transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd" />
-            </svg>
-          </span>
-        )}
+        ) : null}
       </div>
 
       {disablePortal

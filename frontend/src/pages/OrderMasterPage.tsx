@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router';
 import AdminLayout from '../components/AdminLayout';
@@ -7,6 +7,8 @@ import { Input } from '../components/ui/Input';
 import ComboSelect from '../components/ui/ComboSelect';
 import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
 import { Dialog } from '../components/ui/Dialog';
+import AlertDialog from '../components/ui/AlertDialog';
+import { useToast } from '../components/ui/ToastProvider';
 import { tablesAPI } from '../services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
 import { CircleHelp, Edit2, Trash2 } from 'lucide-react';
@@ -52,6 +54,7 @@ interface OrderDetailDraft {
 }
 
 export default function OrderMasterPage() {
+  const { toast } = useToast();
   const [urlSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<string>('PurchaseDate');
@@ -81,7 +84,6 @@ export default function OrderMasterPage() {
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
-  const [isEditMode, setIsEditMode] = useState(false);
   const [editedOrder, setEditedOrder] = useState<{
     InvoiceNumber: string;
     StoreName: string;
@@ -106,6 +108,7 @@ export default function OrderMasterPage() {
   const [editingDetailId, setEditingDetailId] = useState<number | null>(null);
   const [editingDetailDraft, setEditingDetailDraft] = useState<OrderDetailDraft | null>(null);
   const [newDetailDraft, setNewDetailDraft] = useState<AddOrderDetailDraft | null>(null);
+  const editOrderInvoiceInputRef = useRef<HTMLInputElement | null>(null);
   const queryClient = useQueryClient();
 
   const queryKey = useMemo(
@@ -194,8 +197,12 @@ export default function OrderMasterPage() {
           throw new Error('Purchase order not found');
         }
 
-        setIsEditMode(false);
-        setEditedOrder(null);
+        setEditedOrder({
+          InvoiceNumber: order.InvoiceNumber,
+          StoreName: order.StoreName,
+          PurchaseDate: order.PurchaseDate,
+          StatusName: order.StatusName || '',
+        });
         setEditingDetailId(null);
         setEditingDetailDraft(null);
         setNewDetailDraft(null);
@@ -419,8 +426,12 @@ export default function OrderMasterPage() {
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
       setUpdateError(null);
-      setIsEditMode(false);
-      setEditedOrder(null);
+      setEditedOrder({
+        InvoiceNumber: variables.InvoiceNumber,
+        StoreName: variables.StoreName,
+        PurchaseDate: variables.PurchasedDate,
+        StatusName: variables.StatusName,
+      });
 
       // Immediately refresh modal header fields with saved values.
       setSelectedOrder((current) => {
@@ -437,6 +448,11 @@ export default function OrderMasterPage() {
           StatusName: variables.StatusName,
         };
       });
+      toast({
+        title: 'Order Saved',
+        description: `Saved invoice ${variables.InvoiceNumber} for ${variables.StoreName}.`,
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       const errorMsg = error.response?.data?.error || error.message || 'Failed to update order';
@@ -452,9 +468,17 @@ export default function OrderMasterPage() {
       await tablesAPI.deleteRecord('PurchaseOrder', selectedOrder.PurchaseOrderID);
     },
     onSuccess: () => {
+      const deletedInvoice = selectedOrder?.InvoiceNumber;
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
       setIsConfirmDeleteOpen(false);
       handleCloseModal();
+      toast({
+        title: 'Order Deleted',
+        description: deletedInvoice
+          ? `Deleted invoice ${deletedInvoice} and all associated detail rows.`
+          : 'Deleted selected order and all associated detail rows.',
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       setDeleteError(error.response?.data?.error || error.message || 'Failed to delete order');
@@ -483,11 +507,20 @@ export default function OrderMasterPage() {
       );
     },
     onSuccess: () => {
+      const deletedCount = selectedOrderIds.length;
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
       setSelectedOrderIds([]);
       setIsBulkDeleteOpen(false);
       setBulkDeleteError(null);
       setBulkDeleteConfirmText('');
+      toast({
+        title: deletedCount === 1 ? 'Order Deleted' : 'Orders Deleted',
+        description:
+          deletedCount === 1
+            ? 'Deleted 1 selected order and its detail rows.'
+            : `Deleted ${deletedCount} selected orders and their detail rows.`,
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       setBulkDeleteError(error.response?.data?.error || error.message || 'Failed to delete selected orders');
@@ -507,9 +540,18 @@ export default function OrderMasterPage() {
       );
     },
     onSuccess: () => {
+      const updatedCount = selectedOrderIds.length;
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
       setSelectedOrderIds([]);
       closeBulkUpdateDialog();
+      toast({
+        title: updatedCount === 1 ? 'Order Updated' : 'Orders Updated',
+        description:
+          updatedCount === 1
+            ? 'Applied bulk updates to 1 selected order.'
+            : `Applied bulk updates to ${updatedCount} selected orders.`,
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       setBulkError(error.response?.data?.error || error.message || 'Failed to bulk update purchase orders');
@@ -561,6 +603,7 @@ export default function OrderMasterPage() {
       return response.data.PurchaseOrderID as number;
     },
     onSuccess: async (newOrderId: number) => {
+      const detailCount = addOrderDetails.length;
       // Fetch the newly created order row so we can open it in the detail modal
       const listResponse = await tablesAPI.getPurchaseOrders({
         page: 1,
@@ -583,6 +626,15 @@ export default function OrderMasterPage() {
         setSelectedOrder(createdOrder);
         setIsModalOpen(true);
       }
+
+      toast({
+        title: 'Order Created',
+        description:
+          detailCount === 1
+            ? `Created order #${newOrderId} with 1 detail row.`
+            : `Created order #${newOrderId} with ${detailCount} detail rows.`,
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       setAddOrderError(error.response?.data?.error || error.message || 'Failed to create order');
@@ -605,6 +657,11 @@ export default function OrderMasterPage() {
       setUpdateError(null);
       setEditingDetailId(null);
       setEditingDetailDraft(null);
+      toast({
+        title: 'Order Detail Updated',
+        description: 'Saved changes to the selected purchase-order detail row.',
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       const errorMsg = error.response?.data?.error || error.message || 'Failed to update inventory item row';
@@ -627,6 +684,11 @@ export default function OrderMasterPage() {
         setEditingDetailDraft(null);
       }
       setDeleteError(null);
+      toast({
+        title: 'Order Detail Deleted',
+        description: 'Removed the selected purchase-order detail row.',
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       setDeleteError(error.response?.data?.error || error.message || 'Failed to delete inventory item row');
@@ -653,6 +715,11 @@ export default function OrderMasterPage() {
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
       setUpdateError(null);
       setNewDetailDraft(null);
+      toast({
+        title: 'Order Detail Added',
+        description: 'Added a new purchase-order detail row to the current order.',
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       const errorMsg = error.response?.data?.error || error.message || 'Failed to add inventory item row';
@@ -661,14 +728,22 @@ export default function OrderMasterPage() {
   });
 
   const handleOrderRowClick = (order: PurchaseOrder) => {
+    setEditedOrder({
+      InvoiceNumber: order.InvoiceNumber,
+      StoreName: order.StoreName,
+      PurchaseDate: order.PurchaseDate,
+      StatusName: order.StatusName || '',
+    });
     setSelectedOrder(order);
+    setUpdateError(null);
+    setDeleteError(null);
+    setIsConfirmDeleteOpen(false);
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedOrder(null);
-    setIsEditMode(false);
     setEditedOrder(null);
     setUpdateError(null);
     setDeleteError(null);
@@ -676,6 +751,30 @@ export default function OrderMasterPage() {
     setEditingDetailId(null);
     setEditingDetailDraft(null);
     setNewDetailDraft(null);
+  };
+
+  const isOrderEditDirty = useMemo(() => {
+    if (!selectedOrder || !editedOrder) {
+      return false;
+    }
+
+    return (
+      editedOrder.InvoiceNumber !== selectedOrder.InvoiceNumber
+      || editedOrder.StoreName !== selectedOrder.StoreName
+      || editedOrder.PurchaseDate !== selectedOrder.PurchaseDate
+      || editedOrder.StatusName !== (selectedOrder.StatusName || '')
+    );
+  }, [selectedOrder, editedOrder]);
+
+  const requestCloseModal = () => {
+    if (isOrderEditDirty) {
+      const confirmed = window.confirm('Changes have not been applied. Close without saving?');
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    handleCloseModal();
   };
 
   const closeAddOrderModal = () => {
@@ -689,24 +788,6 @@ export default function OrderMasterPage() {
     });
     setAddOrderDetails([{ id: 1, ItemID: '', Quantity: '1', Price: '' }]);
     setNextDetailRowId(2);
-  };
-
-  const handleEditClick = () => {
-    if (selectedOrder) {
-      setEditedOrder({
-        InvoiceNumber: selectedOrder.InvoiceNumber,
-        StoreName: selectedOrder.StoreName,
-        PurchaseDate: selectedOrder.PurchaseDate,
-        StatusName: selectedOrder.StatusName || '',
-      });
-      setIsEditMode(true);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditMode(false);
-    setEditedOrder(null);
-    setUpdateError(null);
   };
 
   const handleEditFieldChange = (
@@ -1395,7 +1476,7 @@ export default function OrderMasterPage() {
         </section>
       </div>
 
-      <Dialog
+      <AlertDialog
         open={isBulkDeleteOpen}
         onOpenChange={(open) => {
           if (open) {
@@ -1405,10 +1486,25 @@ export default function OrderMasterPage() {
 
             closeBulkDeleteDialog();
         }}
-        onClose={closeBulkDeleteDialog}
         title="Confirm Bulk Delete"
-        showCloseButton={false}
-        contentClassName="max-w-xl"
+        description={`You are about to permanently delete ${selectedOrderIds.length} selected purchase orders and their associated detail rows. This action cannot be undone.`}
+        footer={(
+          <>
+            <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={closeBulkDeleteDialog} disabled={bulkDeleteMutation.isPending}>
+              Cancel
+            </Button>
+            {bulkDeleteConfirmText.trim() === 'DELETE' ? (
+              <Button
+                type="button"
+                className="bg-red-600 hover:bg-red-700"
+                onClick={() => bulkDeleteMutation.mutate()}
+                disabled={bulkDeleteMutation.isPending}
+              >
+                {bulkDeleteMutation.isPending ? 'Deleting...' : `Delete ${selectedOrderIds.length} Orders`}
+              </Button>
+            ) : null}
+          </>
+        )}
       >
         <div className="space-y-5">
           {bulkDeleteError ? (
@@ -1416,11 +1512,6 @@ export default function OrderMasterPage() {
               {bulkDeleteError}
             </div>
           ) : null}
-
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
-            You are about to permanently delete {selectedOrderIds.length} selected purchase orders and their associated detail rows.
-            This action cannot be undone.
-          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1436,24 +1527,8 @@ export default function OrderMasterPage() {
               disabled={bulkDeleteMutation.isPending}
             />
           </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-            <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={closeBulkDeleteDialog} disabled={bulkDeleteMutation.isPending}>
-              Cancel
-            </Button>
-            {bulkDeleteConfirmText.trim() === 'DELETE' ? (
-              <Button
-                type="button"
-                className="bg-red-600 hover:bg-red-700"
-                onClick={() => bulkDeleteMutation.mutate()}
-                disabled={bulkDeleteMutation.isPending}
-              >
-                {bulkDeleteMutation.isPending ? 'Deleting...' : `Delete ${selectedOrderIds.length} Orders`}
-              </Button>
-            ) : null}
-          </div>
         </div>
-      </Dialog>
+      </AlertDialog>
 
       <Dialog
         open={isBulkUpdateOpen}
@@ -1494,33 +1569,23 @@ export default function OrderMasterPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Store</label>
-                  <select
+                  <ComboSelect
+                    options={storesData.map((store: any) => ({ value: String(store.StoreID), label: store.StoreName }))}
                     value={bulkValues.StoreID}
-                    onChange={(event) => handleBulkFieldChange('StoreID', event.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
-                  >
-                    <option value="">Leave unchanged</option>
-                    {storesData.map((store: any) => (
-                      <option key={store.StoreID} value={String(store.StoreID)}>
-                        {store.StoreName}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => handleBulkFieldChange('StoreID', value)}
+                    placeholder="Leave unchanged"
+                    className="w-full"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Order Status</label>
-                  <select
+                  <ComboSelect
+                    options={statusesData.map((status: any) => ({ value: String(status.StatusID), label: status.StatusName }))}
                     value={bulkValues.StatusID}
-                    onChange={(event) => handleBulkFieldChange('StatusID', event.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
-                  >
-                    <option value="">Leave unchanged</option>
-                    {statusesData.map((status: any) => (
-                      <option key={status.StatusID} value={String(status.StatusID)}>
-                        {status.StatusName}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => handleBulkFieldChange('StatusID', value)}
+                    placeholder="Leave unchanged"
+                    className="w-full"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Date</label>
@@ -1612,10 +1677,21 @@ export default function OrderMasterPage() {
       {/* Order Details Modal */}
       <Dialog
         open={isModalOpen}
-        onOpenChange={setIsModalOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setIsModalOpen(true);
+            return;
+          }
+
+          requestCloseModal();
+        }}
         title="Edit Order"
-        onClose={handleCloseModal}
+        onClose={requestCloseModal}
         showCloseButton={false}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          editOrderInvoiceInputRef.current?.focus();
+        }}
       >
         {selectedOrder && (
           <div className="space-y-6">
@@ -1632,151 +1708,75 @@ export default function OrderMasterPage() {
             )}
 
             {/* Order Summary / Edit Form */}
-            <div className={`grid gap-4 pb-4 border-b ${isEditMode ? 'grid-cols-1' : 'grid-cols-2 md:grid-cols-5'}`}>
+            <div className="grid gap-4 pb-4 border-b grid-cols-1 md:grid-cols-4">
               {/* Invoice Number */}
               <div>
                 <p className="text-sm text-gray-600">Invoice Number</p>
-                {isEditMode ? (
-                  <Input
-                    type="text"
-                    value={editedOrder?.InvoiceNumber || ''}
-                    onChange={(e) => handleEditFieldChange('InvoiceNumber', e.target.value)}
-                    className="mt-1"
-                  />
-                ) : (
-                  <p className="font-semibold">{selectedOrder.InvoiceNumber}</p>
-                )}
+                <Input
+                  ref={editOrderInvoiceInputRef}
+                  type="text"
+                  value={editedOrder?.InvoiceNumber || ''}
+                  onChange={(e) => handleEditFieldChange('InvoiceNumber', e.target.value)}
+                  className="mt-1"
+                />
               </div>
 
               {/* Store */}
               <div>
                 <p className="text-sm text-gray-600">Store</p>
-                {isEditMode ? (
-                  <select
-                    value={editedOrder?.StoreName || ''}
-                    onChange={(e) => handleEditFieldChange('StoreName', e.target.value)}
-                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select a store...</option>
-                    {storesData.map((store: any) => (
-                      <option key={store.StoreID} value={store.StoreName}>
-                        {store.StoreName}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <p className="font-semibold">{selectedOrder.StoreName}</p>
-                )}
+                <ComboSelect
+                  options={storesData.map((store: any) => ({ value: store.StoreName, label: store.StoreName }))}
+                  value={editedOrder?.StoreName || ''}
+                  onChange={(value) => handleEditFieldChange('StoreName', value)}
+                  placeholder="Select a store..."
+                  className="w-full mt-1"
+                />
               </div>
 
               {/* Purchase Date */}
               <div>
                 <p className="text-sm text-gray-600">Purchase Date</p>
-                {isEditMode ? (
-                  <Input
-                    type="date"
-                    value={
-                      editedOrder?.PurchaseDate
-                        ? (() => {
-                            const parts = parseDateParts(editedOrder.PurchaseDate);
-                            if (parts) {
-                              return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
-                            }
-                            return editedOrder.PurchaseDate;
-                          })()
-                        : ''
-                    }
-                    onChange={(e) => handleEditFieldChange('PurchaseDate', e.target.value)}
-                    className="mt-1"
-                  />
-                ) : (
-                  <p className="font-semibold">{formatPurchaseDate(selectedOrder.PurchaseDate)}</p>
-                )}
+                <Input
+                  type="date"
+                  value={
+                    editedOrder?.PurchaseDate
+                      ? (() => {
+                          const parts = parseDateParts(editedOrder.PurchaseDate);
+                          if (parts) {
+                            return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
+                          }
+                          return editedOrder.PurchaseDate;
+                        })()
+                      : ''
+                  }
+                  onChange={(e) => handleEditFieldChange('PurchaseDate', e.target.value)}
+                  className="mt-1"
+                />
               </div>
 
               {/* Order Status */}
               <div>
                 <p className="text-sm text-gray-600">Order Status</p>
-                {isEditMode ? (
-                  <select
-                    value={editedOrder?.StatusName || ''}
-                    onChange={(e) => handleEditFieldChange('StatusName', e.target.value)}
-                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select a status...</option>
-                    {statusesData.map((status: any) => (
-                      <option key={status.StatusID} value={status.StatusName}>
-                        {status.StatusName}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <p className="font-semibold">{selectedOrder.StatusName || '-'}</p>
-                )}
+                <ComboSelect
+                  options={statusesData.map((status: any) => ({ value: status.StatusName, label: status.StatusName }))}
+                  value={editedOrder?.StatusName || ''}
+                  onChange={(value) => handleEditFieldChange('StatusName', value)}
+                  placeholder="Select a status..."
+                  className="w-full mt-1"
+                />
               </div>
 
-              {/* Total Amount (read-only) */}
-              {!isEditMode && (
-                <div>
-                  <p className="text-sm text-gray-600">Total Amount</p>
-                  <p className="font-semibold text-blue-600">{formatCurrency(selectedOrder.TotalAmount)}</p>
-                </div>
-              )}
             </div>
 
-            {/* Edit/Save/Cancel/Delete Buttons */}
-            <div className="flex gap-2 justify-between mb-4">
-              {/* Delete lives on the left so it's visually separated from the edit actions */}
-              {!isEditMode && (
-                <Button
-                  onClick={() => { setDeleteError(null); setIsConfirmDeleteOpen(true); }}
-                  className="bg-red-600 hover:bg-red-700"
-                  disabled={deleteOrderMutation.isPending}
-                >
-                  Delete Order
-                </Button>
-              )}
-              <div className="flex gap-2 ml-auto">
-              {!isEditMode ? (
-                <Button
-                  onClick={handleEditClick}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  Edit
-                </Button>
-              ) : (
+            <AlertDialog
+              open={isConfirmDeleteOpen}
+              onOpenChange={setIsConfirmDeleteOpen}
+              title={`Delete order #${selectedOrder.InvoiceNumber} from ${selectedOrder.StoreName}?`}
+              description={`This will permanently remove the purchase order and all ${selectedOrder.ItemCount} associated detail${selectedOrder.ItemCount === 1 ? ' row' : ' rows'}. This action cannot be undone.`}
+              footer={(
                 <>
                   <Button
-                    onClick={handleCancelEdit}
-                    className="bg-gray-600 hover:bg-gray-700"
-                    disabled={updateMutation.isPending}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleSaveEdit}
-                    className="bg-green-600 hover:bg-green-700"
-                    disabled={updateMutation.isPending}
-                  >
-                    {updateMutation.isPending ? 'Saving...' : 'Save'}
-                  </Button>
-                </>
-              )}
-              </div>
-            </div>
-
-            {/* Confirm Delete dialog */}
-            {isConfirmDeleteOpen && (
-              <div className="p-4 bg-yellow-50 border border-yellow-300 rounded-md space-y-3">
-                <p className="font-semibold text-yellow-900">
-                  Delete order #{selectedOrder.InvoiceNumber} from {selectedOrder.StoreName}?
-                </p>
-                <p className="text-sm text-yellow-800">
-                  This will permanently remove the purchase order and all {selectedOrder.ItemCount} associated detail
-                  {selectedOrder.ItemCount === 1 ? ' row' : ' rows'}. This action cannot be undone.
-                </p>
-                <div className="flex gap-2 justify-end">
-                  <Button
+                    type="button"
                     className="bg-gray-600 hover:bg-gray-700"
                     onClick={() => setIsConfirmDeleteOpen(false)}
                     disabled={deleteOrderMutation.isPending}
@@ -1784,15 +1784,16 @@ export default function OrderMasterPage() {
                     Cancel
                   </Button>
                   <Button
+                    type="button"
                     className="bg-red-600 hover:bg-red-700"
                     onClick={() => deleteOrderMutation.mutate()}
                     disabled={deleteOrderMutation.isPending}
                   >
                     {deleteOrderMutation.isPending ? 'Deleting...' : 'Confirm Delete'}
                   </Button>
-                </div>
-              </div>
-            )}
+                </>
+              )}
+            />
 
             {/* Inventory Items Grid */}
             <div>
@@ -2005,6 +2006,35 @@ export default function OrderMasterPage() {
                 </div>
               )}
             </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                className="bg-red-600 hover:bg-red-700 sm:mr-auto"
+                onClick={() => {
+                  setDeleteError(null);
+                  setIsConfirmDeleteOpen(true);
+                }}
+                disabled={deleteOrderMutation.isPending || updateMutation.isPending}
+              >
+                Delete Order
+              </Button>
+              <Button
+                type="button"
+                className="bg-slate-600 hover:bg-slate-700"
+                onClick={requestCloseModal}
+                disabled={deleteOrderMutation.isPending || updateMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveEdit}
+                disabled={!isOrderEditDirty || updateMutation.isPending || deleteOrderMutation.isPending}
+              >
+                {updateMutation.isPending ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
           </div>
         )}
       </Dialog>
@@ -2047,34 +2077,24 @@ export default function OrderMasterPage() {
 
             <label className="space-y-2">
               <span className="block text-sm font-medium text-gray-700 mb-1">Store</span>
-              <select
+              <ComboSelect
+                options={storesData.map((store: any) => ({ value: String(store.StoreID), label: store.StoreName }))}
                 value={addOrderValues.StoreID}
-                onChange={(e) => handleAddOrderFieldChange('StoreID', e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
-              >
-                <option value="">Select a store...</option>
-                {storesData.map((store: any) => (
-                  <option key={store.StoreID} value={store.StoreID}>
-                    {store.StoreName}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => handleAddOrderFieldChange('StoreID', value)}
+                placeholder="Select a store..."
+                className="w-full"
+              />
             </label>
 
             <label className="space-y-2">
               <span className="block text-sm font-medium text-gray-700 mb-1">Order Status</span>
-              <select
+              <ComboSelect
+                options={statusesData.map((status: any) => ({ value: String(status.StatusID), label: status.StatusName }))}
                 value={addOrderValues.StatusID}
-                onChange={(e) => handleAddOrderFieldChange('StatusID', e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
-              >
-                <option value="">Select a status...</option>
-                {statusesData.map((status: any) => (
-                  <option key={status.StatusID} value={status.StatusID}>
-                    {status.StatusName}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => handleAddOrderFieldChange('StatusID', value)}
+                placeholder="Select a status..."
+                className="w-full"
+              />
             </label>
 
             <label className="space-y-2">

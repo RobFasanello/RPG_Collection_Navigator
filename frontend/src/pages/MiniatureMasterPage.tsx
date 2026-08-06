@@ -6,6 +6,8 @@ import ComboSelect from '../components/ui/ComboSelect';
 import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
+import AlertDialog from '../components/ui/AlertDialog';
+import { useToast } from '../components/ui/ToastProvider';
 import { Input } from '../components/ui/Input';
 import SetupTablePagination from '../components/SetupTablePagination';
 import AdminLayout from '../components/AdminLayout';
@@ -81,6 +83,7 @@ const csvEscape = (value: string) => {
 
 export default function MiniatureMasterPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [urlSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [sortBy, setSortBy] = useState<SortColumn>('MiniatureName');
@@ -92,6 +95,9 @@ export default function MiniatureMasterPage() {
   const [addValues, setAddValues] = useState({ ItemID: '', Item: '', MiniatureName: '', MiniatureSizeID: '', MiniatureRarityID: '', MiniatureQuantity: '1', LocationID: '' });
   const [addError, setAddError] = useState('');
   const [editingMiniature, setEditingMiniature] = useState<MiniatureRow | null>(null);
+  const [pendingEditNavigation, setPendingEditNavigation] = useState<
+    { direction: 'previous' | 'next'; targetPage: number } | null
+  >(null);
   const [editValues, setEditValues] = useState({ ItemID: '', Item: '', MiniatureName: '', MiniatureSizeID: '', MiniatureRarityID: '', MiniatureQuantity: '1', LocationID: '' });
   const [editError, setEditError] = useState('');
   const [isBulkUpdateOpen, setIsBulkUpdateOpen] = useState(false);
@@ -528,6 +534,20 @@ export default function MiniatureMasterPage() {
 
   const pagination = useSetupPagination(filteredRows, [filterValues, sortBy, sortOrder]);
   const currentPageRows = pagination.paginatedRows;
+  const currentEditMiniatureIndex = useMemo(() => {
+    if (!editingMiniature) {
+      return -1;
+    }
+
+    return currentPageRows.findIndex((row) => row.MiniatureID === editingMiniature.MiniatureID);
+  }, [currentPageRows, editingMiniature]);
+  const canNavigateToPreviousEditMiniature = Boolean(
+    editingMiniature && (currentEditMiniatureIndex > 0 || pagination.page > 1)
+  );
+  const canNavigateToNextEditMiniature = Boolean(
+    editingMiniature
+      && ((currentEditMiniatureIndex >= 0 && currentEditMiniatureIndex < currentPageRows.length - 1) || pagination.page < pagination.totalPages)
+  );
   const selectedMiniatureIdSet = useMemo(() => new Set(selectedMiniatureIds), [selectedMiniatureIds]);
   const areAllCurrentPageRowsSelected = currentPageRows.length > 0 && currentPageRows.every((row) => selectedMiniatureIdSet.has(row.MiniatureID));
 
@@ -542,6 +562,11 @@ export default function MiniatureMasterPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       closeAddModal();
+      toast({
+        title: 'Miniature Added',
+        description: `Added "${addValues.MiniatureName}" with quantity ${addValues.MiniatureQuantity}.`,
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       setAddError(error.response?.data?.error || 'Failed to create miniature');
@@ -559,6 +584,11 @@ export default function MiniatureMasterPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       closeEditModal();
+      toast({
+        title: 'Miniature Saved',
+        description: `Saved changes for "${editingMiniature?.MiniatureName || 'selected miniature'}".`,
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       setEditError(error.response?.data?.error || 'Failed to update miniature');
@@ -577,6 +607,11 @@ export default function MiniatureMasterPage() {
       queryClient.invalidateQueries({ queryKey });
       setSelectedMiniatureIds((current) => current.filter((id) => id !== editingMiniature?.MiniatureID));
       closeEditModal();
+      toast({
+        title: 'Miniature Deleted',
+        description: `Deleted "${editingMiniature?.MiniatureName || 'selected miniature'}" from Miniature Master.`,
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       setEditError(error.response?.data?.error || 'Failed to delete miniature');
@@ -588,9 +623,18 @@ export default function MiniatureMasterPage() {
       await Promise.all(selectedMiniatureIds.map((miniatureId) => tablesAPI.updateRecord('Miniature', miniatureId, payload)));
     },
     onSuccess: () => {
+      const updatedCount = selectedMiniatureIds.length;
       queryClient.invalidateQueries({ queryKey });
       setSelectedMiniatureIds([]);
       closeBulkUpdateDialog();
+      toast({
+        title: updatedCount === 1 ? 'Miniature Updated' : 'Miniatures Updated',
+        description:
+          updatedCount === 1
+            ? 'Applied bulk changes to 1 selected miniature.'
+            : `Applied bulk changes to ${updatedCount} selected miniatures.`,
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       setBulkError(error.response?.data?.error || 'Failed to bulk update miniatures');
@@ -602,9 +646,18 @@ export default function MiniatureMasterPage() {
       await Promise.all(miniatureIds.map((miniatureId) => tablesAPI.deleteRecord('Miniature', miniatureId)));
     },
     onSuccess: () => {
+      const deletedCount = selectedMiniatureIds.length;
       queryClient.invalidateQueries({ queryKey });
       setSelectedMiniatureIds([]);
       closeBulkDeleteDialog();
+      toast({
+        title: deletedCount === 1 ? 'Miniature Deleted' : 'Miniatures Deleted',
+        description:
+          deletedCount === 1
+            ? 'Removed 1 selected miniature from Miniature Master.'
+            : `Removed ${deletedCount} selected miniatures from Miniature Master.`,
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       setBulkDeleteError(error.response?.data?.error || 'Failed to bulk delete miniatures');
@@ -735,6 +788,7 @@ export default function MiniatureMasterPage() {
   };
 
   const openEditModal = (miniature: MiniatureRow) => {
+    setPendingEditNavigation(null);
     setEditingMiniature(miniature);
     setEditValues({
       ItemID: miniature.ItemID != null ? String(miniature.ItemID) : '',
@@ -755,10 +809,75 @@ export default function MiniatureMasterPage() {
   };
 
   const closeEditModal = () => {
+    setPendingEditNavigation(null);
     setEditingMiniature(null);
     setEditError('');
     setEditValues({ ItemID: '', Item: '', MiniatureName: '', MiniatureSizeID: '', MiniatureRarityID: '', MiniatureQuantity: '1', LocationID: '' });
   };
+
+  const requestCloseEditModal = () => {
+    if (isEditDirty) {
+      const confirmed = window.confirm('Changes have not been applied. Close without saving?');
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    closeEditModal();
+  };
+
+  const handleNavigateEditMiniature = (direction: 'previous' | 'next') => {
+    if (!editingMiniature) {
+      return;
+    }
+
+    if (isEditDirty) {
+      const confirmed = window.confirm('Changes have not been applied. Move to another miniature without saving?');
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    if (direction === 'previous') {
+      if (currentEditMiniatureIndex > 0) {
+        openEditModal(currentPageRows[currentEditMiniatureIndex - 1]);
+        return;
+      }
+
+      if (pagination.page > 1) {
+        setPendingEditNavigation({ direction: 'previous', targetPage: pagination.page - 1 });
+        pagination.setPage((current) => Math.max(1, current - 1));
+      }
+      return;
+    }
+
+    if (currentEditMiniatureIndex >= 0 && currentEditMiniatureIndex < currentPageRows.length - 1) {
+      openEditModal(currentPageRows[currentEditMiniatureIndex + 1]);
+      return;
+    }
+
+    if (pagination.page < pagination.totalPages) {
+      setPendingEditNavigation({ direction: 'next', targetPage: pagination.page + 1 });
+      pagination.setPage((current) => current + 1);
+    }
+  };
+
+  useEffect(() => {
+    if (!editingMiniature || !pendingEditNavigation || !currentPageRows.length) {
+      return;
+    }
+
+    if (pagination.page !== pendingEditNavigation.targetPage) {
+      return;
+    }
+
+    if (pendingEditNavigation.direction === 'previous') {
+      openEditModal(currentPageRows[currentPageRows.length - 1]);
+      return;
+    }
+
+    openEditModal(currentPageRows[0]);
+  }, [editingMiniature, pendingEditNavigation, currentPageRows, pagination.page]);
 
   const openBulkUpdateDialog = () => {
     if (selectedMiniatureIds.length < 1) {
@@ -1547,8 +1666,14 @@ export default function MiniatureMasterPage() {
 
       <Dialog
         open={Boolean(editingMiniature)}
-        onOpenChange={(open) => { if (!open) closeEditModal(); }}
-        onClose={closeEditModal}
+        onOpenChange={(open) => {
+          if (open) {
+            return;
+          }
+
+          requestCloseEditModal();
+        }}
+        onClose={requestCloseEditModal}
         title="Edit Miniature Detail"
         showCloseButton={false}
         contentClassName="max-w-2xl"
@@ -1558,7 +1683,31 @@ export default function MiniatureMasterPage() {
         }}
       >
         <form className="space-y-4" onSubmit={handleEditSubmit}>
-          <p className="text-sm text-gray-500">Update miniature values and save changes.</p>
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm text-gray-500">Update miniature values and save changes.</p>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                className="h-9 !bg-gray-200 !text-gray-800 hover:!bg-gray-300"
+                onClick={() => handleNavigateEditMiniature('previous')}
+                disabled={!canNavigateToPreviousEditMiniature || editMutation.isLoading || editDeleteMutation.isLoading}
+                aria-label="Previous miniature"
+                title="Previous miniature"
+              >
+                Prev
+              </Button>
+              <Button
+                type="button"
+                className="h-9 !bg-gray-200 !text-gray-800 hover:!bg-gray-300"
+                onClick={() => handleNavigateEditMiniature('next')}
+                disabled={!canNavigateToNextEditMiniature || editMutation.isLoading || editDeleteMutation.isLoading}
+                aria-label="Next miniature"
+                title="Next miniature"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
           {editError ? <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{editError}</div> : null}
           <label className="block space-y-2">
             <span className="text-sm font-medium text-gray-700">Miniature Name</span>
@@ -1603,7 +1752,7 @@ export default function MiniatureMasterPage() {
             <Button type="button" className="bg-red-600 hover:bg-red-700 sm:mr-auto" onClick={handleDeleteMiniature} disabled={editMutation.isLoading || editDeleteMutation.isLoading}>
               {editDeleteMutation.isLoading ? 'Deleting...' : 'Delete Miniature'}
             </Button>
-            <Button type="button" className="bg-gray-200 text-gray-800 hover:bg-gray-300" onClick={closeEditModal} disabled={editMutation.isLoading || editDeleteMutation.isLoading}>Cancel</Button>
+            <Button type="button" className="bg-slate-600 hover:bg-slate-700" onClick={requestCloseEditModal} disabled={editMutation.isLoading || editDeleteMutation.isLoading}>Cancel</Button>
             <Button type="submit" disabled={!isEditDirty || editMutation.isLoading || editDeleteMutation.isLoading}>{editMutation.isLoading ? 'Saving...' : 'Save Changes'}</Button>
           </div>
         </form>
@@ -1694,18 +1843,37 @@ export default function MiniatureMasterPage() {
         </form>
       </Dialog>
 
-      <Dialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen} onClose={closeBulkDeleteDialog} title="Confirm Bulk Delete" showCloseButton={false} contentClassName="max-w-xl">
+      <AlertDialog
+        open={isBulkDeleteOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setIsBulkDeleteOpen(true);
+            return;
+          }
+
+          closeBulkDeleteDialog();
+        }}
+        title="Confirm Bulk Delete"
+        description={`You are about to permanently delete ${selectedMiniatureIds.length} selected miniature record${selectedMiniatureIds.length === 1 ? '' : 's'}. This action cannot be undone.`}
+        footer={(
+          <>
+            <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={closeBulkDeleteDialog} disabled={bulkDeleteMutation.isLoading}>
+              Cancel
+            </Button>
+            {bulkDeleteConfirmText.trim() === 'DELETE' ? (
+              <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={handleBulkDeleteConfirm} disabled={bulkDeleteMutation.isLoading}>
+                {bulkDeleteMutation.isLoading ? 'Deleting...' : `Delete ${selectedMiniatureIds.length} Miniatures`}
+              </Button>
+            ) : null}
+          </>
+        )}
+      >
         <div className="space-y-5">
           {bulkDeleteError ? (
             <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
               {bulkDeleteError}
             </div>
           ) : null}
-
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
-            You are about to permanently delete {selectedMiniatureIds.length} selected miniature record{selectedMiniatureIds.length === 1 ? '' : 's'}.
-            This action cannot be undone.
-          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1721,19 +1889,8 @@ export default function MiniatureMasterPage() {
               disabled={bulkDeleteMutation.isLoading}
             />
           </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-            <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={closeBulkDeleteDialog} disabled={bulkDeleteMutation.isLoading}>
-              Cancel
-            </Button>
-            {bulkDeleteConfirmText.trim() === 'DELETE' ? (
-              <Button type="button" className="bg-red-600 hover:bg-red-700" onClick={handleBulkDeleteConfirm} disabled={bulkDeleteMutation.isLoading}>
-                {bulkDeleteMutation.isLoading ? 'Deleting...' : `Delete ${selectedMiniatureIds.length} Miniatures`}
-              </Button>
-            ) : null}
-          </div>
         </div>
-      </Dialog>
+      </AlertDialog>
 
       <Dialog
         open={isRelatedOrdersModalOpen}

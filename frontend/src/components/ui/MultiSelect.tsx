@@ -1,4 +1,5 @@
 import React from 'react';
+import ComboMultiSelect from './ComboMultiSelect';
 
 interface Option {
   value: string;
@@ -14,28 +15,14 @@ interface MultiSelectProps {
 }
 
 export const MultiSelect: React.FC<MultiSelectProps> = ({ options, selected, onChange, placeholder, className }) => {
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const values = Array.from(e.target.selectedOptions, (o) => o.value);
-    onChange(values);
-  };
-
   return (
-    <div className={className}>
-      <select
-        multiple
-        value={selected}
-        onChange={handleChange}
-        className="w-full border rounded-md p-2"
-        aria-label={placeholder || 'Select options'}
-      >
-        {options.length === 0 && <option disabled>Loading...</option>}
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
+    <ComboMultiSelect
+      options={options}
+      selected={selected}
+      onChange={onChange}
+      placeholder={placeholder || 'Select options'}
+      className={className || 'w-full'}
+    />
   );
 };
 

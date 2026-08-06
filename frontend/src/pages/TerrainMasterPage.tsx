@@ -6,6 +6,8 @@ import ComboSelect from '../components/ui/ComboSelect';
 import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
+import AlertDialog from '../components/ui/AlertDialog';
+import { useToast } from '../components/ui/ToastProvider';
 import { Input } from '../components/ui/Input';
 import SetupTablePagination from '../components/SetupTablePagination';
 import AdminLayout from '../components/AdminLayout';
@@ -82,6 +84,7 @@ const csvEscape = (value: string) => {
 
 export default function TerrainMasterPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [urlSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [sortBy, setSortBy] = useState<SortColumn>('TerrainName');
@@ -100,6 +103,9 @@ export default function TerrainMasterPage() {
   });
   const [addError, setAddError] = useState('');
   const [editingTerrain, setEditingTerrain] = useState<TerrainRow | null>(null);
+  const [pendingEditNavigation, setPendingEditNavigation] = useState<
+    { direction: 'previous' | 'next'; targetPage: number } | null
+  >(null);
   const [editValues, setEditValues] = useState({
     ItemID: '',
     Item: '',
@@ -500,6 +506,20 @@ export default function TerrainMasterPage() {
 
   const pagination = useSetupPagination(filteredRows, [filterValues, sortBy, sortOrder]);
   const currentPageRows = pagination.paginatedRows;
+  const currentEditTerrainIndex = useMemo(() => {
+    if (!editingTerrain) {
+      return -1;
+    }
+
+    return currentPageRows.findIndex((row) => row.TerrainID === editingTerrain.TerrainID);
+  }, [currentPageRows, editingTerrain]);
+  const canNavigateToPreviousEditTerrain = Boolean(
+    editingTerrain && (currentEditTerrainIndex > 0 || pagination.page > 1)
+  );
+  const canNavigateToNextEditTerrain = Boolean(
+    editingTerrain
+      && ((currentEditTerrainIndex >= 0 && currentEditTerrainIndex < currentPageRows.length - 1) || pagination.page < pagination.totalPages)
+  );
   const selectedTerrainIdSet = useMemo(() => new Set(selectedTerrainIds), [selectedTerrainIds]);
   const areAllCurrentPageRowsSelected =
     currentPageRows.length > 0 && currentPageRows.every((row) => selectedTerrainIdSet.has(row.TerrainID));
@@ -515,6 +535,11 @@ export default function TerrainMasterPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       closeAddModal();
+      toast({
+        title: 'Terrain Added',
+        description: `Added "${addValues.TerrainName}" with quantity ${addValues.TerrainQuantity}.`,
+        variant: 'success',
+      });
     },
     onError: (mutationError: any) => {
       setAddError(mutationError.response?.data?.error || 'Failed to create terrain record');
@@ -532,6 +557,11 @@ export default function TerrainMasterPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       closeEditModal();
+      toast({
+        title: 'Terrain Saved',
+        description: `Saved changes for "${editingTerrain?.TerrainName || 'selected terrain'}".`,
+        variant: 'success',
+      });
     },
     onError: (mutationError: any) => {
       setEditError(mutationError.response?.data?.error || 'Failed to update terrain');
@@ -550,6 +580,11 @@ export default function TerrainMasterPage() {
       queryClient.invalidateQueries({ queryKey });
       setSelectedTerrainIds((current) => current.filter((id) => id !== editingTerrain?.TerrainID));
       closeEditModal();
+      toast({
+        title: 'Terrain Deleted',
+        description: `Deleted "${editingTerrain?.TerrainName || 'selected terrain'}" from Terrain Master.`,
+        variant: 'success',
+      });
     },
     onError: (mutationError: any) => {
       setEditError(mutationError.response?.data?.error || 'Failed to delete terrain');
@@ -561,9 +596,18 @@ export default function TerrainMasterPage() {
       await Promise.all(selectedTerrainIds.map((terrainId) => tablesAPI.updateRecord('Terrain', terrainId, payload)));
     },
     onSuccess: () => {
+      const updatedCount = selectedTerrainIds.length;
       queryClient.invalidateQueries({ queryKey });
       setSelectedTerrainIds([]);
       closeBulkUpdateDialog();
+      toast({
+        title: updatedCount === 1 ? 'Terrain Updated' : 'Terrain Updated',
+        description:
+          updatedCount === 1
+            ? 'Applied bulk changes to 1 selected terrain record.'
+            : `Applied bulk changes to ${updatedCount} selected terrain records.`,
+        variant: 'success',
+      });
     },
     onError: (mutationError: any) => {
       setBulkError(mutationError.response?.data?.error || 'Failed to bulk update terrain records');
@@ -575,9 +619,18 @@ export default function TerrainMasterPage() {
       await Promise.all(terrainIds.map((terrainId) => tablesAPI.deleteRecord('Terrain', terrainId)));
     },
     onSuccess: () => {
+      const deletedCount = selectedTerrainIds.length;
       queryClient.invalidateQueries({ queryKey });
       setSelectedTerrainIds([]);
       closeBulkDeleteDialog();
+      toast({
+        title: deletedCount === 1 ? 'Terrain Deleted' : 'Terrain Deleted',
+        description:
+          deletedCount === 1
+            ? 'Removed 1 selected terrain record from Terrain Master.'
+            : `Removed ${deletedCount} selected terrain records from Terrain Master.`,
+        variant: 'success',
+      });
     },
     onError: (mutationError: any) => {
       setBulkDeleteError(mutationError.response?.data?.error || 'Failed to bulk delete terrain records');
@@ -691,6 +744,7 @@ export default function TerrainMasterPage() {
   };
 
   const openEditModal = (terrain: TerrainRow) => {
+    setPendingEditNavigation(null);
     setEditingTerrain(terrain);
     setEditValues({
       ItemID: terrain.ItemID != null ? String(terrain.ItemID) : '',
@@ -710,10 +764,75 @@ export default function TerrainMasterPage() {
   };
 
   const closeEditModal = () => {
+    setPendingEditNavigation(null);
     setEditingTerrain(null);
     setEditError('');
     setEditValues({ ItemID: '', Item: '', TerrainName: '', TerrainCode: '', TerrainQuantity: '1', LocationID: '' });
   };
+
+  const requestCloseEditModal = () => {
+    if (isEditDirty) {
+      const confirmed = window.confirm('Changes have not been applied. Close without saving?');
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    closeEditModal();
+  };
+
+  const handleNavigateEditTerrain = (direction: 'previous' | 'next') => {
+    if (!editingTerrain) {
+      return;
+    }
+
+    if (isEditDirty) {
+      const confirmed = window.confirm('Changes have not been applied. Move to another terrain record without saving?');
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    if (direction === 'previous') {
+      if (currentEditTerrainIndex > 0) {
+        openEditModal(currentPageRows[currentEditTerrainIndex - 1]);
+        return;
+      }
+
+      if (pagination.page > 1) {
+        setPendingEditNavigation({ direction: 'previous', targetPage: pagination.page - 1 });
+        pagination.setPage((current) => Math.max(1, current - 1));
+      }
+      return;
+    }
+
+    if (currentEditTerrainIndex >= 0 && currentEditTerrainIndex < currentPageRows.length - 1) {
+      openEditModal(currentPageRows[currentEditTerrainIndex + 1]);
+      return;
+    }
+
+    if (pagination.page < pagination.totalPages) {
+      setPendingEditNavigation({ direction: 'next', targetPage: pagination.page + 1 });
+      pagination.setPage((current) => current + 1);
+    }
+  };
+
+  useEffect(() => {
+    if (!editingTerrain || !pendingEditNavigation || !currentPageRows.length) {
+      return;
+    }
+
+    if (pagination.page !== pendingEditNavigation.targetPage) {
+      return;
+    }
+
+    if (pendingEditNavigation.direction === 'previous') {
+      openEditModal(currentPageRows[currentPageRows.length - 1]);
+      return;
+    }
+
+    openEditModal(currentPageRows[0]);
+  }, [editingTerrain, pendingEditNavigation, currentPageRows, pagination.page]);
 
   const openBulkUpdateDialog = () => {
     if (selectedTerrainIds.length < 1) {
@@ -1497,9 +1616,13 @@ export default function TerrainMasterPage() {
       <Dialog
         open={Boolean(editingTerrain)}
         onOpenChange={(open) => {
-          if (!open) closeEditModal();
+          if (open) {
+            return;
+          }
+
+          requestCloseEditModal();
         }}
-        onClose={closeEditModal}
+        onClose={requestCloseEditModal}
         title="Edit Terrain Detail"
         showCloseButton={false}
         contentClassName="max-w-2xl"
@@ -1509,7 +1632,31 @@ export default function TerrainMasterPage() {
         }}
       >
         <form className="space-y-4" onSubmit={handleEditSubmit}>
-          <p className="text-sm text-gray-500">Update terrain values and save changes.</p>
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm text-gray-500">Update terrain values and save changes.</p>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                className="h-9 !bg-gray-200 !text-gray-800 hover:!bg-gray-300"
+                onClick={() => handleNavigateEditTerrain('previous')}
+                disabled={!canNavigateToPreviousEditTerrain || editMutation.isLoading || editDeleteMutation.isLoading}
+                aria-label="Previous terrain"
+                title="Previous terrain"
+              >
+                Prev
+              </Button>
+              <Button
+                type="button"
+                className="h-9 !bg-gray-200 !text-gray-800 hover:!bg-gray-300"
+                onClick={() => handleNavigateEditTerrain('next')}
+                disabled={!canNavigateToNextEditTerrain || editMutation.isLoading || editDeleteMutation.isLoading}
+                aria-label="Next terrain"
+                title="Next terrain"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
           {editError ? <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{editError}</div> : null}
           <label className="block space-y-2">
             <span className="text-sm font-medium text-gray-700">Terrain Name</span>
@@ -1580,8 +1727,8 @@ export default function TerrainMasterPage() {
             </Button>
             <Button
               type="button"
-              className="bg-gray-200 text-gray-800 hover:bg-gray-300"
-              onClick={closeEditModal}
+              className="bg-slate-600 hover:bg-slate-700"
+              onClick={requestCloseEditModal}
               disabled={editMutation.isLoading || editDeleteMutation.isLoading}
             >
               Cancel
@@ -1696,39 +1843,20 @@ export default function TerrainMasterPage() {
         </form>
       </Dialog>
 
-      <Dialog
+      <AlertDialog
         open={isBulkDeleteOpen}
-        onOpenChange={setIsBulkDeleteOpen}
-        onClose={closeBulkDeleteDialog}
+        onOpenChange={(open) => {
+          if (open) {
+            setIsBulkDeleteOpen(true);
+            return;
+          }
+
+          closeBulkDeleteDialog();
+        }}
         title="Confirm Bulk Delete"
-        showCloseButton={false}
-        contentClassName="max-w-xl"
-      >
-        <div className="space-y-5">
-          {bulkDeleteError ? (
-            <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">{bulkDeleteError}</div>
-          ) : null}
-
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
-            You are about to permanently delete {selectedTerrainIds.length} selected terrain record
-            {selectedTerrainIds.length === 1 ? '' : 's'}.
-            This action cannot be undone.
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Type DELETE to confirm</label>
-            <Input
-              value={bulkDeleteConfirmText}
-              onChange={(event) => {
-                setBulkDeleteError('');
-                setBulkDeleteConfirmText(event.target.value);
-              }}
-              placeholder="DELETE"
-              disabled={bulkDeleteMutation.isLoading}
-            />
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+        description={`You are about to permanently delete ${selectedTerrainIds.length} selected terrain record${selectedTerrainIds.length === 1 ? '' : 's'}. This action cannot be undone.`}
+        footer={(
+          <>
             <Button
               type="button"
               className="bg-gray-600 hover:bg-gray-700"
@@ -1747,9 +1875,28 @@ export default function TerrainMasterPage() {
                 {bulkDeleteMutation.isLoading ? 'Deleting...' : `Delete ${selectedTerrainIds.length} Terrain Rows`}
               </Button>
             ) : null}
+          </>
+        )}
+      >
+        <div className="space-y-5">
+          {bulkDeleteError ? (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">{bulkDeleteError}</div>
+          ) : null}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Type DELETE to confirm</label>
+            <Input
+              value={bulkDeleteConfirmText}
+              onChange={(event) => {
+                setBulkDeleteError('');
+                setBulkDeleteConfirmText(event.target.value);
+              }}
+              placeholder="DELETE"
+              disabled={bulkDeleteMutation.isLoading}
+            />
           </div>
         </div>
-      </Dialog>
+      </AlertDialog>
 
       <Dialog
         open={isRelatedOrdersModalOpen}

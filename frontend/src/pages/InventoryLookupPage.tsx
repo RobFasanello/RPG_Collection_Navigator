@@ -7,6 +7,8 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
+import AlertDialog from '../components/ui/AlertDialog';
+import { useToast } from '../components/ui/ToastProvider';
 import LinkedOrderDetailModal, { type LinkedPurchaseOrder } from '../components/order/LinkedOrderDetailModal';
 import BulkItemUploadDialog from '../components/inventory/BulkItemUploadDialog';
 import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
@@ -80,6 +82,7 @@ function parseHasPurchaseOrderQueryParam(value: string | null): boolean | undefi
 
 export default function InventoryLookupPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [urlSearchParams] = useSearchParams();
   const addItemInputRef = useRef<HTMLInputElement>(null);
   const editItemInputRef = useRef<HTMLInputElement>(null);
@@ -105,6 +108,9 @@ export default function InventoryLookupPage() {
   });
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const editModalRef = useModalFocusTrap<HTMLDivElement>(Boolean(editingItem), () => closeEditModal());
+  const [pendingEditNavigation, setPendingEditNavigation] = useState<
+    { direction: 'previous' | 'next'; targetPage: number } | null
+  >(null);
   const [editValues, setEditValues] = useState({
     ItemName: '',
     ItemVersion: '',
@@ -934,6 +940,20 @@ export default function InventoryLookupPage() {
   const pagerTabIndexStart = gridRowTabIndexStart + gridRowCount * 3;
 
   const currentPageItems: InventoryItem[] = Array.isArray(data?.data) ? data.data : [];
+  const currentEditItemIndex = useMemo(() => {
+    if (!editingItem) {
+      return -1;
+    }
+
+    return currentPageItems.findIndex((item) => item.ItemID === editingItem.ItemID);
+  }, [currentPageItems, editingItem]);
+  const totalPages = data?.totalPages ?? 1;
+  const canNavigateToPreviousEditItem = Boolean(
+    editingItem && (currentEditItemIndex > 0 || page > 1)
+  );
+  const canNavigateToNextEditItem = Boolean(
+    editingItem && ((currentEditItemIndex >= 0 && currentEditItemIndex < currentPageItems.length - 1) || page < totalPages)
+  );
   const selectedItemIdSet = useMemo(() => new Set(selectedItemIds), [selectedItemIds]);
   const selectedCurrentPageItems = useMemo(
     () => currentPageItems.filter((item) => selectedItemIdSet.has(item.ItemID)),
@@ -946,6 +966,7 @@ export default function InventoryLookupPage() {
       return tablesAPI.bulkUpdateItems({ itemIds: payload.itemIds, ...payload.updates });
     },
     onSuccess: () => {
+      const updatedCount = selectedItemIds.length;
       queryClient.invalidateQueries({ queryKey });
       setSelectedItemIds([]);
       setIsBulkUpdateOpen(false);
@@ -960,6 +981,14 @@ export default function InventoryLookupPage() {
         IsDigital: '',
       });
       setBulkError('');
+      toast({
+        title: updatedCount === 1 ? 'Item Updated' : 'Items Updated',
+        description:
+          updatedCount === 1
+            ? 'Applied bulk updates to 1 selected item.'
+            : `Applied bulk updates to ${updatedCount} selected items.`,
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       setBulkError(error.response?.data?.error || 'Failed to bulk update items');
@@ -971,11 +1000,20 @@ export default function InventoryLookupPage() {
       await Promise.all(itemIds.map((itemId) => tablesAPI.deleteRecord('Item', itemId)));
     },
     onSuccess: () => {
+      const deletedCount = selectedItemIds.length;
       queryClient.invalidateQueries({ queryKey });
       setSelectedItemIds([]);
       setIsBulkDeleteOpen(false);
       setBulkDeleteConfirmText('');
       setBulkDeleteError('');
+      toast({
+        title: deletedCount === 1 ? 'Item Deleted' : 'Items Deleted',
+        description:
+          deletedCount === 1
+            ? 'Removed 1 selected item from Item Master.'
+            : `Removed ${deletedCount} selected items from Item Master.`,
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       setBulkDeleteError(error.response?.data?.error || 'Failed to bulk delete selected items');
@@ -1204,6 +1242,7 @@ export default function InventoryLookupPage() {
       return response.data.PurchaseOrderID as number;
     },
     onSuccess: (newOrderId: number) => {
+      const detailCount = createOrderDetails.length;
       setCreateOrderError(null);
       setIsCreateOrderModalOpen(false);
       setCreateOrderValues({
@@ -1215,6 +1254,14 @@ export default function InventoryLookupPage() {
       setCreateOrderDetails([{ id: 1, ItemID: '', Quantity: '1', Price: '' }]);
       setNextCreateOrderDetailRowId(2);
       setSelectedItemIds([]);
+      toast({
+        title: 'Order Created',
+        description:
+          detailCount === 1
+            ? `Created order #${newOrderId} with 1 line item from selected inventory.`
+            : `Created order #${newOrderId} with ${detailCount} line items from selected inventory.`,
+        variant: 'success',
+      });
 
       navigate(`/home/orders?purchaseOrderId=${newOrderId}`);
     },
@@ -1557,6 +1604,7 @@ export default function InventoryLookupPage() {
   };
 
   const openEditModal = (item: InventoryItem) => {
+    setPendingEditNavigation(null);
     setEditingItem(item);
     setEditValues({
       ItemName: item.ItemName || '',
@@ -1705,6 +1753,7 @@ export default function InventoryLookupPage() {
   };
 
   const closeEditModal = () => {
+    setPendingEditNavigation(null);
     setEditingItem(null);
     setEditValues({
       ItemName: '',
@@ -1731,6 +1780,59 @@ export default function InventoryLookupPage() {
 
     closeEditModal();
   };
+
+  const handleNavigateEditItem = (direction: 'previous' | 'next') => {
+    if (!editingItem) {
+      return;
+    }
+
+    if (isEditDirty) {
+      const confirmed = window.confirm('Changes have not been applied. Move to another item without saving?');
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    if (direction === 'previous') {
+      if (currentEditItemIndex > 0) {
+        openEditModal(currentPageItems[currentEditItemIndex - 1]);
+        return;
+      }
+
+      if (page > 1) {
+        setPendingEditNavigation({ direction: 'previous', targetPage: page - 1 });
+        setPage((current) => Math.max(1, current - 1));
+      }
+      return;
+    }
+
+    if (currentEditItemIndex >= 0 && currentEditItemIndex < currentPageItems.length - 1) {
+      openEditModal(currentPageItems[currentEditItemIndex + 1]);
+      return;
+    }
+
+    if (page < totalPages) {
+      setPendingEditNavigation({ direction: 'next', targetPage: page + 1 });
+      setPage((current) => current + 1);
+    }
+  };
+
+  useEffect(() => {
+    if (!editingItem || !pendingEditNavigation || !currentPageItems.length) {
+      return;
+    }
+
+    if ((data?.page ?? 0) !== pendingEditNavigation.targetPage) {
+      return;
+    }
+
+    if (pendingEditNavigation.direction === 'previous') {
+      openEditModal(currentPageItems[currentPageItems.length - 1]);
+      return;
+    }
+
+    openEditModal(currentPageItems[0]);
+  }, [editingItem, pendingEditNavigation, currentPageItems, data?.page]);
 
   useEffect(() => {
     if (!editingItem) {
@@ -1796,6 +1898,11 @@ export default function InventoryLookupPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       closeEditModal();
+      toast({
+        title: 'Item Saved',
+        description: `Saved changes for "${editingItem?.ItemName || 'selected item'}".`,
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       setEditError(error.response?.data?.error || 'Failed to save item');
@@ -1809,6 +1916,11 @@ export default function InventoryLookupPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       closeAddModal();
+      toast({
+        title: 'Item Added',
+        description: `Added "${addValues.ItemName}" to Item Master.`,
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       setAddError(error.response?.data?.error || 'Failed to create item');
@@ -1825,6 +1937,11 @@ export default function InventoryLookupPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       closeEditModal();
+      toast({
+        title: 'Item Deleted',
+        description: `Deleted "${editingItem?.ItemName || 'selected item'}" from Item Master.`,
+        variant: 'success',
+      });
     },
     onError: (error: any) => {
       setEditError(error.response?.data?.error || 'Failed to delete item');
@@ -2269,34 +2386,24 @@ export default function InventoryLookupPage() {
 
             <label className="space-y-2">
               <span className="block text-sm font-medium text-gray-700 mb-1">Store</span>
-              <select
+              <ComboSelect
+                options={storesData.map((store: any) => ({ value: String(store.StoreID), label: store.StoreName }))}
                 value={createOrderValues.StoreID}
-                onChange={(event) => handleCreateOrderFieldChange('StoreID', event.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
-              >
-                <option value="">Select a store...</option>
-                {storesData.map((store: any) => (
-                  <option key={store.StoreID} value={store.StoreID}>
-                    {store.StoreName}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => handleCreateOrderFieldChange('StoreID', value)}
+                placeholder="Select a store..."
+                className="w-full"
+              />
             </label>
 
             <label className="space-y-2">
               <span className="block text-sm font-medium text-gray-700 mb-1">Order Status</span>
-              <select
+              <ComboSelect
+                options={statusesData.map((status: any) => ({ value: String(status.StatusID), label: status.StatusName }))}
                 value={createOrderValues.StatusID}
-                onChange={(event) => handleCreateOrderFieldChange('StatusID', event.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
-              >
-                <option value="">Select a status...</option>
-                {statusesData.map((status: any) => (
-                  <option key={status.StatusID} value={status.StatusID}>
-                    {status.StatusName}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => handleCreateOrderFieldChange('StatusID', value)}
+                placeholder="Select a status..."
+                className="w-full"
+              />
             </label>
 
             <label className="space-y-2">
@@ -2422,6 +2529,28 @@ export default function InventoryLookupPage() {
                 <h2 className="text-xl font-semibold">Edit Item Detail</h2>
                 <p className="text-sm text-gray-500">Update item values and save changes.</p>
               </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  className="h-9 !bg-gray-200 !text-gray-800 hover:!bg-gray-300"
+                  onClick={() => handleNavigateEditItem('previous')}
+                  disabled={!canNavigateToPreviousEditItem || editMutation.isLoading || deleteMutation.isLoading}
+                  aria-label="Previous item"
+                  title="Previous item"
+                >
+                  Prev
+                </Button>
+                <Button
+                  type="button"
+                  className="h-9 !bg-gray-200 !text-gray-800 hover:!bg-gray-300"
+                  onClick={() => handleNavigateEditItem('next')}
+                  disabled={!canNavigateToNextEditItem || editMutation.isLoading || deleteMutation.isLoading}
+                  aria-label="Next item"
+                  title="Next item"
+                >
+                  Next
+                </Button>
+              </div>
             </div>
 
             {editError ? (
@@ -2436,6 +2565,7 @@ export default function InventoryLookupPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Item</label>
                   <Input
                     ref={editItemInputRef}
+                    autoFocus
                     value={editValues.ItemName}
                     onChange={(e) => handleEditChange('ItemName', e.target.value)}
                     placeholder="Item name"
@@ -2468,63 +2598,43 @@ export default function InventoryLookupPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Publisher</label>
-                  <select
+                  <ComboSelect
+                    options={addPublisherSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                     value={editValues.PublisherID}
-                    onChange={(e) => handleEditChange('PublisherID', e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-600 focus:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                  >
-                    <option value="">Select publisher</option>
-                    {addPublisherSelectOptions.map((option: { value: string | number; label: string }) => (
-                      <option key={option.value} value={String(option.value)}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => handleEditChange('PublisherID', value)}
+                    placeholder="Select publisher"
+                    className="w-full"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Collection</label>
-                  <select
+                  <ComboSelect
+                    options={editCollectionSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                     value={editValues.CollectionID}
-                    onChange={(e) => handleEditChange('CollectionID', e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-600 focus:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                  >
-                    <option value="">Select collection</option>
-                    {editCollectionSelectOptions.map((option: { value: string | number; label: string }) => (
-                      <option key={option.value} value={String(option.value)}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => handleEditChange('CollectionID', value)}
+                    placeholder="Select collection"
+                    className="w-full"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                  <select
+                  <ComboSelect
+                    options={categorySelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                     value={editValues.CategoryID}
-                    onChange={(e) => handleEditChange('CategoryID', e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-600 focus:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                  >
-                    <option value="">Select category</option>
-                    {categorySelectOptions.map((option: { value: string | number; label: string }) => (
-                      <option key={option.value} value={String(option.value)}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => handleEditChange('CategoryID', value)}
+                    placeholder="Select category"
+                    className="w-full"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Sub Category</label>
-                  <select
+                  <ComboSelect
+                    options={editSubTypeSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                     value={editValues.SubTypeID}
-                    onChange={(e) => handleEditChange('SubTypeID', e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-600 focus:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                  >
-                    <option value="">Select sub category</option>
-                    {editSubTypeSelectOptions.map((option: { value: string | number; label: string }) => (
-                      <option key={option.value} value={String(option.value)}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => handleEditChange('SubTypeID', value)}
+                    placeholder="Select sub category"
+                    className="w-full"
+                  />
                 </div>
                 <label className="flex items-center gap-2 pt-2 text-sm font-medium text-gray-700">
                   <input
@@ -2555,8 +2665,8 @@ export default function InventoryLookupPage() {
                 </Button>
                 <Button
                   type="button"
-                  className="bg-gray-200 text-gray-800 hover:bg-gray-300"
-                  onClick={closeEditModal}
+                  className="bg-slate-600 hover:bg-slate-700"
+                  onClick={requestCloseEditModal}
                   disabled={editMutation.isLoading || deleteMutation.isLoading}
                 >
                   Cancel
@@ -2658,67 +2768,43 @@ export default function InventoryLookupPage() {
               </label>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Publisher</label>
-                <select
+                <ComboSelect
+                  options={addPublisherSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                   value={addValues.PublisherID}
-                  onChange={(e) => handleAddChange('PublisherID', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
-                  required
-                >
-                  <option value="">Select publisher</option>
-                  {addPublisherSelectOptions.map((option: { value: string | number; label: string }) => (
-                    <option key={option.value} value={String(option.value)}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => handleAddChange('PublisherID', value)}
+                  placeholder="Select publisher"
+                  className="w-full"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Collection</label>
-                <select
+                <ComboSelect
+                  options={addCollectionSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                   value={addValues.CollectionID}
-                  onChange={(e) => handleAddChange('CollectionID', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
-                  required
-                >
-                  <option value="">Select collection</option>
-                  {addCollectionSelectOptions.map((option: { value: string | number; label: string }) => (
-                    <option key={option.value} value={String(option.value)}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => handleAddChange('CollectionID', value)}
+                  placeholder="Select collection"
+                  className="w-full"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select
+                <ComboSelect
+                  options={categorySelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                   value={addValues.CategoryID}
-                  onChange={(e) => handleAddChange('CategoryID', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
-                  required
-                >
-                  <option value="">Select category</option>
-                  {categorySelectOptions.map((option: { value: string | number; label: string }) => (
-                    <option key={option.value} value={String(option.value)}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => handleAddChange('CategoryID', value)}
+                  placeholder="Select category"
+                  className="w-full"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select
+                <ComboSelect
+                  options={addSubTypeSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                   value={addValues.SubTypeID}
-                  onChange={(e) => handleAddChange('SubTypeID', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
-                  required
-                >
-                  <option value="">Select sub category</option>
-                  {addSubTypeSelectOptions.map((option: { value: string | number; label: string }) => (
-                    <option key={option.value} value={String(option.value)}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => handleAddChange('SubTypeID', value)}
+                  placeholder="Select sub category"
+                  className="w-full"
+                />
               </div>
             </div>
 
@@ -2769,63 +2855,43 @@ export default function InventoryLookupPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Publisher</label>
-                    <select
+                    <ComboSelect
+                      options={publisherSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                       value={bulkValues.PublisherID}
-                      onChange={(event) => handleBulkFieldChange('PublisherID', event.target.value)}
-                      className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-                    >
-                      <option value="">Leave unchanged</option>
-                      {publisherSelectOptions.map((option: { value: string | number; label: string }) => (
-                        <option key={option.value} value={String(option.value)}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => handleBulkFieldChange('PublisherID', value)}
+                      placeholder="Leave unchanged"
+                      className="w-full"
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Collection</label>
-                    <select
+                    <ComboSelect
+                      options={collectionSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                       value={bulkValues.CollectionID}
-                      onChange={(event) => handleBulkFieldChange('CollectionID', event.target.value)}
-                      className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-                    >
-                      <option value="">Leave unchanged</option>
-                      {collectionSelectOptions.map((option: { value: string | number; label: string }) => (
-                        <option key={option.value} value={String(option.value)}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => handleBulkFieldChange('CollectionID', value)}
+                      placeholder="Leave unchanged"
+                      className="w-full"
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                    <select
+                    <ComboSelect
+                      options={categorySelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                       value={bulkValues.CategoryID}
-                      onChange={(event) => handleBulkFieldChange('CategoryID', event.target.value)}
-                      className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-                    >
-                      <option value="">Leave unchanged</option>
-                      {categorySelectOptions.map((option: { value: string | number; label: string }) => (
-                        <option key={option.value} value={String(option.value)}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => handleBulkFieldChange('CategoryID', value)}
+                      placeholder="Leave unchanged"
+                      className="w-full"
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Sub Category</label>
-                    <select
+                    <ComboSelect
+                      options={subTypeSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                       value={bulkValues.SubTypeID}
-                      onChange={(event) => handleBulkFieldChange('SubTypeID', event.target.value)}
-                      className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-                    >
-                      <option value="">Leave unchanged</option>
-                      {subTypeSelectOptions.map((option: { value: string | number; label: string }) => (
-                        <option key={option.value} value={String(option.value)}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => handleBulkFieldChange('SubTypeID', value)}
+                      placeholder="Leave unchanged"
+                      className="w-full"
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Version</label>
@@ -2838,27 +2904,29 @@ export default function InventoryLookupPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Is Physical</label>
-                    <select
+                    <ComboSelect
+                      options={[
+                        { value: 'true', label: 'Yes' },
+                        { value: 'false', label: 'No' },
+                      ]}
                       value={bulkValues.IsPhysical}
-                      onChange={(event) => handleBulkBooleanFieldChange('IsPhysical', event.target.value)}
-                      className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-                    >
-                      <option value="">Leave unchanged</option>
-                      <option value="true">Yes</option>
-                      <option value="false">No</option>
-                    </select>
+                      onChange={(value) => handleBulkBooleanFieldChange('IsPhysical', value)}
+                      placeholder="Leave unchanged"
+                      className="w-full"
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Is Digital</label>
-                    <select
+                    <ComboSelect
+                      options={[
+                        { value: 'true', label: 'Yes' },
+                        { value: 'false', label: 'No' },
+                      ]}
                       value={bulkValues.IsDigital}
-                      onChange={(event) => handleBulkBooleanFieldChange('IsDigital', event.target.value)}
-                      className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-                    >
-                      <option value="">Leave unchanged</option>
-                      <option value="true">Yes</option>
-                      <option value="false">No</option>
-                    </select>
+                      onChange={(value) => handleBulkBooleanFieldChange('IsDigital', value)}
+                      placeholder="Leave unchanged"
+                      className="w-full"
+                    />
                   </div>
                 </div>
 
@@ -2946,7 +3014,7 @@ export default function InventoryLookupPage() {
       ) : null}
 
       {isBulkDeleteOpen ? (
-        <Dialog
+        <AlertDialog
           open={isBulkDeleteOpen}
           onOpenChange={(open) => {
             if (open) {
@@ -2957,37 +3025,9 @@ export default function InventoryLookupPage() {
             closeBulkDeleteDialog();
           }}
           title="Confirm Bulk Delete"
-          showCloseButton={false}
-          contentClassName="max-w-xl"
-        >
-          <div className="space-y-5">
-            {bulkDeleteError ? (
-              <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
-                {bulkDeleteError}
-              </div>
-            ) : null}
-
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
-              You are about to permanently delete {selectedItemIds.length} selected item{selectedItemIds.length === 1 ? '' : 's'}.
-              This action cannot be undone.
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Type DELETE to confirm
-              </label>
-              <Input
-                value={bulkDeleteConfirmText}
-                onChange={(event) => {
-                  setBulkDeleteError('');
-                  setBulkDeleteConfirmText(event.target.value);
-                }}
-                placeholder="DELETE"
-                disabled={bulkDeleteMutation.isLoading}
-              />
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+          description={`You are about to permanently delete ${selectedItemIds.length} selected item${selectedItemIds.length === 1 ? '' : 's'}. This action cannot be undone.`}
+          footer={(
+            <>
               <Button
                 type="button"
                 className="bg-gray-600 hover:bg-gray-700"
@@ -3006,9 +3046,32 @@ export default function InventoryLookupPage() {
                   {bulkDeleteMutation.isLoading ? 'Deleting...' : `Delete ${selectedItemIds.length} Items`}
                 </Button>
               ) : null}
+            </>
+          )}
+        >
+          <div className="space-y-5">
+            {bulkDeleteError ? (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+                {bulkDeleteError}
+              </div>
+            ) : null}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Type DELETE to confirm
+              </label>
+              <Input
+                value={bulkDeleteConfirmText}
+                onChange={(event) => {
+                  setBulkDeleteError('');
+                  setBulkDeleteConfirmText(event.target.value);
+                }}
+                placeholder="DELETE"
+                disabled={bulkDeleteMutation.isLoading}
+              />
             </div>
           </div>
-        </Dialog>
+        </AlertDialog>
       ) : null}
 
       <Dialog

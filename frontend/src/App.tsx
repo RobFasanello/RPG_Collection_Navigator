@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router';
 import HomeShell from './home/HomeShell';
+import { ToastProvider } from './components/ui/ToastProvider';
 import './index.css';
 
 const queryClient = new QueryClient();
@@ -27,9 +28,10 @@ function RedirectWithSearch({ to }: { to: string }) {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
-        <Suspense fallback={<div className="p-6 text-sm text-gray-600">Loading...</div>}>
-          <Routes>
+      <ToastProvider>
+        <Router>
+          <Suspense fallback={<div className="p-6 text-sm text-gray-600">Loading...</div>}>
+            <Routes>
             <Route path="/" element={<Navigate to="/home" replace />} />
 
             <Route path="/home" element={<HomeShell />}>
@@ -77,9 +79,10 @@ function App() {
             <Route path="/admin/terrain" element={<RedirectWithSearch to="/home/terrain" />} />
             <Route path="/admin/order-master" element={<RedirectWithSearch to="/home/orders" />} />
             <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </Suspense>
-      </Router>
+            </Routes>
+          </Suspense>
+        </Router>
+      </ToastProvider>
     </QueryClientProvider>
   );
 }

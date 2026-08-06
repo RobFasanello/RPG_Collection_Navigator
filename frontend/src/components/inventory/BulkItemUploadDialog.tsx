@@ -5,6 +5,7 @@ import { Trash2 } from 'lucide-react';
 import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import ComboSelect from '../ui/ComboSelect';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table';
 import { tablesAPI } from '../../services/api';
 
@@ -114,7 +115,7 @@ const BULK_UPLOAD_TEMPLATE_URL = '/templates/Bulk%20Upload%20Template.xlsx';
 const ITEM_VERSION_MAX_LENGTH = 15;
 const POSITIVE_FLAG_VALUES = new Set(['y', 'yes', 't', 'true', 'x', '1']);
 const NEGATIVE_FLAG_VALUES = new Set(['n', 'no', 'f', 'false', '0']);
-const BASE_SELECT_CLASS_NAME = 'mt-1 block w-full border rounded-md p-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500';
+const BASE_SELECT_CLASS_NAME = 'text-sm';
 const ERROR_FIELD_CLASS_NAME = 'border-red-500 bg-red-50 focus:ring-red-500';
 const WARNING_FIELD_CLASS_NAME = 'border-amber-400 bg-amber-50 focus:ring-amber-500';
 
@@ -965,34 +966,26 @@ export default function BulkItemUploadDialog({
                   <TableRow key={row.id} className={row.success ? 'bg-green-50' : ''}>
                     <TableCell className="whitespace-nowrap align-top">{row.rowNumber}</TableCell>
                     <TableCell className="align-top">
-                      <select
+                      <ComboSelect
+                        options={publisherSelectOptions}
                         value={row.values.Publisher}
-                        onChange={(event) => handleCellChange(row.id, 'Publisher', event.target.value)}
+                        onChange={(value) => handleCellChange(row.id, 'Publisher', value)}
                         disabled={row.success}
-                        className={getSelectClassName(errorFields, warningFields, 'Publisher')}
-                      >
-                        <option value="">Select publisher</option>
-                        {publisherSelectOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder="Select publisher"
+                        className="w-full"
+                        triggerClassName={getSelectClassName(errorFields, warningFields, 'Publisher')}
+                      />
                     </TableCell>
                     <TableCell className="align-top">
-                      <select
+                      <ComboSelect
+                        options={rowCollectionOptions}
                         value={row.values.Collection}
-                        onChange={(event) => handleCellChange(row.id, 'Collection', event.target.value)}
+                        onChange={(value) => handleCellChange(row.id, 'Collection', value)}
                         disabled={row.success}
-                        className={getSelectClassName(errorFields, warningFields, 'Collection')}
-                      >
-                        <option value="">Select collection</option>
-                        {rowCollectionOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder="Select collection"
+                        className="w-full"
+                        triggerClassName={getSelectClassName(errorFields, warningFields, 'Collection')}
+                      />
                     </TableCell>
                     <TableCell className="align-top">
                       <Input
@@ -1015,34 +1008,26 @@ export default function BulkItemUploadDialog({
                       />
                     </TableCell>
                     <TableCell className="align-top">
-                      <select
+                      <ComboSelect
+                        options={categorySelectOptions}
                         value={row.values.Category}
-                        onChange={(event) => handleCellChange(row.id, 'Category', event.target.value)}
+                        onChange={(value) => handleCellChange(row.id, 'Category', value)}
                         disabled={row.success}
-                        className={getSelectClassName(errorFields, warningFields, 'Category')}
-                      >
-                        <option value="">Select category</option>
-                        {categorySelectOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder="Select category"
+                        className="w-full"
+                        triggerClassName={getSelectClassName(errorFields, warningFields, 'Category')}
+                      />
                     </TableCell>
                     <TableCell className="align-top">
-                      <select
+                      <ComboSelect
+                        options={rowSubTypeOptions}
                         value={row.values.SubCategory}
-                        onChange={(event) => handleCellChange(row.id, 'SubCategory', event.target.value)}
+                        onChange={(value) => handleCellChange(row.id, 'SubCategory', value)}
                         disabled={row.success}
-                        className={getSelectClassName(errorFields, warningFields, 'SubCategory')}
-                      >
-                        <option value="">Select sub category</option>
-                        {rowSubTypeOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder="Select sub category"
+                        className="w-full"
+                        triggerClassName={getSelectClassName(errorFields, warningFields, 'SubCategory')}
+                      />
                     </TableCell>
                     <TableCell className="align-top">
                       <Input
@@ -1063,28 +1048,32 @@ export default function BulkItemUploadDialog({
                       />
                     </TableCell>
                     <TableCell className="align-top">
-                      <select
+                      <ComboSelect
+                        options={[
+                          { value: 'true', label: 'Yes' },
+                          { value: 'false', label: 'No' },
+                        ]}
                         value={row.values.IsPhysical}
-                        onChange={(event) => handleCellChange(row.id, 'IsPhysical', event.target.value)}
+                        onChange={(value) => handleCellChange(row.id, 'IsPhysical', value)}
                         disabled={row.success}
-                        className={getSelectClassName(errorFields, warningFields, 'IsPhysical')}
-                      >
-                        <option value="">Blank</option>
-                        <option value="true">Yes</option>
-                        <option value="false">No</option>
-                      </select>
+                        placeholder="Blank"
+                        className="w-full"
+                        triggerClassName={getSelectClassName(errorFields, warningFields, 'IsPhysical')}
+                      />
                     </TableCell>
                     <TableCell className="align-top">
-                      <select
+                      <ComboSelect
+                        options={[
+                          { value: 'true', label: 'Yes' },
+                          { value: 'false', label: 'No' },
+                        ]}
                         value={row.values.IsDigital}
-                        onChange={(event) => handleCellChange(row.id, 'IsDigital', event.target.value)}
+                        onChange={(value) => handleCellChange(row.id, 'IsDigital', value)}
                         disabled={row.success}
-                        className={getSelectClassName(errorFields, warningFields, 'IsDigital')}
-                      >
-                        <option value="">Blank</option>
-                        <option value="true">Yes</option>
-                        <option value="false">No</option>
-                      </select>
+                        placeholder="Blank"
+                        className="w-full"
+                        triggerClassName={getSelectClassName(errorFields, warningFields, 'IsDigital')}
+                      />
                     </TableCell>
                     <TableCell className="align-top">
                       {row.success ? (

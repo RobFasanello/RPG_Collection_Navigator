@@ -5,6 +5,7 @@ import { Trash2 } from 'lucide-react';
 import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import ComboSelect from '../ui/ComboSelect';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table';
 import { tablesAPI } from '../../services/api';
 
@@ -54,7 +55,7 @@ type BulkMiniatureUploadDialogProps = {
 const REQUIRED_ROW_FIELDS: BulkField[] = ['Item', 'MiniatureName', 'MiniatureSize', 'MiniatureRarity', 'Quantity'];
 const ALL_FIELDS: BulkField[] = ['Item', 'MiniatureName', 'MiniatureSize', 'MiniatureRarity', 'Quantity', 'Location'];
 const BULK_UPLOAD_MINIATURE_TEMPLATE_URL = '/templates/Bulk%20Upload%20Miniature%20Template.xlsx';
-const BASE_SELECT_CLASS_NAME = 'mt-1 block w-full border rounded-md p-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500';
+const BASE_SELECT_CLASS_NAME = 'text-sm';
 const ERROR_FIELD_CLASS_NAME = 'border-red-500 bg-red-50 focus:ring-red-500';
 
 const HEADER_ALIASES: Record<string, BulkField> = {
@@ -526,34 +527,54 @@ export default function BulkMiniatureUploadDialog({
                   <TableRow key={row.id} className={row.success ? 'bg-green-50' : ''}>
                     <TableCell className="whitespace-nowrap align-top">{row.rowNumber}</TableCell>
                     <TableCell className="align-top">
-                      <select value={row.values.Item} onChange={(event) => handleCellChange(row.id, 'Item', event.target.value)} disabled={row.success} className={getSelectClassName(errorFields, 'Item')}>
-                        <option value="">Select item</option>
-                        {itemSelectOptions.map((option) => <option key={`${option.itemId}-${option.value}`} value={option.value}>{option.label}</option>)}
-                      </select>
+                      <ComboSelect
+                        options={itemSelectOptions.map((option) => ({ value: option.value, label: option.label }))}
+                        value={row.values.Item}
+                        onChange={(value) => handleCellChange(row.id, 'Item', value)}
+                        disabled={row.success}
+                        placeholder="Select item"
+                        className="w-full"
+                        triggerClassName={getSelectClassName(errorFields, 'Item')}
+                      />
                     </TableCell>
                     <TableCell className="align-top">
                       <Input value={row.values.MiniatureName} onChange={(event) => handleCellChange(row.id, 'MiniatureName', event.target.value)} disabled={row.success} placeholder="Miniature name" className={getFieldClassName(errorFields, 'MiniatureName')} />
                     </TableCell>
                     <TableCell className="align-top">
-                      <select value={row.values.MiniatureSize} onChange={(event) => handleCellChange(row.id, 'MiniatureSize', event.target.value)} disabled={row.success} className={getSelectClassName(errorFields, 'MiniatureSize')}>
-                        <option value="">Select miniature size</option>
-                        {miniatureSizeSelectOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
+                      <ComboSelect
+                        options={miniatureSizeSelectOptions}
+                        value={row.values.MiniatureSize}
+                        onChange={(value) => handleCellChange(row.id, 'MiniatureSize', value)}
+                        disabled={row.success}
+                        placeholder="Select miniature size"
+                        className="w-full"
+                        triggerClassName={getSelectClassName(errorFields, 'MiniatureSize')}
+                      />
                     </TableCell>
                     <TableCell className="align-top">
-                      <select value={row.values.MiniatureRarity} onChange={(event) => handleCellChange(row.id, 'MiniatureRarity', event.target.value)} disabled={row.success} className={getSelectClassName(errorFields, 'MiniatureRarity')}>
-                        <option value="">Select miniature rarity</option>
-                        {miniatureRaritySelectOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
+                      <ComboSelect
+                        options={miniatureRaritySelectOptions}
+                        value={row.values.MiniatureRarity}
+                        onChange={(value) => handleCellChange(row.id, 'MiniatureRarity', value)}
+                        disabled={row.success}
+                        placeholder="Select miniature rarity"
+                        className="w-full"
+                        triggerClassName={getSelectClassName(errorFields, 'MiniatureRarity')}
+                      />
                     </TableCell>
                     <TableCell className="align-top">
                       <Input type="number" min="0" value={row.values.Quantity} onChange={(event) => handleCellChange(row.id, 'Quantity', event.target.value)} disabled={row.success} className={getFieldClassName(errorFields, 'Quantity')} />
                     </TableCell>
                     <TableCell className="align-top">
-                      <select value={row.values.Location} onChange={(event) => handleCellChange(row.id, 'Location', event.target.value)} disabled={row.success} className={getSelectClassName(errorFields, 'Location')}>
-                        <option value="">Blank</option>
-                        {locationSelectOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
+                      <ComboSelect
+                        options={locationSelectOptions}
+                        value={row.values.Location}
+                        onChange={(value) => handleCellChange(row.id, 'Location', value)}
+                        disabled={row.success}
+                        placeholder="Blank"
+                        className="w-full"
+                        triggerClassName={getSelectClassName(errorFields, 'Location')}
+                      />
                     </TableCell>
                     <TableCell className="align-top">
                       {row.success ? (
