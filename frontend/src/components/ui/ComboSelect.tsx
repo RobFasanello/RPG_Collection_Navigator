@@ -191,7 +191,21 @@ const ComboSelect: React.FC<Props> = ({
       return;
     }
 
-    if (e.key === 'Enter' || e.key === ' ') {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!open) {
+        openDropdown();
+        return;
+      }
+
+      const option = filtered[activeIndex] ?? filtered[0];
+      if (option) {
+        handleSelect(option);
+      }
+      return;
+    }
+
+    if (e.key === ' ') {
       e.preventDefault();
       if (open) {
         setOpen(false);
@@ -201,15 +215,18 @@ const ComboSelect: React.FC<Props> = ({
       return;
     }
 
-    if (e.key === 'Enter') {
-      if (!open) {
-        return;
-      }
+    if (e.key.length === 1 && !e.altKey && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
-      const option = filtered[activeIndex] ?? filtered[0];
-      if (option) {
-        handleSelect(option);
+      const initialSearch = e.key;
+
+      if (!open) {
+        if (!disablePortal) {
+          recalcPosition();
+        }
+        setOpen(true);
       }
+
+      setSearch(initialSearch);
       return;
     }
 

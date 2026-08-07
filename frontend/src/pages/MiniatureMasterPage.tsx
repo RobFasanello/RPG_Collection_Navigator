@@ -7,6 +7,7 @@ import FilterChipBar, { type FilterChipField } from '../components/inventory/Fil
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import AlertDialog from '../components/ui/AlertDialog';
+import SelectionScopeMenu from '../components/ui/SelectionScopeMenu';
 import { useToast } from '../components/ui/ToastProvider';
 import { Input } from '../components/ui/Input';
 import SetupTablePagination from '../components/SetupTablePagination';
@@ -551,6 +552,14 @@ export default function MiniatureMasterPage() {
   const selectedMiniatureIdSet = useMemo(() => new Set(selectedMiniatureIds), [selectedMiniatureIds]);
   const areAllCurrentPageRowsSelected = currentPageRows.length > 0 && currentPageRows.every((row) => selectedMiniatureIdSet.has(row.MiniatureID));
 
+  const selectCurrentPageRows = () => {
+    setSelectedMiniatureIds(currentPageRows.map((row) => row.MiniatureID));
+  };
+
+  const selectAllFilteredRows = () => {
+    setSelectedMiniatureIds(filteredRows.map((row) => row.MiniatureID));
+  };
+
   useEffect(() => {
     setSelectedMiniatureIds([]);
   }, [filterValues]);
@@ -766,19 +775,6 @@ export default function MiniatureMasterPage() {
     setSelectedMiniatureIds((current) =>
       current.includes(miniatureId) ? current.filter((id) => id !== miniatureId) : [...current, miniatureId]
     );
-  };
-
-  const toggleSelectAllCurrentPage = () => {
-    if (areAllCurrentPageRowsSelected) {
-      setSelectedMiniatureIds((current) => current.filter((id) => !currentPageRows.some((row) => row.MiniatureID === id)));
-      return;
-    }
-
-    setSelectedMiniatureIds((current) => {
-      const combined = new Set(current);
-      currentPageRows.forEach((row) => combined.add(row.MiniatureID));
-      return Array.from(combined);
-    });
   };
 
   const openAddModal = () => {
@@ -1479,12 +1475,13 @@ export default function MiniatureMasterPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-px whitespace-nowrap px-2 text-center">
-                        <input
-                          type="checkbox"
+                        <SelectionScopeMenu
                           checked={areAllCurrentPageRowsSelected}
-                          onChange={toggleSelectAllCurrentPage}
-                          aria-label="Select all miniatures on this page"
+                          disabled={currentPageRows.length === 0}
+                          aria-label="Select miniatures"
                           tabIndex={15}
+                          onSelectPage={selectCurrentPageRows}
+                          onSelectAll={selectAllFilteredRows}
                         />
                       </TableHead>
                       <TableHead>

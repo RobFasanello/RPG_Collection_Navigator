@@ -7,6 +7,7 @@ import FilterChipBar, { type FilterChipField } from '../components/inventory/Fil
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import AlertDialog from '../components/ui/AlertDialog';
+import SelectionScopeMenu from '../components/ui/SelectionScopeMenu';
 import { useToast } from '../components/ui/ToastProvider';
 import { Input } from '../components/ui/Input';
 import SetupTablePagination from '../components/SetupTablePagination';
@@ -524,6 +525,14 @@ export default function TerrainMasterPage() {
   const areAllCurrentPageRowsSelected =
     currentPageRows.length > 0 && currentPageRows.every((row) => selectedTerrainIdSet.has(row.TerrainID));
 
+  const selectCurrentPageRows = () => {
+    setSelectedTerrainIds(currentPageRows.map((row) => row.TerrainID));
+  };
+
+  const selectAllFilteredRows = () => {
+    setSelectedTerrainIds(filteredRows.map((row) => row.TerrainID));
+  };
+
   useEffect(() => {
     setSelectedTerrainIds([]);
   }, [filterValues]);
@@ -722,19 +731,6 @@ export default function TerrainMasterPage() {
     setSelectedTerrainIds((current) =>
       current.includes(terrainId) ? current.filter((id) => id !== terrainId) : [...current, terrainId]
     );
-  };
-
-  const toggleSelectAllCurrentPage = () => {
-    if (areAllCurrentPageRowsSelected) {
-      setSelectedTerrainIds((current) => current.filter((id) => !currentPageRows.some((row) => row.TerrainID === id)));
-      return;
-    }
-
-    setSelectedTerrainIds((current) => {
-      const combined = new Set(current);
-      currentPageRows.forEach((row) => combined.add(row.TerrainID));
-      return Array.from(combined);
-    });
   };
 
   const openAddModal = () => {
@@ -1410,12 +1406,13 @@ export default function TerrainMasterPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-px whitespace-nowrap px-2 text-center">
-                        <input
-                          type="checkbox"
+                        <SelectionScopeMenu
                           checked={areAllCurrentPageRowsSelected}
-                          onChange={toggleSelectAllCurrentPage}
-                          aria-label="Select all terrain rows on this page"
+                          disabled={currentPageRows.length === 0}
+                          aria-label="Select terrain rows"
                           tabIndex={15}
+                          onSelectPage={selectCurrentPageRows}
+                          onSelectAll={selectAllFilteredRows}
                         />
                       </TableHead>
                       <TableHead>

@@ -8,6 +8,7 @@ import ComboSelect from '../components/ui/ComboSelect';
 import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
 import { Dialog } from '../components/ui/Dialog';
 import AlertDialog from '../components/ui/AlertDialog';
+import SelectionScopeMenu from '../components/ui/SelectionScopeMenu';
 import { useToast } from '../components/ui/ToastProvider';
 import { tablesAPI } from '../services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
@@ -95,6 +96,7 @@ export default function OrderMasterPage() {
   const [addOrderError, setAddOrderError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isEditInvoiceUnlocked, setIsEditInvoiceUnlocked] = useState(false);
   const [addOrderValues, setAddOrderValues] = useState({
     InvoiceNumber: '',
     StoreID: '',
@@ -738,6 +740,7 @@ export default function OrderMasterPage() {
     setUpdateError(null);
     setDeleteError(null);
     setIsConfirmDeleteOpen(false);
+    setIsEditInvoiceUnlocked(false);
     setIsModalOpen(true);
   };
 
@@ -751,6 +754,7 @@ export default function OrderMasterPage() {
     setEditingDetailId(null);
     setEditingDetailDraft(null);
     setNewDetailDraft(null);
+    setIsEditInvoiceUnlocked(false);
   };
 
   const isOrderEditDirty = useMemo(() => {
@@ -1022,6 +1026,38 @@ export default function OrderMasterPage() {
       StatusID: '',
       PurchaseDate: '',
     });
+  };
+
+  const selectCurrentPageOrders = () => {
+    if (!data?.data?.length) {
+      setSelectedOrderIds([]);
+      return;
+    }
+
+    setSelectedOrderIds(data.data.map((order: PurchaseOrder) => order.PurchaseOrderID));
+  };
+
+  const selectAllFilteredOrders = async () => {
+    const allIds: number[] = [];
+    let nextPage = 1;
+    let totalPages = 1;
+
+    while (nextPage <= totalPages) {
+      const response = await tablesAPI.getPurchaseOrders({
+        ...filterValues,
+        page: nextPage,
+        pageSize: 100,
+        sortBy,
+        sortOrder,
+      });
+
+      const rows = Array.isArray(response.data?.data) ? response.data.data : [];
+      rows.forEach((order: PurchaseOrder) => allIds.push(order.PurchaseOrderID));
+      totalPages = Number(response.data?.totalPages || 1);
+      nextPage += 1;
+    }
+
+    setSelectedOrderIds(allIds);
   };
 
   const toggleOrderSelection = (orderId: number, event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1339,27 +1375,14 @@ export default function OrderMasterPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-10">
-                        <input
-                          type="checkbox"
+                        <SelectionScopeMenu
                           checked={data?.data?.length ? data.data.every((order: PurchaseOrder) => selectedOrderIds.includes(order.PurchaseOrderID)) : false}
-                          onChange={(event) => {
-                            if (!data?.data?.length) {
-                              return;
-                            }
-
-                            if (event.target.checked) {
-                              setSelectedOrderIds((current) => {
-                                const next = new Set(current);
-                                data.data.forEach((order: PurchaseOrder) => next.add(order.PurchaseOrderID));
-                                return Array.from(next);
-                              });
-                              return;
-                            }
-
-                            setSelectedOrderIds((current) => current.filter((id) => !data.data.some((order: PurchaseOrder) => order.PurchaseOrderID === id)));
+                          disabled={!data?.data?.length}
+                          aria-label="Select orders"
+                          onSelectPage={selectCurrentPageOrders}
+                          onSelectAll={() => {
+                            void selectAllFilteredOrders();
                           }}
-                          onClick={(event) => event.stopPropagation()}
-                          aria-label="Select all visible orders"
                         />
                       </TableHead>
                       <TableHead>
@@ -1565,6 +1588,9 @@ export default function OrderMasterPage() {
                     value={bulkValues.InvoiceNumber}
                     onChange={(event) => handleBulkFieldChange('InvoiceNumber', event.target.value)}
                     placeholder="Leave unchanged"
+                    autoComplete="off"
+                    spellCheck={false}
+                    data-lpignore="true"
                   />
                 </div>
                 <div>
@@ -1715,9 +1741,17 @@ export default function OrderMasterPage() {
                 <Input
                   ref={editOrderInvoiceInputRef}
                   type="text"
+                  id="order-reference"
+                  name="orderReference"
                   value={editedOrder?.InvoiceNumber || ''}
                   onChange={(e) => handleEditFieldChange('InvoiceNumber', e.target.value)}
+                  onFocus={() => setIsEditInvoiceUnlocked(true)}
                   className="mt-1"
+                  autoComplete="new-password"
+                  readOnly={!isEditInvoiceUnlocked}
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                 />
               </div>
 
@@ -2072,6 +2106,9 @@ export default function OrderMasterPage() {
                 value={addOrderValues.InvoiceNumber}
                 onChange={(e) => handleAddOrderFieldChange('InvoiceNumber', e.target.value)}
                 placeholder="Invoice number"
+                autoComplete="off"
+                spellCheck={false}
+                data-lpignore="true"
               />
             </label>
 

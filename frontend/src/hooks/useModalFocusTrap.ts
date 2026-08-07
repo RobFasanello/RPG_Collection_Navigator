@@ -23,9 +23,14 @@ export default function useModalFocusTrap<T extends HTMLElement>(active = true, 
     }
 
     const getFocusableElements = () =>
-      Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-        (element) => element.offsetParent !== null || element === document.activeElement
-      );
+      Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((element) => {
+        if (element === document.activeElement) {
+          return true;
+        }
+
+        // getClientRects() is more reliable than offsetParent for fixed/modal layouts.
+        return element.getClientRects().length > 0;
+      });
 
     window.setTimeout(() => {
       const focusableElements = getFocusableElements();

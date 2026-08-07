@@ -8,6 +8,7 @@ import { Input } from '../components/ui/Input';
 import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
 import AlertDialog from '../components/ui/AlertDialog';
+import SelectionScopeMenu from '../components/ui/SelectionScopeMenu';
 import { useToast } from '../components/ui/ToastProvider';
 import LinkedOrderDetailModal, { type LinkedPurchaseOrder } from '../components/order/LinkedOrderDetailModal';
 import BulkItemUploadDialog from '../components/inventory/BulkItemUploadDialog';
@@ -961,6 +962,34 @@ export default function InventoryLookupPage() {
   );
   const areAllCurrentPageItemsSelected = currentPageItems.length > 0 && currentPageItems.every((item) => selectedItemIdSet.has(item.ItemID));
 
+  const selectCurrentPageItems = () => {
+    setSelectedItemIds(currentPageItems.map((item) => item.ItemID));
+  };
+
+  const selectAllFilteredItems = async () => {
+    const cleanedParams = buildCleanedInventoryFilters(filterValues);
+    const allIds: number[] = [];
+    let nextPage = 1;
+    let totalPages = 1;
+
+    while (nextPage <= totalPages) {
+      const response = await tablesAPI.getInventoryItems({
+        ...cleanedParams,
+        page: nextPage,
+        pageSize: 100,
+        sortBy,
+        sortOrder,
+      });
+
+      const rows = Array.isArray(response.data?.data) ? response.data.data : [];
+      rows.forEach((item: InventoryItem) => allIds.push(item.ItemID));
+      totalPages = Number(response.data?.totalPages || 1);
+      nextPage += 1;
+    }
+
+    setSelectedItemIds(allIds);
+  };
+
   const bulkUpdateMutation = useMutation({
     mutationFn: async (payload: { itemIds: number[]; updates: Record<string, number | string | boolean> }) => {
       return tablesAPI.bulkUpdateItems({ itemIds: payload.itemIds, ...payload.updates });
@@ -1262,8 +1291,6 @@ export default function InventoryLookupPage() {
             : `Created order #${newOrderId} with ${detailCount} line items from selected inventory.`,
         variant: 'success',
       });
-
-      navigate(`/home/orders?purchaseOrderId=${newOrderId}`);
     },
     onError: (error: any) => {
       setCreateOrderError(error.response?.data?.error || error.message || 'Failed to create order');
@@ -1372,19 +1399,6 @@ export default function InventoryLookupPage() {
     setSelectedItemIds((current) =>
       current.includes(itemId) ? current.filter((selectedId) => selectedId !== itemId) : [...current, itemId]
     );
-  };
-
-  const toggleSelectAllCurrentPage = () => {
-    if (areAllCurrentPageItemsSelected) {
-      setSelectedItemIds((current) => current.filter((itemId) => !currentPageItems.some((item) => item.ItemID === itemId)));
-      return;
-    }
-
-    setSelectedItemIds((current) => {
-      const next = new Set(current);
-      currentPageItems.forEach((item) => next.add(item.ItemID));
-      return Array.from(next);
-    });
   };
 
   const handleBulkFieldChange = (field: 'PublisherID' | 'CollectionID' | 'CategoryID' | 'SubTypeID' | 'ItemVersion', value: string) => {
@@ -2152,12 +2166,15 @@ export default function InventoryLookupPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-px whitespace-nowrap px-2 text-center">
-                        <input
-                          type="checkbox"
+                        <SelectionScopeMenu
                           checked={areAllCurrentPageItemsSelected}
-                          onChange={toggleSelectAllCurrentPage}
-                          aria-label="Select all items on this page"
+                          disabled={currentPageItems.length === 0}
+                          aria-label="Select items"
                           tabIndex={32}
+                          onSelectPage={selectCurrentPageItems}
+                          onSelectAll={() => {
+                            void selectAllFilteredItems();
+                          }}
                         />
                       </TableHead>
                       <TableHead>
@@ -2381,6 +2398,9 @@ export default function InventoryLookupPage() {
                 value={createOrderValues.InvoiceNumber}
                 onChange={(event) => handleCreateOrderFieldChange('InvoiceNumber', event.target.value)}
                 placeholder="Invoice number"
+                autoComplete="off"
+                spellCheck={false}
+                data-lpignore="true"
               />
             </label>
 
@@ -2848,7 +2868,7 @@ export default function InventoryLookupPage() {
             {bulkStep === 'edit' ? (
               <>
                 <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900">
-                  Bulk updates apply to {selectedCurrentPageItems.length} selected item{selectedCurrentPageItems.length === 1 ? '' : 's'} on this page.
+                  Bulk updates apply to {selectedItemIds.length} selected item{selectedItemIds.length === 1 ? '' : 's'}.
                   Only the fields you change will be written.
                 </div>
 
@@ -2945,14 +2965,14 @@ export default function InventoryLookupPage() {
                     onClick={handleBulkPreview}
                     disabled={bulkUpdateMutation.isLoading}
                   >
-                    Review {selectedCurrentPageItems.length} Update{selectedCurrentPageItems.length === 1 ? '' : 's'}
+                    Review {selectedItemIds.length} Update{selectedItemIds.length === 1 ? '' : 's'}
                   </Button>
                 </div>
               </>
             ) : (
               <>
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
-                  You are about to update {selectedCurrentPageItems.length} item{selectedCurrentPageItems.length === 1 ? '' : 's'}.
+                  You are about to update {selectedItemIds.length} item{selectedItemIds.length === 1 ? '' : 's'}.
                   Confirm only after checking the summary below.
                 </div>
 
@@ -3004,7 +3024,7 @@ export default function InventoryLookupPage() {
                     onClick={handleBulkConfirm}
                     disabled={bulkUpdateMutation.isLoading}
                   >
-                    {bulkUpdateMutation.isLoading ? 'Updating...' : `Confirm Update (${selectedCurrentPageItems.length})`}
+                    {bulkUpdateMutation.isLoading ? 'Updating...' : `Confirm Update (${selectedItemIds.length})`}
                   </Button>
                 </div>
               </>
