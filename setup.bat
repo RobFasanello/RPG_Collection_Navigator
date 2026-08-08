@@ -86,3 +86,12 @@ echo Then open your browser to: http://localhost:5173
 echo.
 pause
 endlocal
+
+echo.
+echo ========================================
+echo Added to preserve original host header
+echo Import-Module WebAdministration
+echo Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'preserveHostHeader' -Value 'True'
+echo Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'reverseRewriteHostInResponseHeaders' -Value 'False'
+echo Restart-WebAppPool -Name RPGCollectionNavigatorPool
+echo.
