@@ -4,6 +4,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import HomeShell from './home/HomeShell';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { Skeleton } from './components/ui/Skeleton';
+import { AppModeProvider } from './context/AppModeContext';
+import RequireMode from './components/RequireMode';
+import RequireAuth from './components/RequireAuth';
+import ApiErrorToastBridge from './components/ApiErrorToastBridge';
 import './index.css';
 
 const queryClient = new QueryClient();
@@ -20,6 +24,7 @@ const TerrainMasterPage = lazy(() => import('./pages/TerrainMasterPage'));
 const OrderMasterPage = lazy(() => import('./pages/OrderMasterPage'));
 const SetupLandingPage = lazy(() => import('./pages/SetupLandingPage'));
 const ReferenceListsPage = lazy(() => import('./pages/ReferenceListsPage'));
+const UsersSetupPage = lazy(() => import('./pages/UsersSetupPage'));
 
 function RedirectWithSearch({ to }: { to: string }) {
   const location = useLocation();
@@ -43,9 +48,12 @@ function RouteSkeletonFallback() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <AppModeProvider>
       <ToastProvider>
+        <ApiErrorToastBridge />
         <Router>
           <Suspense fallback={<RouteSkeletonFallback />}>
+            <RequireAuth>
             <Routes>
             <Route path="/" element={<Navigate to="/home" replace />} />
 
@@ -55,23 +63,24 @@ function App() {
               <Route path="miniatures" element={<MiniatureMasterPage />} />
               <Route path="terrain" element={<TerrainMasterPage />} />
               <Route path="orders" element={<OrderMasterPage />} />
-              <Route path="setup" element={<SetupLandingPage />} />
-              <Route path="setup/publishers" element={<PublisherMasterPage />} />
+              <Route path="setup" element={<RequireMode mode="administrator"><SetupLandingPage /></RequireMode>} />
+              <Route path="setup/publishers" element={<RequireMode mode="administrator"><PublisherMasterPage /></RequireMode>} />
               <Route path="setup/rpg-systems" element={<Navigate to="/home/setup/reference-lists?table=rpg-systems" replace />} />
-              <Route path="setup/collections" element={<CollectionMasterPage />} />
+              <Route path="setup/collections" element={<RequireMode mode="administrator"><CollectionMasterPage /></RequireMode>} />
               <Route path="setup/publisher-collections" element={<Navigate to="/home/setup/publishers" replace />} />
               <Route path="setup/collection-rpg-systems" element={<Navigate to="/home/setup/collections" replace />} />
               <Route path="setup/collection-types" element={<Navigate to="/home/setup/reference-lists?table=collection-types" replace />} />
-              <Route path="setup/categories" element={<CategoryMasterPage />} />
-              <Route path="setup/sub-categories" element={<SubTypesPage />} />
+              <Route path="setup/categories" element={<RequireMode mode="administrator"><CategoryMasterPage /></RequireMode>} />
+              <Route path="setup/sub-categories" element={<RequireMode mode="administrator"><SubTypesPage /></RequireMode>} />
               <Route path="setup/category-sub-categories" element={<Navigate to="/home/setup/categories" replace />} />
-              <Route path="setup/locations" element={<LocationMasterPage />} />
+              <Route path="setup/locations" element={<RequireMode mode="administrator"><LocationMasterPage /></RequireMode>} />
               <Route path="setup/location-types" element={<Navigate to="/home/setup/reference-lists?table=location-types" replace />} />
               <Route path="setup/stores" element={<Navigate to="/home/setup/reference-lists?table=stores" replace />} />
               <Route path="setup/miniature-sizes" element={<Navigate to="/home/setup/reference-lists?table=miniature-sizes" replace />} />
               <Route path="setup/miniature-rarities" element={<Navigate to="/home/setup/reference-lists?table=miniature-rarities" replace />} />
               <Route path="setup/status" element={<Navigate to="/home/setup/reference-lists?table=status" replace />} />
-              <Route path="setup/reference-lists" element={<ReferenceListsPage />} />
+              <Route path="setup/reference-lists" element={<RequireMode mode="administrator"><ReferenceListsPage /></RequireMode>} />
+              <Route path="setup/users" element={<RequireMode mode="administrator"><UsersSetupPage /></RequireMode>} />
             </Route>
 
             <Route path="/admin/collections" element={<Navigate to="/home/setup/collections" replace />} />
@@ -95,9 +104,11 @@ function App() {
             <Route path="/admin/order-master" element={<RedirectWithSearch to="/home/orders" />} />
             <Route path="*" element={<Navigate to="/" />} />
             </Routes>
+            </RequireAuth>
           </Suspense>
         </Router>
       </ToastProvider>
+      </AppModeProvider>
     </QueryClientProvider>
   );
 }

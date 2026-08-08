@@ -30,4 +30,9 @@ export const SETUP_NAV_ITEMS: SetupNavItem[] = [
     path: '/home/setup/reference-lists',
     description: 'Select to view, add, delete or update Reference List data and associated reference data.',
   },
+  {
+    label: 'Users',
+    path: '/home/setup/users',
+    description: 'Manage who can sign in and their access mode.',
+  },
 ];

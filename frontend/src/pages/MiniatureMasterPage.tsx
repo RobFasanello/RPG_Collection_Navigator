@@ -15,6 +15,7 @@ import AdminLayout from '../components/AdminLayout';
 import BulkMiniatureUploadDialog from '../components/miniatures/BulkMiniatureUploadDialog';
 import { type LinkedPurchaseOrder } from '../components/order/LinkedOrderDetailModal';
 import useSetupPagination from '../hooks/useSetupPagination';
+import { useAppMode } from '../context/AppModeContext';
 import { tablesAPI } from '../services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
 
@@ -85,6 +86,7 @@ const csvEscape = (value: string) => {
 export default function MiniatureMasterPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { canWrite } = useAppMode();
   const [urlSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [sortBy, setSortBy] = useState<SortColumn>('MiniatureName');
@@ -1404,6 +1406,8 @@ export default function MiniatureMasterPage() {
                     type="button"
                     className="border border-gray-300 !bg-white !text-gray-800 hover:!bg-gray-50"
                     onClick={openBulkUpdateDialog}
+                    disabled={!canWrite}
+                    title={canWrite ? undefined : 'Switch to Update mode to edit miniatures'}
                     tabIndex={3}
                   >
                     Bulk Update
@@ -1412,6 +1416,8 @@ export default function MiniatureMasterPage() {
                     type="button"
                     className="border border-red-300 !bg-white !text-red-700 hover:!bg-red-50"
                     onClick={openBulkDeleteDialog}
+                    disabled={!canWrite}
+                    title={canWrite ? undefined : 'Switch to Update mode to delete miniatures'}
                     tabIndex={4}
                   >
                     Delete
@@ -1437,7 +1443,14 @@ export default function MiniatureMasterPage() {
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                  <Button type="button" className="border border-gray-300 !bg-white !text-gray-700 hover:!bg-gray-50" onClick={() => setIsBulkUploadOpen(true)} tabIndex={5}>
+                  <Button
+                    type="button"
+                    className="border border-gray-300 !bg-white !text-gray-700 hover:!bg-gray-50"
+                    onClick={() => setIsBulkUploadOpen(true)}
+                    disabled={!canWrite}
+                    title={canWrite ? undefined : 'Switch to Update mode to bulk upload'}
+                    tabIndex={5}
+                  >
                     Bulk Upload
                   </Button>
                   <Button
@@ -1449,7 +1462,14 @@ export default function MiniatureMasterPage() {
                   >
                     Download
                   </Button>
-                  <Button type="button" className="!bg-blue-600 !text-white hover:!bg-blue-700" onClick={openAddModal} tabIndex={7}>
+                  <Button
+                    type="button"
+                    className="!bg-blue-600 !text-white hover:!bg-blue-700"
+                    onClick={openAddModal}
+                    disabled={!canWrite}
+                    title={canWrite ? undefined : 'Switch to Update mode to add miniatures'}
+                    tabIndex={7}
+                  >
                     Add Miniature
                   </Button>
                 </div>
@@ -1746,11 +1766,11 @@ export default function MiniatureMasterPage() {
             <ComboSelect options={locationOptions} value={editValues.LocationID} onChange={(value) => setEditValues((current) => ({ ...current, LocationID: value }))} placeholder="Select location" className="w-full" disablePortal />
           </label>
           <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
-            <Button type="button" className="bg-red-600 hover:bg-red-700 sm:mr-auto" onClick={handleDeleteMiniature} disabled={editMutation.isLoading || editDeleteMutation.isLoading}>
+            <Button type="button" className="bg-red-600 hover:bg-red-700 sm:mr-auto" onClick={handleDeleteMiniature} disabled={!canWrite || editMutation.isLoading || editDeleteMutation.isLoading} title={canWrite ? undefined : 'Switch to Update mode to delete miniatures'}>
               {editDeleteMutation.isLoading ? 'Deleting...' : 'Delete Miniature'}
             </Button>
             <Button type="button" className="bg-slate-600 hover:bg-slate-700" onClick={requestCloseEditModal} disabled={editMutation.isLoading || editDeleteMutation.isLoading}>Cancel</Button>
-            <Button type="submit" disabled={!isEditDirty || editMutation.isLoading || editDeleteMutation.isLoading}>{editMutation.isLoading ? 'Saving...' : 'Save Changes'}</Button>
+            <Button type="submit" disabled={!canWrite || !isEditDirty || editMutation.isLoading || editDeleteMutation.isLoading} title={canWrite ? undefined : 'Switch to Update mode to save changes'}>{editMutation.isLoading ? 'Saving...' : 'Save Changes'}</Button>
           </div>
         </form>
       </Dialog>

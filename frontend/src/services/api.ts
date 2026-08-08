@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { APP_MODE_FORBIDDEN_EVENT, APP_MODE_UNAUTHENTICATED_EVENT } from '../state/appMode';
 
 const API_BASE = '/api';
 
@@ -9,8 +10,26 @@ export const api = axios.create({
   baseURL: API_BASE,
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    if (status === 403 && error?.response?.data?.requiredMode) {
+      window.dispatchEvent(new CustomEvent(APP_MODE_FORBIDDEN_EVENT));
+    } else if (status === 401 && !error?.config?.url?.includes('/auth/')) {
+      window.dispatchEvent(new CustomEvent(APP_MODE_UNAUTHENTICATED_EVENT));
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const appAPI = {
   getBuildInfo: () => api.get('/build-info'),
+};
+
+export const authAPI = {
+  getMe: () => api.get('/auth/me'),
+  logout: () => api.post('/auth/logout'),
 };
 
 const getAllTableData = async (tableName: string) => {

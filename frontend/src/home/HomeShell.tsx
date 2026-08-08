@@ -6,6 +6,8 @@ import { appAPI } from '../services/api';
 import { FRONTEND_BUILD_TIME_ISO } from '../generated/buildInfo';
 import GlobalSearchModal from '../components/GlobalSearchModal';
 import { SETUP_NAV_ITEMS } from './setupNavItems';
+import { useAppMode } from '../context/AppModeContext';
+import type { AppMode } from '../state/appMode';
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -20,6 +22,12 @@ type TopMenuItem = {
   label: string;
   path: string;
   description: string;
+};
+
+const MODE_LABELS: Record<AppMode, string> = {
+  'read-only': 'Read-only',
+  update: 'Update',
+  administrator: 'Administrator',
 };
 
 const MANAGE_NAV_ITEMS: TopMenuItem[] = [
@@ -60,6 +68,7 @@ function formatBuildDateTime(value?: string) {
 
 export default function HomeShell() {
   const location = useLocation();
+  const { mode, name, isAdmin, logout } = useAppMode();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [activeSearchQuery, setActiveSearchQuery] = useState('');
@@ -166,42 +175,58 @@ export default function HomeShell() {
                     </NavigationMenuContent>
                   </NavigationMenuItem>
 
-                  <NavigationMenuItem>
-                    <NavigationMenuTrigger active={isTopMenuItemActive('/home/setup')} tabIndex={1002}>
-                      Setup
-                    </NavigationMenuTrigger>
-                    <NavigationMenuContent>
-                      <ul className="grid w-[420px] grid-cols-1 gap-1 p-3 sm:w-[520px]">
-                        {SETUP_NAV_ITEMS.map((item) => {
-                          const active = location.pathname === item.path;
+                  {isAdmin && (
+                    <NavigationMenuItem>
+                      <NavigationMenuTrigger active={isTopMenuItemActive('/home/setup')} tabIndex={1002}>
+                        Setup
+                      </NavigationMenuTrigger>
+                      <NavigationMenuContent>
+                        <ul className="grid w-[420px] grid-cols-1 gap-1 p-3 sm:w-[520px]">
+                          {SETUP_NAV_ITEMS.map((item) => {
+                            const active = location.pathname === item.path;
 
-                          return (
-                            <li key={item.path}>
-                              <NavigationMenuLink asChild active={active}>
-                                <Link
-                                  to={item.path}
-                                  className={`block rounded-md px-3 py-2 transition ${
-                                    active
-                                      ? 'bg-sky-600 text-white'
-                                      : 'text-slate-700 hover:bg-sky-50 hover:text-sky-700'
-                                  }`}
-                                >
-                                  <div className="space-y-0.5">
-                                    <div className="text-sm font-semibold leading-5">{item.label}</div>
-                                    <div className={`text-xs leading-4 ${active ? 'text-sky-50' : 'text-slate-500'}`}>
-                                      {item.description}
+                            return (
+                              <li key={item.path}>
+                                <NavigationMenuLink asChild active={active}>
+                                  <Link
+                                    to={item.path}
+                                    className={`block rounded-md px-3 py-2 transition ${
+                                      active
+                                        ? 'bg-sky-600 text-white'
+                                        : 'text-slate-700 hover:bg-sky-50 hover:text-sky-700'
+                                    }`}
+                                  >
+                                    <div className="space-y-0.5">
+                                      <div className="text-sm font-semibold leading-5">{item.label}</div>
+                                      <div className={`text-xs leading-4 ${active ? 'text-sky-50' : 'text-slate-500'}`}>
+                                        {item.description}
+                                      </div>
                                     </div>
-                                  </div>
-                                </Link>
-                              </NavigationMenuLink>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </NavigationMenuContent>
-                  </NavigationMenuItem>
+                                  </Link>
+                                </NavigationMenuLink>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </NavigationMenuContent>
+                    </NavigationMenuItem>
+                  )}
                 </NavigationMenuList>
               </NavigationMenu>
+
+              <div className="flex items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                <span>
+                  Signed in as <span className="font-medium text-slate-900">{name}</span>
+                  <span className="text-slate-500"> · {MODE_LABELS[mode]}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => logout()}
+                  className="text-sky-700 underline underline-offset-2 hover:text-sky-900"
+                >
+                  Log out
+                </button>
+              </div>
 
               <form
                 onSubmit={handleSearchSubmit}

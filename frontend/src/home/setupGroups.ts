@@ -66,4 +66,15 @@ export const SETUP_GROUPS: SetupGroup[] = [
       },
     ],
   },
+  {
+    title: 'Users',
+    description: 'Sign-in access and entitlements.',
+    items: [
+      {
+        label: 'Users',
+        path: '/home/setup/users',
+        description: 'Manage who can sign in and their access mode.',
+      },
+    ],
+  },
 ];

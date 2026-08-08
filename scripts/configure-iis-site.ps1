@@ -43,6 +43,13 @@ if (-not (Get-WebGlobalModule -Name RewriteModule -ErrorAction SilentlyContinue)
 }
 
 Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'enabled' -Value 'True' -ErrorAction SilentlyContinue | Out-Null
+# Preserve the browser's original Host header when proxying to the backend
+# (so it can tell dev vs. prod apart), and don't let ARR "fix up" redirect
+# Location headers — the backend legitimately redirects to accounts.google.com
+# during login, and ARR's default rewriting mangles that back to this site's
+# own host, breaking the OAuth flow.
+Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'preserveHostHeader' -Value 'True' -ErrorAction SilentlyContinue | Out-Null
+Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'reverseRewriteHostInResponseHeaders' -Value 'False' -ErrorAction SilentlyContinue | Out-Null
 
 $pool = Get-ChildItem IIS:\AppPools | Where-Object { $_.Name -eq $AppPoolName }
 if (-not $pool) {

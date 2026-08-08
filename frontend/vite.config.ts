@@ -7,7 +7,12 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
-        changeOrigin: true,
+        // Preserve the browser's real Host header (localhost:5173) instead of
+        // rewriting it to the proxy target — the backend's OAuth login flow
+        // derives its own redirect/callback URLs from the incoming Host
+        // header, so this needs to reach it unchanged, the same way IIS's
+        // reverse proxy is configured to preserve it in production.
+        changeOrigin: false,
       },
     },
   },

@@ -15,6 +15,7 @@ import AdminLayout from '../components/AdminLayout';
 import BulkTerrainUploadDialog from '../components/terrain/BulkTerrainUploadDialog';
 import { type LinkedPurchaseOrder } from '../components/order/LinkedOrderDetailModal';
 import useSetupPagination from '../hooks/useSetupPagination';
+import { useAppMode } from '../context/AppModeContext';
 import { tablesAPI } from '../services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
 
@@ -86,6 +87,7 @@ const csvEscape = (value: string) => {
 export default function TerrainMasterPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { canWrite } = useAppMode();
   const [urlSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [sortBy, setSortBy] = useState<SortColumn>('TerrainName');
@@ -1327,6 +1329,8 @@ export default function TerrainMasterPage() {
                     type="button"
                     className="border border-gray-300 !bg-white !text-gray-800 hover:!bg-gray-50"
                     onClick={openBulkUpdateDialog}
+                    disabled={!canWrite}
+                    title={canWrite ? undefined : 'Switch to Update mode to edit terrain'}
                     tabIndex={3}
                   >
                     Bulk Update
@@ -1335,6 +1339,8 @@ export default function TerrainMasterPage() {
                     type="button"
                     className="border border-red-300 !bg-white !text-red-700 hover:!bg-red-50"
                     onClick={openBulkDeleteDialog}
+                    disabled={!canWrite}
+                    title={canWrite ? undefined : 'Switch to Update mode to delete terrain'}
                     tabIndex={4}
                   >
                     Delete
@@ -1364,6 +1370,8 @@ export default function TerrainMasterPage() {
                     type="button"
                     className="border border-gray-300 !bg-white !text-gray-700 hover:!bg-gray-50"
                     onClick={() => setIsBulkUploadOpen(true)}
+                    disabled={!canWrite}
+                    title={canWrite ? undefined : 'Switch to Update mode to bulk upload'}
                     tabIndex={5}
                   >
                     Bulk Upload
@@ -1381,6 +1389,8 @@ export default function TerrainMasterPage() {
                     type="button"
                     className="!bg-blue-600 !text-white hover:!bg-blue-700"
                     onClick={openAddModal}
+                    disabled={!canWrite}
+                    title={canWrite ? undefined : 'Switch to Update mode to add terrain'}
                     tabIndex={7}
                   >
                     Add Terrain
@@ -1718,7 +1728,8 @@ export default function TerrainMasterPage() {
               type="button"
               className="bg-red-600 hover:bg-red-700 sm:mr-auto"
               onClick={handleDeleteTerrain}
-              disabled={editMutation.isLoading || editDeleteMutation.isLoading}
+              disabled={!canWrite || editMutation.isLoading || editDeleteMutation.isLoading}
+              title={canWrite ? undefined : 'Switch to Update mode to delete terrain'}
             >
               {editDeleteMutation.isLoading ? 'Deleting...' : 'Delete Terrain'}
             </Button>
@@ -1730,7 +1741,7 @@ export default function TerrainMasterPage() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={!isEditDirty || editMutation.isLoading || editDeleteMutation.isLoading}>
+            <Button type="submit" disabled={!canWrite || !isEditDirty || editMutation.isLoading || editDeleteMutation.isLoading} title={canWrite ? undefined : 'Switch to Update mode to save changes'}>
               {editMutation.isLoading ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>

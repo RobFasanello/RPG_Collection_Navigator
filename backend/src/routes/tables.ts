@@ -21,6 +21,8 @@ import {
   globalSearch,
 } from '../controllers/tableController.js';
 import { uploadCollectionImageIfNeeded } from '../uploads.js';
+import { requireMode } from '../permissions/appMode.js';
+import { requireTableWriteMode } from '../permissions/tableAccess.js';
 
 const router = Router();
 
@@ -52,13 +54,13 @@ router.get('/purchase-order-details-by-purchase-order', getPurchaseOrderDetailsB
 router.get('/purchase-orders-by-item', getPurchaseOrdersByItem);
 
 // Create purchase order with details in one transaction
-router.post('/purchase-order-with-details', createPurchaseOrderWithDetails);
+router.post('/purchase-order-with-details', requireMode('update'), createPurchaseOrderWithDetails);
 
 // Bulk update Item foreign-key fields
-router.patch('/items/bulk-update', bulkUpdateItemRecords);
+router.patch('/items/bulk-update', requireMode('update'), bulkUpdateItemRecords);
 
 // Bulk create Item records from validated upload rows
-router.post('/items/bulk-create', bulkCreateItems);
+router.post('/items/bulk-create', requireMode('update'), bulkCreateItems);
 
 // Cross-table keyword search
 router.get('/global-search', globalSearch);
@@ -70,15 +72,15 @@ router.get('/:tableName/data', getTableData);
 router.get('/:tableName/:id', getRecord);
 
 // Create record
-router.post('/:tableName', uploadCollectionImageIfNeeded, createRecord);
+router.post('/:tableName', requireTableWriteMode, uploadCollectionImageIfNeeded, createRecord);
 
 // Delete record by query params (supports composite-key tables)
-router.delete('/:tableName', deleteRecordByQuery);
+router.delete('/:tableName', requireTableWriteMode, deleteRecordByQuery);
 
 // Update record
-router.patch('/:tableName/:id', uploadCollectionImageIfNeeded, updateRecord);
+router.patch('/:tableName/:id', requireTableWriteMode, uploadCollectionImageIfNeeded, updateRecord);
 
 // Delete record
-router.delete('/:tableName/:id', deleteRecord);
+router.delete('/:tableName/:id', requireTableWriteMode, deleteRecord);
 
 export default router;

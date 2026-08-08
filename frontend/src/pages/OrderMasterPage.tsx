@@ -10,6 +10,7 @@ import { Dialog } from '../components/ui/Dialog';
 import AlertDialog from '../components/ui/AlertDialog';
 import SelectionScopeMenu from '../components/ui/SelectionScopeMenu';
 import { useToast } from '../components/ui/ToastProvider';
+import { useAppMode } from '../context/AppModeContext';
 import { tablesAPI } from '../services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
 import { CircleHelp, Edit2, Trash2 } from 'lucide-react';
@@ -56,6 +57,7 @@ interface OrderDetailDraft {
 
 export default function OrderMasterPage() {
   const { toast } = useToast();
+  const { canWrite } = useAppMode();
   const [urlSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<string>('PurchaseDate');
@@ -1310,6 +1312,8 @@ export default function OrderMasterPage() {
                     type="button"
                     className="border border-gray-300 !bg-white !text-gray-800 hover:!bg-gray-50"
                     onClick={openBulkUpdateDialog}
+                    disabled={!canWrite}
+                    title={canWrite ? undefined : 'Switch to Update mode to edit orders'}
                     tabIndex={3}
                   >
                     Bulk Update
@@ -1318,6 +1322,8 @@ export default function OrderMasterPage() {
                     type="button"
                     className="border border-red-300 !bg-white !text-red-700 hover:!bg-red-50"
                     onClick={openBulkDeleteDialog}
+                    disabled={!canWrite}
+                    title={canWrite ? undefined : 'Switch to Update mode to delete orders'}
                     tabIndex={4}
                   >
                     Delete
@@ -1352,7 +1358,14 @@ export default function OrderMasterPage() {
                   >
                     Download
                   </Button>
-                  <Button type="button" className="!bg-blue-600 !text-white hover:!bg-blue-700" onClick={openAddOrder} tabIndex={6}>
+                  <Button
+                    type="button"
+                    className="!bg-blue-600 !text-white hover:!bg-blue-700"
+                    onClick={openAddOrder}
+                    disabled={!canWrite}
+                    title={canWrite ? undefined : 'Switch to Update mode to add orders'}
+                    tabIndex={6}
+                  >
                     Add Order
                   </Button>
                 </div>
@@ -1998,8 +2011,8 @@ export default function OrderMasterPage() {
                                         type="button"
                                         onClick={() => startEditDetail(item)}
                                         className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 disabled:opacity-50"
-                                        title="Edit row"
-                                        disabled={!!editingDetailId || updateDetailMutation.isPending || addDetailMutation.isPending}
+                                        title={canWrite ? 'Edit row' : 'Switch to Update mode to edit rows'}
+                                        disabled={!canWrite || !!editingDetailId || updateDetailMutation.isPending || addDetailMutation.isPending}
                                       >
                                         <Edit2 className="w-4 h-4" />
                                       </button>
@@ -2007,8 +2020,8 @@ export default function OrderMasterPage() {
                                         type="button"
                                         onClick={() => { setDeleteError(null); deleteDetailMutation.mutate(item.PurchaseOrderDetailID); }}
                                         className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
-                                        title="Delete row"
-                                        disabled={deleteDetailMutation.isPending || updateDetailMutation.isPending || addDetailMutation.isPending}
+                                        title={canWrite ? 'Delete row' : 'Switch to Update mode to delete rows'}
+                                        disabled={!canWrite || deleteDetailMutation.isPending || updateDetailMutation.isPending || addDetailMutation.isPending}
                                       >
                                         <Trash2 className="w-4 h-4" />
                                       </button>
@@ -2049,7 +2062,8 @@ export default function OrderMasterPage() {
                   setDeleteError(null);
                   setIsConfirmDeleteOpen(true);
                 }}
-                disabled={deleteOrderMutation.isPending || updateMutation.isPending}
+                disabled={!canWrite || deleteOrderMutation.isPending || updateMutation.isPending}
+                title={canWrite ? undefined : 'Switch to Update mode to delete orders'}
               >
                 Delete Order
               </Button>
@@ -2064,7 +2078,8 @@ export default function OrderMasterPage() {
               <Button
                 type="button"
                 onClick={handleSaveEdit}
-                disabled={!isOrderEditDirty || updateMutation.isPending || deleteOrderMutation.isPending}
+                disabled={!canWrite || !isOrderEditDirty || updateMutation.isPending || deleteOrderMutation.isPending}
+                title={canWrite ? undefined : 'Switch to Update mode to save changes'}
               >
                 {updateMutation.isPending ? 'Saving...' : 'Save'}
               </Button>

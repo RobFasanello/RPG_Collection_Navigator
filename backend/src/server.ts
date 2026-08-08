@@ -8,6 +8,8 @@ import { uploadsRoot } from './uploads.js';
 
 import cors from 'cors';
 import tablesRouter from './routes/tables.js';
+import authRouter from './routes/auth.js';
+import { requireAuth } from './auth/requireAuth.js';
 
 const app: Express = express();
 const PORT = process.env.PORT || 3001;
@@ -43,12 +45,8 @@ const corsOptions: cors.CorsOptions = {
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json());
-app.use('/api/uploads', express.static(uploadsRoot));
 
-// Routes
-app.use('/api/tables', tablesRouter);
-
-// Health check
+// Health check (public)
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
@@ -58,6 +56,13 @@ app.get('/api/build-info', (req, res) => {
     backendBuildTimeIso: BACKEND_BUILD_TIME_ISO,
   });
 });
+
+// Auth routes (public — these establish the session)
+app.use('/api/auth', authRouter);
+
+// Everything below requires a signed-in session
+app.use('/api/uploads', requireAuth, express.static(uploadsRoot));
+app.use('/api/tables', requireAuth, tablesRouter);
 
 // Initialize database and start server
 async function startServer() {

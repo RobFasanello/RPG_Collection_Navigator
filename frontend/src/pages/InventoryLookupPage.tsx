@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CircleHelp, Link2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CircleHelp, Link2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import AdminLayout from '../components/AdminLayout';
 import { Button } from '../components/ui/Button';
@@ -15,6 +15,7 @@ import BulkItemUploadDialog from '../components/inventory/BulkItemUploadDialog';
 import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
 import ImageCropDialog from '../components/ImageCropDialog';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
+import { useAppMode } from '../context/AppModeContext';
 import { tablesAPI } from '../services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
 
@@ -99,9 +100,19 @@ function truncateMiddle(value: string, maxLength: number) {
   return `${value.slice(0, startLength)}...${value.slice(-(visibleLength - startLength))}`;
 }
 
+function formatImageUploadDate(date?: string | null) {
+  if (!date) {
+    return 'Not available';
+  }
+
+  const parsedDate = new Date(date);
+  return Number.isNaN(parsedDate.getTime()) ? date : parsedDate.toLocaleString();
+}
+
 export default function InventoryLookupPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { canWrite } = useAppMode();
   const [urlSearchParams] = useSearchParams();
   const addItemInputRef = useRef<HTMLInputElement>(null);
   const editItemInputRef = useRef<HTMLInputElement>(null);
@@ -126,6 +137,7 @@ export default function InventoryLookupPage() {
     hasPurchaseOrder: undefined as boolean | undefined,
   });
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [viewingImageItem, setViewingImageItem] = useState<InventoryItem | null>(null);
   const [selectedEditImageFile, setSelectedEditImageFile] = useState<File | null>(null);
   const [selectedEditImageUrl, setSelectedEditImageUrl] = useState('');
   const [editCropSourceFile, setEditCropSourceFile] = useState<File | null>(null);
@@ -959,9 +971,20 @@ export default function InventoryLookupPage() {
 
   const gridRowTabIndexStart = 33;
   const gridRowCount = Array.isArray(data?.data) ? data.data.length : 0;
-  const pagerTabIndexStart = gridRowTabIndexStart + gridRowCount * 3;
+  const pagerTabIndexStart = gridRowTabIndexStart + gridRowCount * 4;
 
   const currentPageItems: InventoryItem[] = Array.isArray(data?.data) ? data.data : [];
+  const currentPageItemsWithImages = useMemo(
+    () => currentPageItems.filter((item) => Boolean(item.ImageFileName)),
+    [currentPageItems]
+  );
+  const currentImageItemIndex = useMemo(() => {
+    if (!viewingImageItem) {
+      return -1;
+    }
+
+    return currentPageItemsWithImages.findIndex((item) => item.ItemID === viewingImageItem.ItemID);
+  }, [currentPageItemsWithImages, viewingImageItem]);
   const currentEditItemIndex = useMemo(() => {
     if (!editingItem) {
       return -1;
@@ -2137,6 +2160,8 @@ export default function InventoryLookupPage() {
                       type="button"
                       className="border border-gray-300 !bg-white !text-gray-800 hover:!bg-gray-50"
                       onClick={openCreateOrderModal}
+                      disabled={!canWrite}
+                      title={canWrite ? undefined : 'Switch to Update mode to create orders'}
                       tabIndex={15}
                     >
                       Create Order
@@ -2146,6 +2171,8 @@ export default function InventoryLookupPage() {
                     type="button"
                     className="border border-gray-300 !bg-white !text-gray-800 hover:!bg-gray-50"
                     onClick={openBulkUpdateDialog}
+                    disabled={!canWrite}
+                    title={canWrite ? undefined : 'Switch to Update mode to edit items'}
                     tabIndex={16}
                   >
                     Bulk Update
@@ -2154,6 +2181,8 @@ export default function InventoryLookupPage() {
                     type="button"
                     className="border border-red-300 !bg-white !text-red-700 hover:!bg-red-50"
                     onClick={openBulkDeleteDialog}
+                    disabled={!canWrite}
+                    title={canWrite ? undefined : 'Switch to Update mode to delete items'}
                     tabIndex={17}
                   >
                     Delete
@@ -2183,7 +2212,8 @@ export default function InventoryLookupPage() {
                     type="button"
                     className="border border-gray-300 !bg-white !text-gray-700 hover:!bg-gray-50"
                     onClick={() => setIsBulkUploadOpen(true)}
-                    title="Bulk Upload"
+                    disabled={!canWrite}
+                    title={canWrite ? 'Bulk Upload' : 'Switch to Update mode to bulk upload'}
                     aria-label="Bulk Upload"
                     tabIndex={18}
                   >
@@ -2200,7 +2230,14 @@ export default function InventoryLookupPage() {
                   >
                     Download
                   </Button>
-                  <Button type="button" className="!bg-blue-600 !text-white hover:!bg-blue-700" onClick={openAddModal} tabIndex={20}>
+                  <Button
+                    type="button"
+                    className="!bg-blue-600 !text-white hover:!bg-blue-700"
+                    onClick={openAddModal}
+                    disabled={!canWrite}
+                    title={canWrite ? undefined : 'Switch to Update mode to add items'}
+                    tabIndex={20}
+                  >
                     Add Item
                   </Button>
                 </div>
@@ -2297,14 +2334,14 @@ export default function InventoryLookupPage() {
                   <TableBody>
                               {Array.isArray(data?.data) && data.data.length ? (
                       data.data.map((item: InventoryItem, rowIndex: number) => {
-                        const rowTabIndex = gridRowTabIndexStart + rowIndex * 3;
+                        const rowTabIndex = gridRowTabIndexStart + rowIndex * 4;
 
                         return (
                           <TableRow
                             key={item.ItemID}
                             className="cursor-pointer hover:bg-gray-50"
                             onClick={() => openEditModal(item)}
-                            tabIndex={rowTabIndex + 2}
+                            tabIndex={rowTabIndex + 3}
                             aria-label={`Edit item ${item.ItemName}`}
                             onKeyDown={(event) => {
                               if (event.key === 'Enter' && event.target === event.currentTarget) {
@@ -2324,8 +2361,30 @@ export default function InventoryLookupPage() {
                             </TableCell>
                             <TableCell>{item.PublisherName}</TableCell>
                             <TableCell>{collectionLabelById[item.CollectionID] ?? item.CollectionName}</TableCell>
-                            <TableCell>{item.ItemName}</TableCell>
-                            <TableCell className="text-right">{Number(item.SubItemCount || 0).toLocaleString()}</TableCell>
+                            <TableCell>
+                              {item.ImageFileName ? (
+                                <a
+                                  href={getItemImageUrl(item.ImageFileName)}
+                                  className="font-medium text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800"
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    setViewingImageItem(item);
+                                  }}
+                                  aria-label={`View image for ${item.ItemName}`}
+                                  tabIndex={rowTabIndex + 1}
+                                >
+                                  {item.ItemName}
+                                </a>
+                              ) : (
+                                item.ItemName
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {['miniature', 'miniatures', 'terrain'].includes(item.CategoryName.trim().toLowerCase())
+                                ? Number(item.SubItemCount || 0).toLocaleString()
+                                : ''}
+                            </TableCell>
                             <TableCell>{item.ItemVersion || '-'}</TableCell>
                             <TableCell>{item.CategoryName}</TableCell>
                             <TableCell>{item.SubTypeName}</TableCell>
@@ -2360,7 +2419,7 @@ export default function InventoryLookupPage() {
                                   onClick={(event) => handleOpenRelatedOrders(item, event)}
                                   title="Open related purchase orders"
                                   aria-label={`Open related purchase orders for ${item.ItemName}`}
-                                  tabIndex={rowTabIndex + 1}
+                                  tabIndex={rowTabIndex + 2}
                                 >
                                   <Link2 className="w-5 h-5" />
                                 </button>
@@ -2425,6 +2484,84 @@ export default function InventoryLookupPage() {
           )}
         </section>
       </div>
+
+      <Dialog
+        open={Boolean(viewingImageItem)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewingImageItem(null);
+          }
+        }}
+        title="View Item"
+        contentClassName="max-w-6xl"
+        showCloseButton={false}
+      >
+        {viewingImageItem?.ImageFileName ? (
+          <div>
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-sm font-medium text-gray-700">Image</div>
+                <div className="mt-1 text-lg font-semibold text-gray-900">{viewingImageItem.ItemName}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setViewingImageItem(currentPageItemsWithImages[currentImageItemIndex - 1])}
+                  disabled={currentImageItemIndex <= 0}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Previous item with image"
+                  title="Previous item with image"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewingImageItem(currentPageItemsWithImages[currentImageItemIndex + 1])}
+                  disabled={currentImageItemIndex < 0 || currentImageItemIndex >= currentPageItemsWithImages.length - 1}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Next item with image"
+                  title="Next item with image"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex min-h-[420px] items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50 p-4 md:min-h-[600px]">
+              <img
+                src={getItemImageUrl(viewingImageItem.ImageFileName)}
+                alt={viewingImageItem.ItemName}
+                className="max-h-[65vh] max-w-full object-contain"
+              />
+            </div>
+
+            <div className="mt-3 space-y-1 text-sm text-gray-600">
+              <div className="flex min-w-0 gap-2">
+                <span className="shrink-0 font-medium text-gray-700">Image URL:</span>
+                <a
+                  href={getItemImageUrl(viewingImageItem.ImageFileName)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="min-w-0 truncate text-blue-600 underline hover:text-blue-800"
+                  title={getItemImageUrl(viewingImageItem.ImageFileName)}
+                >
+                  {getItemImageUrl(viewingImageItem.ImageFileName)}
+                </a>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700">Image Upload Date:</span>{' '}
+                {formatImageUploadDate(viewingImageItem.ImageUploadDate)}
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <Button type="button" onClick={() => setViewingImageItem(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Dialog>
 
       <Dialog
         open={isCreateOrderModalOpen}
@@ -2783,7 +2920,8 @@ export default function InventoryLookupPage() {
                   type="button"
                   className="bg-red-600 hover:bg-red-700 sm:mr-auto"
                   onClick={handleDeleteItem}
-                  disabled={editMutation.isLoading || deleteMutation.isLoading}
+                  disabled={!canWrite || editMutation.isLoading || deleteMutation.isLoading}
+                  title={canWrite ? undefined : 'Switch to Update mode to delete items'}
                 >
                   {deleteMutation.isLoading ? 'Deleting...' : 'Delete Item'}
                 </Button>
@@ -2795,7 +2933,11 @@ export default function InventoryLookupPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={!isEditDirty || editMutation.isLoading || deleteMutation.isLoading}>
+                <Button
+                  type="submit"
+                  disabled={!canWrite || !isEditDirty || editMutation.isLoading || deleteMutation.isLoading}
+                  title={canWrite ? undefined : 'Switch to Update mode to save changes'}
+                >
                   {editMutation.isLoading ? 'Saving...' : 'Save Changes'}
                 </Button>
               </div>
