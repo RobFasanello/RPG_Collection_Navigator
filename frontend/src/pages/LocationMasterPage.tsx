@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { Skeleton } from '../components/ui/Skeleton';
 import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
 import AdminLayout from '../components/AdminLayout';
@@ -45,6 +46,19 @@ const emptyFormValues = {
   LocationName: '',
   LocationTypeID: '',
 };
+
+function SidebarListSkeleton() {
+  return (
+    <div className="space-y-2 p-2" aria-label="Loading locations list">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={index} className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="mt-2 h-3 w-1/2" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 async function getAllTableRows(tableName: string): Promise<any[]> {
   const pageSize = 500;
@@ -368,7 +382,7 @@ export default function LocationMasterPage() {
 
           <div className="max-h-[calc(100vh-260px)] overflow-y-auto p-2">
             {locationsLoading ? (
-              <div className="p-4 text-sm text-slate-500">Loading locations...</div>
+              <SidebarListSkeleton />
             ) : locationsError ? (
               <div className="p-4 text-sm text-red-600">Error loading locations.</div>
             ) : filteredLocations.length === 0 ? (

@@ -602,14 +602,16 @@ export default function BulkMiniatureUploadDialog({
             <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleAddBlankRow} disabled={bulkAddMutation.isLoading}>
               Add New Row
             </Button>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={() => onOpenChange(false)} disabled={bulkAddMutation.isLoading}>
+              Close
+            </Button>
             <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={handleAddMiniatures} disabled={bulkAddMutation.isLoading || readyRows.length === 0}>
               {bulkAddMutation.isLoading ? 'Uploading Miniatures...' : `Upload Miniatures (${readyRows.length})`}
             </Button>
           </div>
-
-          <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={() => onOpenChange(false)} disabled={bulkAddMutation.isLoading}>
-            Close
-          </Button>
         </div>
       </div>
     </Dialog>

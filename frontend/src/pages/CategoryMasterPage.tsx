@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { Skeleton } from '../components/ui/Skeleton';
 import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
 import AdminLayout from '../components/AdminLayout';
@@ -40,6 +41,21 @@ type EditorTab = 'details' | 'sub-categories';
 const emptyFormValues = {
   CategoryName: '',
 };
+
+function SidebarListSkeleton() {
+  return (
+    <div className="space-y-2 p-2" aria-label="Loading categories list">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={index} className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+          <Skeleton className="h-4 w-2/3" />
+          <div className="mt-2 flex justify-end">
+            <Skeleton className="h-3 w-20" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 async function getAllTableRows(tableName: string): Promise<any[]> {
   const pageSize = 500;
@@ -443,7 +459,7 @@ export default function CategoryMasterPage() {
 
           <div className="max-h-[calc(100vh-260px)] overflow-y-auto p-2">
             {categoriesLoading ? (
-              <div className="p-4 text-sm text-slate-500">Loading categories...</div>
+              <SidebarListSkeleton />
             ) : categoriesError ? (
               <div className="p-4 text-sm text-red-600">Error loading categories.</div>
             ) : filteredCategories.length === 0 ? (

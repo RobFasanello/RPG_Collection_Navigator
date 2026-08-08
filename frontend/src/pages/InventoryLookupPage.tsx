@@ -13,6 +13,7 @@ import { useToast } from '../components/ui/ToastProvider';
 import LinkedOrderDetailModal, { type LinkedPurchaseOrder } from '../components/order/LinkedOrderDetailModal';
 import BulkItemUploadDialog from '../components/inventory/BulkItemUploadDialog';
 import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
+import ImageCropDialog from '../components/ImageCropDialog';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import { tablesAPI } from '../services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
@@ -27,10 +28,13 @@ interface InventoryItem {
   ReleaseDate?: string;
   IsPhysical?: boolean;
   IsDigital?: boolean;
+  ImageFileName?: string | null;
+  ImageUploadDate?: string | null;
   PublisherID: number;
   CollectionID: number;
   CategoryID: number;
   SubTypeID: number;
+  SubItemCount: number;
   HasPurchaseOrder?: boolean;
   PublisherName: string;
   CollectionName: string;
@@ -81,6 +85,20 @@ function parseHasPurchaseOrderQueryParam(value: string | null): boolean | undefi
   return undefined;
 }
 
+function getItemImageUrl(fileName?: string | null) {
+  return fileName ? `/api/uploads/items/${encodeURIComponent(fileName)}` : '';
+}
+
+function truncateMiddle(value: string, maxLength: number) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  const visibleLength = maxLength - 3;
+  const startLength = Math.ceil(visibleLength / 2);
+  return `${value.slice(0, startLength)}...${value.slice(-(visibleLength - startLength))}`;
+}
+
 export default function InventoryLookupPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -108,6 +126,9 @@ export default function InventoryLookupPage() {
     hasPurchaseOrder: undefined as boolean | undefined,
   });
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [selectedEditImageFile, setSelectedEditImageFile] = useState<File | null>(null);
+  const [selectedEditImageUrl, setSelectedEditImageUrl] = useState('');
+  const [editCropSourceFile, setEditCropSourceFile] = useState<File | null>(null);
   const editModalRef = useModalFocusTrap<HTMLDivElement>(Boolean(editingItem), () => closeEditModal());
   const [pendingEditNavigation, setPendingEditNavigation] = useState<
     { direction: 'previous' | 'next'; targetPage: number } | null
@@ -1620,6 +1641,8 @@ export default function InventoryLookupPage() {
   const openEditModal = (item: InventoryItem) => {
     setPendingEditNavigation(null);
     setEditingItem(item);
+    setSelectedEditImageFile(null);
+    setEditCropSourceFile(null);
     setEditValues({
       ItemName: item.ItemName || '',
       ItemVersion: item.ItemVersion || '',
@@ -1659,11 +1682,11 @@ export default function InventoryLookupPage() {
       return false;
     }
 
-    return Object.keys(originalEditValues).some((key) => {
+    return selectedEditImageFile !== null || Object.keys(originalEditValues).some((key) => {
       const field = key as keyof typeof originalEditValues;
       return editValues[field] !== originalEditValues[field];
     });
-  }, [editValues, originalEditValues]);
+  }, [editValues, originalEditValues, selectedEditImageFile]);
 
   useEffect(() => {
     if (!editingItem) {
@@ -1672,6 +1695,17 @@ export default function InventoryLookupPage() {
 
     editItemInputRef.current?.focus();
   }, [editingItem]);
+
+  useEffect(() => {
+    if (!selectedEditImageFile) {
+      setSelectedEditImageUrl('');
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(selectedEditImageFile);
+    setSelectedEditImageUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [selectedEditImageFile]);
 
   const handleOpenRelatedOrders = async (item: InventoryItem, event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
@@ -1769,6 +1803,8 @@ export default function InventoryLookupPage() {
   const closeEditModal = () => {
     setPendingEditNavigation(null);
     setEditingItem(null);
+    setSelectedEditImageFile(null);
+    setEditCropSourceFile(null);
     setEditValues({
       ItemName: '',
       ItemVersion: '',
@@ -1903,7 +1939,7 @@ export default function InventoryLookupPage() {
   };
 
   const editMutation = useMutation({
-    mutationFn: async (payload: Record<string, any>) => {
+    mutationFn: async (payload: Record<string, any> | FormData) => {
       if (!editingItem) {
         throw new Error('No item selected');
       }
@@ -1978,18 +2014,42 @@ export default function InventoryLookupPage() {
       return;
     }
 
-    editMutation.mutate({
-      ItemName: editValues.ItemName,
-      ItemVersion: editValues.ItemVersion.trim() || null,
-      ProductID: editValues.ProductID || null,
-      ReleaseDate: editValues.ReleaseDate ? normalizeReleaseDateForSave(editValues.ReleaseDate) : null,
-      IsPhysical: editValues.IsPhysical,
-      IsDigital: editValues.IsDigital,
-      PublisherID: editValues.PublisherID ? parseInt(editValues.PublisherID, 10) : null,
-      CollectionID: editValues.CollectionID ? parseInt(editValues.CollectionID, 10) : null,
-      CategoryID: editValues.CategoryID ? parseInt(editValues.CategoryID, 10) : null,
-      SubTypeID: editValues.SubTypeID ? parseInt(editValues.SubTypeID, 10) : null,
-    });
+    const payload = new FormData();
+    payload.append('ItemName', editValues.ItemName);
+    payload.append('ItemVersion', editValues.ItemVersion.trim());
+    payload.append('ProductID', editValues.ProductID);
+    payload.append('ReleaseDate', editValues.ReleaseDate ? normalizeReleaseDateForSave(editValues.ReleaseDate) : '');
+    payload.append('IsPhysical', String(editValues.IsPhysical));
+    payload.append('IsDigital', String(editValues.IsDigital));
+    payload.append('PublisherID', editValues.PublisherID);
+    payload.append('CollectionID', editValues.CollectionID);
+    payload.append('CategoryID', editValues.CategoryID);
+    payload.append('SubTypeID', editValues.SubTypeID);
+    if (selectedEditImageFile) {
+      payload.append('ImageFile', selectedEditImageFile);
+    }
+
+    editMutation.mutate(payload);
+  };
+
+  const handleEditImageFileChange = (file: File | null) => {
+    if (!file) {
+      setSelectedEditImageFile(null);
+      setEditCropSourceFile(null);
+      return;
+    }
+
+    const extension = file.name.toLowerCase().match(/\.(webp|jpe?g)$/)?.[1];
+    const hasValidType = !file.type || file.type === (extension === 'webp' ? 'image/webp' : 'image/jpeg');
+    if (!extension || !hasValidType) {
+      setSelectedEditImageFile(null);
+      setEditCropSourceFile(null);
+      setEditError('Image File Name must be a .webp, .jpg, or .jpeg file.');
+      return;
+    }
+
+    setEditCropSourceFile(file);
+    setEditError('');
   };
 
   const handleAddChange = (field: string, value: string) => {
@@ -2192,29 +2252,29 @@ export default function InventoryLookupPage() {
                           Item <SortIndicator column="ItemName" />
                         </button>
                       </TableHead>
+                      <TableHead className="text-right">
+                        <button onClick={() => handleSort('SubItemCount')} className="flex items-center justify-end w-full hover:text-blue-600" tabIndex={24}>
+                          Sub Item Count <SortIndicator column="SubItemCount" />
+                        </button>
+                      </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ItemVersion')} className="flex items-center hover:text-blue-600" tabIndex={24}>
+                        <button onClick={() => handleSort('ItemVersion')} className="flex items-center hover:text-blue-600" tabIndex={25}>
                           Version <SortIndicator column="ItemVersion" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('CategoryName')} className="flex items-center hover:text-blue-600" tabIndex={25}>
+                        <button onClick={() => handleSort('CategoryName')} className="flex items-center hover:text-blue-600" tabIndex={26}>
                           Category <SortIndicator column="CategoryName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-blue-600" tabIndex={26}>
+                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-blue-600" tabIndex={27}>
                           Sub Category <SortIndicator column="SubTypeName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ProductID')} className="flex items-center hover:text-blue-600" tabIndex={27}>
+                        <button onClick={() => handleSort('ProductID')} className="flex items-center hover:text-blue-600" tabIndex={28}>
                           Product ID <SortIndicator column="ProductID" />
-                        </button>
-                      </TableHead>
-                      <TableHead>
-                        <button onClick={() => handleSort('ReleaseDate')} className="flex items-center hover:text-blue-600" tabIndex={28}>
-                          Release Date <SortIndicator column="ReleaseDate" />
                         </button>
                       </TableHead>
                       <TableHead className="text-center">
@@ -2265,11 +2325,11 @@ export default function InventoryLookupPage() {
                             <TableCell>{item.PublisherName}</TableCell>
                             <TableCell>{collectionLabelById[item.CollectionID] ?? item.CollectionName}</TableCell>
                             <TableCell>{item.ItemName}</TableCell>
+                            <TableCell className="text-right">{Number(item.SubItemCount || 0).toLocaleString()}</TableCell>
                             <TableCell>{item.ItemVersion || '-'}</TableCell>
                             <TableCell>{item.CategoryName}</TableCell>
                             <TableCell>{item.SubTypeName}</TableCell>
                             <TableCell>{item.ProductID || '-'}</TableCell>
-                            <TableCell>{formatReleaseDate(item.ReleaseDate)}</TableCell>
                             <TableCell className="text-center" onClick={(event) => event.stopPropagation()}>
                               <input
                                 type="checkbox"
@@ -2543,7 +2603,7 @@ export default function InventoryLookupPage() {
 
       {editingItem ? (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div ref={editModalRef} tabIndex={-1} className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6">
+          <div ref={editModalRef} tabIndex={-1} className="bg-white rounded-xl shadow-xl max-w-4xl w-full p-6">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h2 className="text-xl font-semibold">Edit Item Detail</h2>
@@ -2580,7 +2640,50 @@ export default function InventoryLookupPage() {
             ) : null}
 
             <form onSubmit={handleEditSubmit} className="space-y-5">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid gap-6 md:grid-cols-[240px_minmax(0,1fr)]">
+                <div className="min-w-0">
+                  <div className="mb-1 text-sm font-medium text-gray-700">Image</div>
+                  <div className="aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                    {selectedEditImageFile || editingItem.ImageFileName ? (
+                      <img
+                        src={selectedEditImageUrl || getItemImageUrl(editingItem.ImageFileName)}
+                        alt={`${editingItem.ItemName} preview`}
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center p-4 text-center text-sm text-gray-500">
+                        No image uploaded.
+                      </div>
+                    )}
+                  </div>
+                  {editingItem.ImageFileName ? (
+                    <p
+                      className="mt-1 whitespace-nowrap text-xs text-gray-600"
+                      title={`Current: ${getItemImageUrl(editingItem.ImageFileName)}`}
+                    >
+                      Current: {truncateMiddle(getItemImageUrl(editingItem.ImageFileName), 31)}
+                    </p>
+                  ) : null}
+                  <div className="mt-4">
+                    <span className="mb-2 block text-sm font-medium text-gray-700">Image File</span>
+                    <Input
+                      type="file"
+                      accept=".webp,.jpg,.jpeg,image/webp,image/jpeg"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] ?? null;
+                        handleEditImageFileChange(file);
+                        if (file) {
+                          event.target.value = '';
+                        }
+                      }}
+                    />
+                    {selectedEditImageFile ? (
+                      <p className="mt-1 break-all text-sm text-gray-600">Selected: {selectedEditImageFile.name}</p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Item</label>
                   <Input
@@ -2672,6 +2775,7 @@ export default function InventoryLookupPage() {
                   />
                   Is Digital
                 </label>
+                </div>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
@@ -2698,6 +2802,19 @@ export default function InventoryLookupPage() {
             </form>
           </div>
         </div>
+      ) : null}
+
+      {editCropSourceFile ? (
+        <ImageCropDialog
+          file={editCropSourceFile}
+          title="Crop Item Image"
+          onApply={(croppedFile) => {
+            setSelectedEditImageFile(croppedFile);
+            setEditCropSourceFile(null);
+            setEditError('');
+          }}
+          onCancel={() => setEditCropSourceFile(null)}
+        />
       ) : null}
 
       {isAddingItem ? (

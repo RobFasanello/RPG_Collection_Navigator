@@ -7,6 +7,7 @@ import multer from 'multer';
 export const uploadsRoot = path.resolve(process.env.UPLOADS_ROOT || path.join(process.cwd(), 'uploads'));
 const imageUploadDirectories: Record<string, string> = {
   Collection: path.join(uploadsRoot, 'collections'),
+  Item: path.join(uploadsRoot, 'items'),
   Publisher: path.join(uploadsRoot, 'publishers'),
 };
 
@@ -20,11 +21,13 @@ function ensureImageUploadDirectory(tableName: string): string {
   return directory;
 }
 
-function getSafeWebpFileName(originalName: string, tableName: string): string {
-  const baseName = path.parse(originalName).name;
+function getSafeImageFileName(originalName: string, tableName: string): string {
+  const parsedName = path.parse(originalName);
+  const baseName = parsedName.name;
+  const extension = parsedName.ext.toLowerCase();
   const defaultBaseName = `${tableName.toLowerCase()}-image`;
   const safeBaseName = baseName.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || defaultBaseName;
-  return `${safeBaseName}-${Date.now()}-${crypto.randomUUID()}.webp`;
+  return `${safeBaseName}-${Date.now()}-${crypto.randomUUID()}${extension}`;
 }
 
 const imageUploadStorage = multer.diskStorage({
@@ -36,7 +39,7 @@ const imageUploadStorage = multer.diskStorage({
     }
   },
   filename(req, file, callback) {
-    callback(null, getSafeWebpFileName(file.originalname, req.params.tableName));
+    callback(null, getSafeImageFileName(file.originalname, req.params.tableName));
   },
 });
 
@@ -46,13 +49,14 @@ const imageUpload = multer({
   fileFilter(_req, file, callback) {
     const extension = path.extname(file.originalname).toLowerCase();
     const hasWebpType = !file.mimetype || file.mimetype === 'image/webp';
+    const hasJpegType = !file.mimetype || file.mimetype === 'image/jpeg';
 
-    if (extension === '.webp' && hasWebpType) {
+    if ((extension === '.webp' && hasWebpType) || (['.jpg', '.jpeg'].includes(extension) && hasJpegType)) {
       callback(null, true);
       return;
     }
 
-    callback(new Error('Image File Name must be a .webp file.'));
+    callback(new Error('Image File Name must be a .webp, .jpg, or .jpeg file.'));
   },
 }).single('ImageFile');
 
@@ -73,7 +77,7 @@ export function uploadCollectionImageIfNeeded(req: Request, res: Response, next:
     }
 
     if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
-      res.status(400).json({ error: 'Image File Name must be a .webp file no larger than 10 MB.' });
+      res.status(400).json({ error: 'Image File Name must be a .webp, .jpg, or .jpeg file no larger than 10 MB.' });
       return;
     }
 

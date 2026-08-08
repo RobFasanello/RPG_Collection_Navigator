@@ -1124,6 +1124,17 @@ export default function BulkItemUploadDialog({
             >
               Add New Item
             </Button>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Button
+              type="button"
+              className="bg-gray-600 hover:bg-gray-700"
+              onClick={() => onOpenChange(false)}
+              disabled={bulkAddMutation.isLoading}
+            >
+              Close
+            </Button>
             <Button
               type="button"
               className="bg-green-600 hover:bg-green-700"
@@ -1133,15 +1144,6 @@ export default function BulkItemUploadDialog({
               {bulkAddMutation.isLoading ? 'Uploading Items...' : `Upload Items (${readyRows.length})`}
             </Button>
           </div>
-
-          <Button
-            type="button"
-            className="bg-gray-600 hover:bg-gray-700"
-            onClick={() => onOpenChange(false)}
-            disabled={bulkAddMutation.isLoading}
-          >
-            Close
-          </Button>
         </div>
       </div>
     </Dialog>

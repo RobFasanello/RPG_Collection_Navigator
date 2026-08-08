@@ -566,11 +566,12 @@ export default function PublisherMasterPage() {
       return;
     }
 
-    const isWebpFile = file.name.toLowerCase().endsWith('.webp') && (!file.type || file.type === 'image/webp');
-    if (!isWebpFile) {
+    const extension = file.name.toLowerCase().match(/\.(webp|jpe?g)$/)?.[1];
+    const hasValidType = !file.type || file.type === (extension === 'webp' ? 'image/webp' : 'image/jpeg');
+    if (!extension || !hasValidType) {
       setSelectedImageFile(null);
       setCropSourceFile(null);
-      setFormError('Image File Name must be a .webp file.');
+      setFormError('Image File Name must be a .webp, .jpg, or .jpeg file.');
       return;
     }
 
@@ -739,7 +740,7 @@ export default function PublisherMasterPage() {
                         <span className="mb-2 block text-sm font-medium text-slate-700">Image File</span>
                         <Input
                           type="file"
-                          accept=".webp,image/webp"
+                          accept=".webp,.jpg,.jpeg,image/webp,image/jpeg"
                           onChange={(event) => {
                             const file = event.target.files?.[0] ?? null;
                             handleImageFileChange(file);

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import AdminLayout from '../components/AdminLayout';
+import { Skeleton } from '../components/ui/Skeleton';
 import { tablesAPI } from '../services/api';
 
 type DashboardData = {
@@ -406,7 +407,11 @@ function MetricCard({ label, value, loading, to }: { label: string; value: numbe
       className="block rounded-xl border border-gray-200 bg-gray-50 p-5 text-center transition hover:bg-gray-100 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
     >
       <p className="text-sm font-medium text-gray-600">{label}</p>
-      <p className="mt-2 text-3xl font-bold text-gray-900">{loading ? '...' : value.toLocaleString()}</p>
+      {loading ? (
+        <Skeleton className="mx-auto mt-3 h-8 w-20" />
+      ) : (
+        <p className="mt-2 text-3xl font-bold text-gray-900">{value.toLocaleString()}</p>
+      )}
     </Link>
   );
 }
@@ -581,7 +586,15 @@ function TopListCard({ title, loading, children }: { title: string; loading: boo
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4">
       <h4 className="text-sm font-semibold text-gray-800">{title}</h4>
-      {loading ? <p className="mt-3 text-sm text-gray-500">Loading...</p> : <div className="mt-3">{children}</div>}
+      {loading ? (
+        <div className="mt-3 space-y-2" aria-label="Loading list">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-5/6" />
+          <Skeleton className="h-4 w-4/6" />
+        </div>
+      ) : (
+        <div className="mt-3">{children}</div>
+      )}
     </div>
   );
 }

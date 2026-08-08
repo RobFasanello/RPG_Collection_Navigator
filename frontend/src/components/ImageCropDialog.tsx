@@ -7,46 +7,57 @@ type ImageCropDialogProps = {
   title: string;
   onApply: (file: File) => void;
   onCancel: () => void;
-  outputWidth?: number;
-  outputHeight?: number;
 };
 
-type CropMode = 'fill' | 'fit';
-
-type OutputSizeOption = {
-  key: 'small' | 'medium' | 'large';
-  label: string;
+type CropRect = {
+  x: number;
+  y: number;
   width: number;
   height: number;
-  quality: number;
 };
 
-const OUTPUT_SIZE_OPTIONS: OutputSizeOption[] = [
-  { key: 'small', label: 'Small', width: 640, height: 360, quality: 0.8 },
-  { key: 'medium', label: 'Medium', width: 960, height: 540, quality: 0.82 },
-  { key: 'large', label: 'Large', width: 1200, height: 675, quality: 0.88 },
-];
+type Point = {
+  x: number;
+  y: number;
+};
 
-const DEFAULT_OUTPUT_WIDTH = 960;
-const DEFAULT_OUTPUT_HEIGHT = 540;
-const PREVIEW_WIDTH = 960;
+const PREVIEW_MAX_WIDTH = 960;
+const PREVIEW_MAX_HEIGHT = 560;
+const MIN_CROP_SIZE = 8;
+const IMAGE_QUALITY = 0.88;
 
-function drawCroppedImage({
+function getPreviewSize(image: HTMLImageElement) {
+  const scale = Math.min(
+    PREVIEW_MAX_WIDTH / image.naturalWidth,
+    PREVIEW_MAX_HEIGHT / image.naturalHeight,
+    1
+  );
+
+  return {
+    width: Math.max(1, Math.round(image.naturalWidth * scale)),
+    height: Math.max(1, Math.round(image.naturalHeight * scale)),
+  };
+}
+
+function normalizeCrop(start: Point, end: Point): CropRect {
+  return {
+    x: Math.min(start.x, end.x),
+    y: Math.min(start.y, end.y),
+    width: Math.abs(end.x - start.x),
+    height: Math.abs(end.y - start.y),
+  };
+}
+
+function drawCropPreview({
   canvas,
   image,
-  zoom,
-  offsetX,
-  offsetY,
-  mode,
+  crop,
   brightness,
   contrast,
 }: {
   canvas: HTMLCanvasElement;
   image: HTMLImageElement;
-  zoom: number;
-  offsetX: number;
-  offsetY: number;
-  mode: CropMode;
+  crop: CropRect;
   brightness: number;
   contrast: number;
 }) {
@@ -55,56 +66,71 @@ function drawCroppedImage({
     return;
   }
 
-  const baseScale = mode === 'fill'
-    ? Math.max(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight)
-    : Math.min(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
-  const scale = baseScale * zoom;
-  const scaledWidth = image.naturalWidth * scale;
-  const scaledHeight = image.naturalHeight * scale;
-  const maxOffsetX = Math.max(0, (scaledWidth - canvas.width) / 2);
-  const maxOffsetY = Math.max(0, (scaledHeight - canvas.height) / 2);
-  const drawX = (canvas.width - scaledWidth) / 2 + (offsetX / 100) * maxOffsetX;
-  const drawY = (canvas.height - scaledHeight) / 2 + (offsetY / 100) * maxOffsetY;
-
   context.clearRect(0, 0, canvas.width, canvas.height);
-  context.fillStyle = '#111827';
-  context.fillRect(0, 0, canvas.width, canvas.height);
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = 'high';
   context.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
-  context.drawImage(image, drawX, drawY, scaledWidth, scaledHeight);
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
   context.filter = 'none';
+
+  context.fillStyle = 'rgba(17, 24, 39, 0.68)';
+  context.fillRect(0, 0, canvas.width, crop.y);
+  context.fillRect(0, crop.y + crop.height, canvas.width, canvas.height - crop.y - crop.height);
+  context.fillRect(0, crop.y, crop.x, crop.height);
+  context.fillRect(crop.x + crop.width, crop.y, canvas.width - crop.x - crop.width, crop.height);
+
+  context.strokeStyle = '#ffffff';
+  context.lineWidth = 2;
+  context.setLineDash([8, 5]);
+  context.strokeRect(crop.x + 1, crop.y + 1, Math.max(0, crop.width - 2), Math.max(0, crop.height - 2));
+  context.setLineDash([]);
 }
 
-function createCroppedWebpFile({
+function createCroppedImageFile({
   file,
   image,
-  zoom,
-  offsetX,
-  offsetY,
-  outputWidth,
-  outputHeight,
-  quality,
-  mode,
+  crop,
+  previewWidth,
+  previewHeight,
   brightness,
   contrast,
 }: {
   file: File;
   image: HTMLImageElement;
-  zoom: number;
-  offsetX: number;
-  offsetY: number;
-  outputWidth: number;
-  outputHeight: number;
-  quality: number;
-  mode: CropMode;
+  crop: CropRect;
+  previewWidth: number;
+  previewHeight: number;
   brightness: number;
   contrast: number;
 }) {
+  const outputType = /\.jpe?g$/i.test(file.name) ? 'image/jpeg' : 'image/webp';
+  const sourceX = Math.round((crop.x / previewWidth) * image.naturalWidth);
+  const sourceY = Math.round((crop.y / previewHeight) * image.naturalHeight);
+  const sourceWidth = Math.max(1, Math.round((crop.width / previewWidth) * image.naturalWidth));
+  const sourceHeight = Math.max(1, Math.round((crop.height / previewHeight) * image.naturalHeight));
   const canvas = document.createElement('canvas');
-  canvas.width = outputWidth;
-  canvas.height = outputHeight;
-  drawCroppedImage({ canvas, image, zoom, offsetX, offsetY, mode, brightness, contrast });
+  canvas.width = sourceWidth;
+  canvas.height = sourceHeight;
+
+  const context = canvas.getContext('2d');
+  if (!context) {
+    return Promise.reject(new Error('Could not create cropped image.'));
+  }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'high';
+  context.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    sourceWidth,
+    sourceHeight
+  );
 
   return new Promise<File>((resolve, reject) => {
     canvas.toBlob(
@@ -114,39 +140,23 @@ function createCroppedWebpFile({
           return;
         }
 
-        resolve(new File([blob], file.name, { type: 'image/webp' }));
+        resolve(new File([blob], file.name, { type: outputType }));
       },
-      'image/webp',
-      quality
+      outputType,
+      IMAGE_QUALITY
     );
   });
 }
 
-function getInitialOutputSize(outputWidth: number, outputHeight: number): OutputSizeOption {
-  return (
-    OUTPUT_SIZE_OPTIONS.find((option) => option.width === outputWidth && option.height === outputHeight) ||
-    OUTPUT_SIZE_OPTIONS[1]
-  );
-}
-
-export default function ImageCropDialog({
-  file,
-  title,
-  onApply,
-  onCancel,
-  outputWidth = DEFAULT_OUTPUT_WIDTH,
-  outputHeight = DEFAULT_OUTPUT_HEIGHT,
-}: ImageCropDialogProps) {
+export default function ImageCropDialog({ file, title, onApply, onCancel }: ImageCropDialogProps) {
   const imageRef = useRef<HTMLImageElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const dragRef = useRef<{ pointerId: number; start: Point } | null>(null);
   const modalRef = useModalFocusTrap<HTMLDivElement>(true, onCancel);
   const [imageUrl, setImageUrl] = useState('');
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [zoom, setZoom] = useState(1);
-  const [offsetX, setOffsetX] = useState(0);
-  const [offsetY, setOffsetY] = useState(0);
-  const [mode, setMode] = useState<CropMode>('fit');
-  const [outputSize, setOutputSize] = useState<OutputSizeOption>(() => getInitialOutputSize(outputWidth, outputHeight));
+  const [previewSize, setPreviewSize] = useState({ width: PREVIEW_MAX_WIDTH, height: PREVIEW_MAX_HEIGHT });
+  const [crop, setCrop] = useState<CropRect>({ x: 0, y: 0, width: PREVIEW_MAX_WIDTH, height: PREVIEW_MAX_HEIGHT });
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
   const [isApplying, setIsApplying] = useState(false);
@@ -156,17 +166,12 @@ export default function ImageCropDialog({
     const nextImageUrl = URL.createObjectURL(file);
     setImageUrl(nextImageUrl);
     setImageLoaded(false);
-    setZoom(1);
-    setOffsetX(0);
-    setOffsetY(0);
-    setMode('fit');
-    setOutputSize(getInitialOutputSize(outputWidth, outputHeight));
     setBrightness(100);
     setContrast(100);
     setError('');
 
     return () => URL.revokeObjectURL(nextImageUrl);
-  }, [file, outputHeight, outputWidth]);
+  }, [file]);
 
   useEffect(() => {
     const image = imageRef.current;
@@ -176,14 +181,64 @@ export default function ImageCropDialog({
     }
 
     const animationFrameId = window.requestAnimationFrame(() => {
-      drawCroppedImage({ canvas, image, zoom, offsetX, offsetY, mode, brightness, contrast });
+      drawCropPreview({ canvas, image, crop, brightness, contrast });
     });
 
     return () => window.cancelAnimationFrame(animationFrameId);
-  }, [imageLoaded, zoom, offsetX, offsetY, mode, brightness, contrast]);
+  }, [imageLoaded, crop, brightness, contrast, previewSize]);
 
-  const previewHeight = Math.round((PREVIEW_WIDTH * outputSize.height) / outputSize.width);
-  const zoomMin = mode === 'fill' ? 1 : 0.4;
+  const getCanvasPoint = (event: React.PointerEvent<HTMLCanvasElement>): Point => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(previewSize.width, (event.clientX - bounds.left) * (previewSize.width / bounds.width))),
+      y: Math.max(0, Math.min(previewSize.height, (event.clientY - bounds.top) * (previewSize.height / bounds.height))),
+    };
+  };
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!imageLoaded || event.button !== 0) {
+      return;
+    }
+
+    const start = getCanvasPoint(event);
+    dragRef.current = { pointerId: event.pointerId, start };
+    setCrop({ x: start.x, y: start.y, width: 0, height: 0 });
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    setCrop(normalizeCrop(drag.start, getCanvasPoint(event)));
+  };
+
+  const handlePointerEnd = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const nextCrop = normalizeCrop(drag.start, getCanvasPoint(event));
+    if (nextCrop.width < MIN_CROP_SIZE || nextCrop.height < MIN_CROP_SIZE) {
+      setCrop({ x: 0, y: 0, width: previewSize.width, height: previewSize.height });
+    } else {
+      setCrop(nextCrop);
+    }
+
+    dragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  const resetCrop = () => {
+    setCrop({ x: 0, y: 0, width: previewSize.width, height: previewSize.height });
+    setBrightness(100);
+    setContrast(100);
+  };
 
   const handleApply = async () => {
     const image = imageRef.current;
@@ -191,20 +246,20 @@ export default function ImageCropDialog({
       setError('Image is still loading.');
       return;
     }
+    if (crop.width < MIN_CROP_SIZE || crop.height < MIN_CROP_SIZE) {
+      setError('Drag a crop box across the image before applying.');
+      return;
+    }
 
     setIsApplying(true);
     setError('');
     try {
-      const croppedFile = await createCroppedWebpFile({
+      const croppedFile = await createCroppedImageFile({
         file,
         image,
-        zoom,
-        offsetX,
-        offsetY,
-        outputWidth: outputSize.width,
-        outputHeight: outputSize.height,
-        quality: outputSize.quality,
-        mode,
+        crop,
+        previewWidth: previewSize.width,
+        previewHeight: previewSize.height,
         brightness,
         contrast,
       });
@@ -216,24 +271,32 @@ export default function ImageCropDialog({
     }
   };
 
+  const selectedWidth = imageRef.current
+    ? Math.max(1, Math.round((crop.width / previewSize.width) * imageRef.current.naturalWidth))
+    : 0;
+  const selectedHeight = imageRef.current
+    ? Math.max(1, Math.round((crop.height / previewSize.height) * imageRef.current.naturalHeight))
+    : 0;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div ref={modalRef} tabIndex={-1} className="w-full max-w-3xl rounded-lg bg-white p-6 shadow-xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-xl font-bold text-gray-900">{title}</h3>
-            <p className="mt-1 text-sm text-gray-600">Fit or crop this image to match the Coverage Dashboard card shape.</p>
-          </div>
-        </div>
+      <div ref={modalRef} tabIndex={-1} className="max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+        <h3 className="text-xl font-bold text-gray-900">{title}</h3>
+        <p className="mt-1 text-sm text-gray-600">Drag a box across the image to choose the area to keep.</p>
 
         {error ? <div className="mt-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
 
-        <div className="mt-5 overflow-hidden rounded-lg border border-gray-300 bg-gray-900">
+        <div className="mt-5 flex justify-center overflow-hidden rounded-lg border border-gray-300 bg-gray-900">
           <canvas
             ref={previewCanvasRef}
-            width={PREVIEW_WIDTH}
-            height={previewHeight}
-            className="block h-auto w-full"
+            width={previewSize.width}
+            height={previewSize.height}
+            aria-label="Image crop preview. Drag a box to select the crop area."
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerEnd}
+            onPointerCancel={handlePointerEnd}
+            className="block max-h-[56vh] max-w-full touch-none cursor-crosshair object-contain"
           />
         </div>
 
@@ -243,93 +306,19 @@ export default function ImageCropDialog({
             src={imageUrl}
             alt=""
             className="hidden"
-            onLoad={() => setImageLoaded(true)}
+            onLoad={(event) => {
+              const size = getPreviewSize(event.currentTarget);
+              setPreviewSize(size);
+              setCrop({ x: 0, y: 0, width: size.width, height: size.height });
+              setImageLoaded(true);
+            }}
             onError={() => setError('Could not load the selected image.')}
           />
         ) : null}
 
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <div>
-            <p className="text-sm font-medium text-gray-700">Display Mode</p>
-            <div className="mt-2 grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1">
-              {(['fit', 'fill'] as CropMode[]).map((nextMode) => (
-                <button
-                  key={nextMode}
-                  type="button"
-                  onClick={() => {
-                    setMode(nextMode);
-                    setZoom(1);
-                    setOffsetX(0);
-                    setOffsetY(0);
-                  }}
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
-                    mode === nextMode ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {nextMode === 'fit' ? 'Fit' : 'Fill'}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-700">Export Size</p>
-            <div className="mt-2 grid grid-cols-3 gap-2 rounded-lg bg-gray-100 p-1">
-              {OUTPUT_SIZE_OPTIONS.map((option) => (
-                <button
-                  key={option.key}
-                  type="button"
-                  onClick={() => setOutputSize(option)}
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
-                    outputSize.key === option.key ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <p className="mt-1 text-xs text-gray-500">
-              {outputSize.width} x {outputSize.height}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          <label className="block text-sm font-medium text-gray-700">
-            Zoom
-            <input
-              type="range"
-              min={zoomMin}
-              max="3"
-              step="0.01"
-              value={zoom}
-              onChange={(event) => setZoom(Number(event.target.value))}
-              className="mt-2 w-full"
-            />
-          </label>
-          <label className="block text-sm font-medium text-gray-700">
-            Horizontal Position
-            <input
-              type="range"
-              min="-100"
-              max="100"
-              step="1"
-              value={offsetX}
-              onChange={(event) => setOffsetX(Number(event.target.value))}
-              className="mt-2 w-full"
-            />
-          </label>
-          <label className="block text-sm font-medium text-gray-700">
-            Vertical Position
-            <input
-              type="range"
-              min="-100"
-              max="100"
-              step="1"
-              value={offsetY}
-              onChange={(event) => setOffsetY(Number(event.target.value))}
-              className="mt-2 w-full"
-            />
-          </label>
+        <div className="mt-3 flex items-center justify-between gap-4 text-sm">
+          <span className="font-medium text-gray-700">Selected image: {selectedWidth} x {selectedHeight} px</span>
+          <span className="text-gray-500">Drag again to replace the selection.</span>
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -360,7 +349,7 @@ export default function ImageCropDialog({
         </div>
 
         <div className="mt-6 flex flex-wrap justify-end gap-2">
-          <Button type="button" onClick={() => { setMode('fit'); setOutputSize(OUTPUT_SIZE_OPTIONS[1]); setZoom(1); setOffsetX(0); setOffsetY(0); setBrightness(100); setContrast(100); }} className="bg-gray-200 text-gray-800 hover:bg-gray-300">
+          <Button type="button" onClick={resetCrop} className="bg-gray-200 text-gray-800 hover:bg-gray-300">
             Reset
           </Button>
           <Button type="button" onClick={onCancel} className="bg-gray-200 text-gray-800 hover:bg-gray-300">

@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router';
 import HomeShell from './home/HomeShell';
 import { ToastProvider } from './components/ui/ToastProvider';
+import { Skeleton } from './components/ui/Skeleton';
 import './index.css';
 
 const queryClient = new QueryClient();
@@ -25,12 +26,26 @@ function RedirectWithSearch({ to }: { to: string }) {
   return <Navigate to={`${to}${location.search}`} replace />;
 }
 
+function RouteSkeletonFallback() {
+  return (
+    <div className="space-y-4 p-6" aria-label="Loading page">
+      <Skeleton className="h-7 w-56" />
+      <Skeleton className="h-4 w-80" />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Skeleton className="h-28" />
+        <Skeleton className="h-28" />
+        <Skeleton className="h-28" />
+      </div>
+    </div>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
         <Router>
-          <Suspense fallback={<div className="p-6 text-sm text-gray-600">Loading...</div>}>
+          <Suspense fallback={<RouteSkeletonFallback />}>
             <Routes>
             <Route path="/" element={<Navigate to="/home" replace />} />
 

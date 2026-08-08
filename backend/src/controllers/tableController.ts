@@ -10,6 +10,26 @@ function isImageUploadTable(tableName: string): boolean {
   return supportsImageUpload(tableName);
 }
 
+function normalizeItemUploadData(data: Record<string, any>): void {
+  for (const field of ['ItemVersion', 'ProductID', 'ReleaseDate']) {
+    if (Object.prototype.hasOwnProperty.call(data, field) && data[field] === '') {
+      data[field] = null;
+    }
+  }
+
+  for (const field of ['PublisherID', 'CollectionID', 'CategoryID', 'SubTypeID']) {
+    if (Object.prototype.hasOwnProperty.call(data, field)) {
+      data[field] = data[field] === '' ? null : parseInt(data[field], 10);
+    }
+  }
+
+  for (const field of ['IsPhysical', 'IsDigital']) {
+    if (typeof data[field] === 'string') {
+      data[field] = data[field].toLowerCase() === 'true';
+    }
+  }
+}
+
 function usesServerGeneratedManualId(tableName: string): boolean {
   return (
     tableName === 'Location' ||
@@ -858,6 +878,7 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
       'SubTypeName',
       'ProductID',
       'ReleaseDate',
+      'SubItemCount',
       'IsPhysical',
       'IsDigital',
       'HasPurchaseOrder',
@@ -886,6 +907,16 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
         ? '[Item].[IsPhysical]'
         : sortColumn === 'IsDigital'
           ? '[Item].[IsDigital]'
+          : sortColumn === 'SubItemCount'
+            ? `(
+                SELECT ISNULL(SUM([Miniature].[MiniatureQuantity]), 0)
+                FROM [Miniature]
+                WHERE [Miniature].[ItemID] = [Item].[ItemID]
+              ) + (
+                SELECT ISNULL(SUM([Terrain].[TerrainQuantity]), 0)
+                FROM [Terrain]
+                WHERE [Terrain].[ItemID] = [Item].[ItemID]
+              )`
           : sortColumn === 'HasPurchaseOrder'
             ? `CASE
                 WHEN EXISTS (
@@ -1067,10 +1098,21 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
         [Item].[ReleaseDate],
         [Item].[IsPhysical],
         [Item].[IsDigital],
+        [Item].[ImageFileName],
+        [Item].[ImageUploadDate],
         [Item].[PublisherID],
         [Item].[CollectionID],
         [Item].[CategoryID],
         [Item].[SubTypeID],
+        (
+          SELECT ISNULL(SUM([Miniature].[MiniatureQuantity]), 0)
+          FROM [Miniature]
+          WHERE [Miniature].[ItemID] = [Item].[ItemID]
+        ) + (
+          SELECT ISNULL(SUM([Terrain].[TerrainQuantity]), 0)
+          FROM [Terrain]
+          WHERE [Terrain].[ItemID] = [Item].[ItemID]
+        ) AS [SubItemCount],
         CASE
           WHEN EXISTS (
             SELECT 1
@@ -1880,6 +1922,10 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
       delete data.ImageUploadDate;
       delete data.ImageFileName;
 
+      if (tableName === 'Item') {
+        normalizeItemUploadData(data);
+      }
+
       if (Object.prototype.hasOwnProperty.call(data, 'CollectionTypeID')) {
         const collectionTypeId = parseInt(data.CollectionTypeID, 10);
         if (!Number.isInteger(collectionTypeId)) {
@@ -1897,10 +1943,10 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
 
     const columns = Object.keys(data);
     const values = Object.values(data);
-    const insertColumns = isImageUploadTable(tableName) ? [...columns, 'ImageUploadDate'] : columns;
+    const insertColumns = req.file ? [...columns, 'ImageUploadDate'] : columns;
     const placeholders = [
       ...columns.map((col) => `@${col}`),
-      ...(isImageUploadTable(tableName) ? ['GETDATE()'] : []),
+      ...(req.file ? ['GETDATE()'] : []),
     ].join(', ');
     const columnList = insertColumns.map(col => `[${col}]`).join(', ');
 
@@ -2186,6 +2232,7 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
 
     if (tableName === 'Item') {
       if (Object.prototype.hasOwnProperty.call(data, 'StatusID')) {
+        await deleteUploadedFile(req.file);
         res.status(400).json({
           error: 'StatusID can no longer be set on Item. Update PurchaseOrder.StatusID instead.',
         });
@@ -2204,6 +2251,7 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
         const normalizedItemVersion = normalizeItemVersion(data.ItemVersion);
         const itemVersionError = validateItemVersion(normalizedItemVersion);
         if (itemVersionError) {
+          await deleteUploadedFile(req.file);
           res.status(400).json({ error: itemVersionError });
           return;
         }
@@ -2251,7 +2299,14 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
         updates.push('[SubTypeID] = @SubTypeID');
       }
 
+      if (req.file) {
+        request.input('ImageFileName', sql.NVarChar(255), req.file.filename);
+        updates.push('[ImageFileName] = @ImageFileName');
+        updates.push('[ImageUploadDate] = GETDATE()');
+      }
+
       if (updates.length === 0) {
+        await deleteUploadedFile(req.file);
         res.status(400).json({ error: 'At least one updatable field is required.' });
         return;
       }
@@ -2316,6 +2371,10 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
         delete data.ImageUploadDate;
         delete data.ImageFileName;
 
+        if (tableName === 'Item') {
+          normalizeItemUploadData(data);
+        }
+
         if (Object.prototype.hasOwnProperty.call(data, 'CollectionTypeID')) {
           const collectionTypeId = parseInt(data.CollectionTypeID, 10);
           if (!Number.isInteger(collectionTypeId)) {
@@ -2335,7 +2394,7 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
       const updateColumns = Object.keys(data);
       const updates = [
         ...updateColumns.map(col => `[${col}] = @${col}`),
-        ...(isImageUploadTable(tableName) ? ['[ImageUploadDate] = GETDATE()'] : []),
+        ...(req.file ? ['[ImageUploadDate] = GETDATE()'] : []),
       ]
         .join(', ');
 

@@ -3,6 +3,20 @@ import { useQuery } from '@tanstack/react-query';
 import { tablesAPI } from '../services/api';
 import TableManager from './TableManager';
 import { Database } from 'lucide-react';
+import { Skeleton } from './ui/Skeleton';
+
+function TableBrowserSkeleton() {
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3" aria-label="Loading tables">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={index} className="rounded-lg border border-gray-200 p-4">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="mt-2 h-4 w-32" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function TableBrowser() {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
@@ -34,7 +48,7 @@ export default function TableBrowser() {
         <p className="text-gray-600">Select a table to manage your data</p>
       </div>
 
-      {isLoading && <p className="text-gray-500">Loading tables...</p>}
+      {isLoading && <TableBrowserSkeleton />}
       {error && <p className="text-red-600">Error loading tables</p>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

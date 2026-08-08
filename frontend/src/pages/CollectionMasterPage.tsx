@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { Skeleton } from '../components/ui/Skeleton';
 import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
 import ImageCropDialog from '../components/ImageCropDialog';
@@ -52,6 +53,22 @@ const emptyFormValues = {
   CollectionTypeID: '',
   ImageFileName: '',
 };
+
+function SidebarListSkeleton() {
+  return (
+    <div className="space-y-2 p-2" aria-label="Loading collections list">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={index} className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="mt-2 h-3 w-1/2" />
+          <div className="mt-2 flex justify-end">
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 async function getAllTableRows(tableName: string): Promise<any[]> {
   const pageSize = 500;
@@ -365,11 +382,12 @@ export default function CollectionMasterPage() {
       return;
     }
 
-    const isWebpFile = file.name.toLowerCase().endsWith('.webp') && (!file.type || file.type === 'image/webp');
-    if (!isWebpFile) {
+    const extension = file.name.toLowerCase().match(/\.(webp|jpe?g)$/)?.[1];
+    const hasValidType = !file.type || file.type === (extension === 'webp' ? 'image/webp' : 'image/jpeg');
+    if (!extension || !hasValidType) {
       setSelectedImageFile(null);
       setCropSourceFile(null);
-      setFormError('Image File Name must be a .webp file.');
+      setFormError('Image File Name must be a .webp, .jpg, or .jpeg file.');
       return;
     }
 
@@ -568,7 +586,7 @@ export default function CollectionMasterPage() {
 
           <div className="max-h-[calc(100vh-260px)] overflow-y-auto p-2">
             {collectionsLoading ? (
-              <div className="p-4 text-sm text-slate-500">Loading collections...</div>
+              <SidebarListSkeleton />
             ) : collectionsError ? (
               <div className="p-4 text-sm text-red-600">Error loading collections.</div>
             ) : filteredCollections.length === 0 ? (
@@ -685,7 +703,7 @@ export default function CollectionMasterPage() {
                         <span className="mb-2 block text-sm font-medium text-slate-700">Image File</span>
                         <Input
                           type="file"
-                          accept=".webp,image/webp"
+                          accept=".webp,.jpg,.jpeg,image/webp,image/jpeg"
                           onChange={(event) => {
                             const file = event.target.files?.[0] ?? null;
                             handleImageFileChange(file);
