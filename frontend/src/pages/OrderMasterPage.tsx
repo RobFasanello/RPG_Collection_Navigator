@@ -112,6 +112,9 @@ export default function OrderMasterPage() {
   const [editingDetailId, setEditingDetailId] = useState<number | null>(null);
   const [editingDetailDraft, setEditingDetailDraft] = useState<OrderDetailDraft | null>(null);
   const [newDetailDraft, setNewDetailDraft] = useState<AddOrderDetailDraft | null>(null);
+  const [pendingOrderNavigation, setPendingOrderNavigation] = useState<
+    { direction: 'previous' | 'next'; targetPage: number } | null
+  >(null);
   const editOrderInvoiceInputRef = useRef<HTMLInputElement | null>(null);
   const queryClient = useQueryClient();
 
@@ -732,6 +735,7 @@ export default function OrderMasterPage() {
   });
 
   const handleOrderRowClick = (order: PurchaseOrder) => {
+    setPendingOrderNavigation(null);
     setEditedOrder({
       InvoiceNumber: order.InvoiceNumber,
       StoreName: order.StoreName,
@@ -747,6 +751,7 @@ export default function OrderMasterPage() {
   };
 
   const handleCloseModal = () => {
+    setPendingOrderNavigation(null);
     setIsModalOpen(false);
     setSelectedOrder(null);
     setEditedOrder(null);
@@ -782,6 +787,75 @@ export default function OrderMasterPage() {
 
     handleCloseModal();
   };
+
+  const currentPageOrders: PurchaseOrder[] = Array.isArray(data?.data) ? data.data : [];
+  const currentEditOrderIndex = useMemo(() => {
+    if (!selectedOrder) {
+      return -1;
+    }
+
+    return currentPageOrders.findIndex((order) => order.PurchaseOrderID === selectedOrder.PurchaseOrderID);
+  }, [currentPageOrders, selectedOrder]);
+  const orderTotalPages = data?.totalPages ?? 1;
+  const canNavigateToPreviousOrder = Boolean(
+    selectedOrder && (currentEditOrderIndex > 0 || page > 1)
+  );
+  const canNavigateToNextOrder = Boolean(
+    selectedOrder && ((currentEditOrderIndex >= 0 && currentEditOrderIndex < currentPageOrders.length - 1) || page < orderTotalPages)
+  );
+
+  const handleNavigateOrder = (direction: 'previous' | 'next') => {
+    if (!selectedOrder) {
+      return;
+    }
+
+    if (isOrderEditDirty) {
+      const confirmed = window.confirm('Changes have not been applied. Move to another order without saving?');
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    if (direction === 'previous') {
+      if (currentEditOrderIndex > 0) {
+        handleOrderRowClick(currentPageOrders[currentEditOrderIndex - 1]);
+        return;
+      }
+
+      if (page > 1) {
+        setPendingOrderNavigation({ direction: 'previous', targetPage: page - 1 });
+        setPage((current) => Math.max(1, current - 1));
+      }
+      return;
+    }
+
+    if (currentEditOrderIndex >= 0 && currentEditOrderIndex < currentPageOrders.length - 1) {
+      handleOrderRowClick(currentPageOrders[currentEditOrderIndex + 1]);
+      return;
+    }
+
+    if (page < orderTotalPages) {
+      setPendingOrderNavigation({ direction: 'next', targetPage: page + 1 });
+      setPage((current) => current + 1);
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedOrder || !pendingOrderNavigation || !currentPageOrders.length) {
+      return;
+    }
+
+    if ((data?.page ?? 0) !== pendingOrderNavigation.targetPage) {
+      return;
+    }
+
+    if (pendingOrderNavigation.direction === 'previous') {
+      handleOrderRowClick(currentPageOrders[currentPageOrders.length - 1]);
+      return;
+    }
+
+    handleOrderRowClick(currentPageOrders[0]);
+  }, [selectedOrder, pendingOrderNavigation, currentPageOrders, data?.page]);
 
   const closeAddOrderModal = () => {
     setIsAddModalOpen(false);
@@ -1734,6 +1808,29 @@ export default function OrderMasterPage() {
       >
         {selectedOrder && (
           <div className="space-y-6">
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                className="h-9 !bg-gray-200 !text-gray-800 hover:!bg-gray-300"
+                onClick={() => handleNavigateOrder('previous')}
+                disabled={!canNavigateToPreviousOrder || updateMutation.isPending || deleteOrderMutation.isPending}
+                aria-label="Previous order"
+                title="Previous order"
+              >
+                Prev
+              </Button>
+              <Button
+                type="button"
+                className="h-9 !bg-gray-200 !text-gray-800 hover:!bg-gray-300"
+                onClick={() => handleNavigateOrder('next')}
+                disabled={!canNavigateToNextOrder || updateMutation.isPending || deleteOrderMutation.isPending}
+                aria-label="Next order"
+                title="Next order"
+              >
+                Next
+              </Button>
+            </div>
+
             {/* Error messages */}
             {updateError && (
               <div className="p-4 bg-red-50 border border-red-200 rounded-md">

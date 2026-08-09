@@ -25,6 +25,7 @@ const OrderMasterPage = lazy(() => import('./pages/OrderMasterPage'));
 const SetupLandingPage = lazy(() => import('./pages/SetupLandingPage'));
 const ReferenceListsPage = lazy(() => import('./pages/ReferenceListsPage'));
 const UsersSetupPage = lazy(() => import('./pages/UsersSetupPage'));
+const MarketingPage = lazy(() => import('./pages/MarketingPage'));
 
 function RedirectWithSearch({ to }: { to: string }) {
   const location = useLocation();
@@ -53,11 +54,10 @@ function App() {
         <ApiErrorToastBridge />
         <Router>
           <Suspense fallback={<RouteSkeletonFallback />}>
-            <RequireAuth>
             <Routes>
-            <Route path="/" element={<Navigate to="/home" replace />} />
+            <Route path="/" element={<MarketingPage />} />
 
-            <Route path="/home" element={<HomeShell />}>
+            <Route path="/home" element={<RequireAuth><HomeShell /></RequireAuth>}>
               <Route index element={<HomePage />} />
               <Route path="inventory" element={<InventoryLookupPage />} />
               <Route path="miniatures" element={<MiniatureMasterPage />} />
@@ -104,7 +104,6 @@ function App() {
             <Route path="/admin/order-master" element={<RedirectWithSearch to="/home/orders" />} />
             <Route path="*" element={<Navigate to="/" />} />
             </Routes>
-            </RequireAuth>
           </Suspense>
         </Router>
       </ToastProvider>

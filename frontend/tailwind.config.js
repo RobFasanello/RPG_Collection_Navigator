@@ -6,6 +6,21 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        display: ['"Cinzel"', 'serif'],
+      },
+      colors: {
+        ink: {
+          950: '#141213',
+          900: '#1f1d1d',
+          800: '#2a2726',
+        },
+        gold: {
+          300: '#d0baa1',
+          500: '#9f7f59',
+          600: '#8a6c49',
+        },
+      },
       keyframes: {
         "enter-from-right": { from: { transform: "translateX(200px)", opacity: 0 }, to: { transform: "translateX(0)", opacity: 1 } },
         "enter-from-left": { from: { transform: "translateX(-200px)", opacity: 0 }, to: { transform: "translateX(0)", opacity: 1 } },

@@ -51,6 +51,11 @@ export async function buildGoogleAuthorizationUrl(req: Request, res: Response): 
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
     state,
+    // Always show Google's account chooser instead of silently reusing
+    // whichever Google account the browser is already signed into — lets
+    // people (including you, for testing) switch accounts without needing
+    // an incognito window.
+    prompt: 'select_account',
   });
 
   const payload: OAuthState = { state, codeVerifier };
