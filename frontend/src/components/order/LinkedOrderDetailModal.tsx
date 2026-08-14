@@ -368,7 +368,7 @@ export default function LinkedOrderDetailModal({
                                   {isEditing ? (
                                     <>
                                       <Button
-                                        className="bg-[var(--arcane-gold-500)] hover:bg-[var(--arcane-gold-300)]"
+                                        className="bg-[var(--arcane-success)] hover:bg-[var(--arcane-success-hover)]"
                                         onClick={() => handleSaveDetail(detail.PurchaseOrderDetailID)}
                                         disabled={updateDetailMutation.isPending}
                                       >
@@ -384,10 +384,10 @@ export default function LinkedOrderDetailModal({
                                     </>
                                   ) : (
                                     <button
-                                      onClick={() => handleStartDetailEdit(detail)}
-                                      className="inline-flex items-center justify-center text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)]"
-                                      title="Edit purchase order detail"
                                       type="button"
+                                      onClick={() => handleStartDetailEdit(detail)}
+                                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--arcane-gold-500-border)] text-[var(--arcane-gold-700)] hover:bg-[var(--arcane-gold-soft)] disabled:opacity-50"
+                                      title="Edit purchase order detail"
                                     >
                                       <Edit2 className="w-5 h-5" />
                                     </button>

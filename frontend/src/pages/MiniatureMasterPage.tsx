@@ -1389,7 +1389,7 @@ export default function MiniatureMasterPage() {
         <section className="bg-[var(--arcane-paper-raised)] shadow rounded-lg p-6">
           <div className="space-y-4">
             {selectedMiniatureIds.length > 0 ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#b886484d] bg-[#b886481a] px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--arcane-gold-500-border)] bg-[var(--arcane-gold-soft)] px-4 py-3">
                 <div className="flex items-center gap-3 text-sm">
                   <span className="font-semibold text-[var(--arcane-gold-700)]">{selectedMiniatureIds.length} selected</span>
                   <button
@@ -1548,7 +1548,7 @@ export default function MiniatureMasterPage() {
                       currentPageRows.map((miniature) => (
                         <TableRow
                           key={miniature.MiniatureID}
-                          className="cursor-pointer hover:bg-[#b886481a]"
+                          className="cursor-pointer hover:bg-[var(--arcane-gold-soft)]"
                           onClick={() => openEditModal(miniature)}
                           tabIndex={0}
                           onKeyDown={(event) => {
@@ -1674,7 +1674,7 @@ export default function MiniatureMasterPage() {
           </label>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white" onClick={closeAddModal}>Cancel</Button>
-            <Button type="submit" className="bg-green-600 hover:bg-green-700" disabled={addMutation.isLoading}>{addMutation.isLoading ? 'Saving...' : 'Add Miniature'}</Button>
+            <Button type="submit" className="bg-[var(--arcane-success)] hover:bg-[var(--arcane-success-hover)] text-white" disabled={addMutation.isLoading}>{addMutation.isLoading ? 'Saving...' : 'Add Miniature'}</Button>
           </div>
         </form>
       </Dialog>
@@ -1703,7 +1703,7 @@ export default function MiniatureMasterPage() {
             <div className="flex items-center gap-2">
               <Button
                 type="button"
-                className="h-9 !bg-[#e2d5bd99] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
+                className="h-9 !bg-[var(--arcane-border-light)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
                 onClick={() => handleNavigateEditMiniature('previous')}
                 disabled={!canNavigateToPreviousEditMiniature || editMutation.isLoading || editDeleteMutation.isLoading}
                 aria-label="Previous miniature"
@@ -1713,7 +1713,7 @@ export default function MiniatureMasterPage() {
               </Button>
               <Button
                 type="button"
-                className="h-9 !bg-[#e2d5bd99] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
+                className="h-9 !bg-[var(--arcane-border-light)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
                 onClick={() => handleNavigateEditMiniature('next')}
                 disabled={!canNavigateToNextEditMiniature || editMutation.isLoading || editDeleteMutation.isLoading}
                 aria-label="Next miniature"
@@ -1815,7 +1815,7 @@ export default function MiniatureMasterPage() {
                 <ComboSelect options={locationOptions} value={bulkValues.LocationID} onChange={(value) => setBulkValues((current) => ({ ...current, LocationID: value }))} placeholder="Leave blank to keep current location" className="w-full" />
               </label>
               <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" className="bg-[#e2d5bd99] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]" onClick={closeBulkUpdateDialog}>Cancel</Button>
+                <Button type="button" className="bg-[var(--arcane-border-light)] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]" onClick={closeBulkUpdateDialog}>Cancel</Button>
                 <Button type="submit" className="bg-amber-600 hover:bg-amber-700" disabled={bulkUpdateMutation.isLoading}>{bulkUpdateMutation.isLoading ? 'Updating...' : `Review ${selectedMiniatureIds.length} Update${selectedMiniatureIds.length === 1 ? '' : 's'}`}</Button>
               </div>
             </>
@@ -1850,7 +1850,7 @@ export default function MiniatureMasterPage() {
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" className="bg-[#e2d5bd99] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]" onClick={() => setBulkStep('edit')} disabled={bulkUpdateMutation.isLoading}>Back</Button>
+                <Button type="button" className="bg-[var(--arcane-border-light)] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]" onClick={() => setBulkStep('edit')} disabled={bulkUpdateMutation.isLoading}>Back</Button>
                 <Button type="button" className="bg-amber-600 hover:bg-amber-700" onClick={handleBulkConfirm} disabled={bulkUpdateMutation.isLoading}>{bulkUpdateMutation.isLoading ? 'Updating...' : `Confirm Update (${selectedMiniatureIds.length})`}</Button>
               </div>
             </>

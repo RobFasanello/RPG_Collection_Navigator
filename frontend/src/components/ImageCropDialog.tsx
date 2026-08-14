@@ -73,13 +73,14 @@ function drawCropPreview({
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
   context.filter = 'none';
 
-  context.fillStyle = 'rgba(17, 24, 39, 0.68)';
+  const rootStyle = getComputedStyle(document.documentElement);
+  context.fillStyle = rootStyle.getPropertyValue('--arcane-overlay-strong').trim() || 'rgba(18, 15, 19, 0.68)';
   context.fillRect(0, 0, canvas.width, crop.y);
   context.fillRect(0, crop.y + crop.height, canvas.width, canvas.height - crop.y - crop.height);
   context.fillRect(0, crop.y, crop.x, crop.height);
   context.fillRect(crop.x + crop.width, crop.y, canvas.width - crop.x - crop.width, crop.height);
 
-  context.strokeStyle = '#ffffff';
+  context.strokeStyle = rootStyle.getPropertyValue('--arcane-ivory-bright').trim() || '#ffffff';
   context.lineWidth = 2;
   context.setLineDash([8, 5]);
   context.strokeRect(crop.x + 1, crop.y + 1, Math.max(0, crop.width - 2), Math.max(0, crop.height - 2));
@@ -286,7 +287,7 @@ export default function ImageCropDialog({ file, title, onApply, onCancel }: Imag
 
         {error ? <div className="mt-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
 
-        <div className="mt-5 flex justify-center overflow-hidden rounded-lg border border-[var(--arcane-border-light)] bg-gray-900">
+        <div className="mt-5 flex justify-center overflow-hidden rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-ink-900)]">
           <canvas
             ref={previewCanvasRef}
             width={previewSize.width}
@@ -349,10 +350,10 @@ export default function ImageCropDialog({ file, title, onApply, onCancel }: Imag
         </div>
 
         <div className="mt-6 flex flex-wrap justify-end gap-2">
-          <Button type="button" onClick={resetCrop} className="bg-[#e2d5bd99] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]">
+          <Button type="button" onClick={resetCrop} className="bg-[var(--arcane-border-light)] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]">
             Reset
           </Button>
-          <Button type="button" onClick={onCancel} className="bg-[#e2d5bd99] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]">
+          <Button type="button" onClick={onCancel} className="bg-[var(--arcane-border-light)] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]">
             Cancel
           </Button>
           <Button type="button" onClick={handleApply} disabled={!imageLoaded || isApplying}>

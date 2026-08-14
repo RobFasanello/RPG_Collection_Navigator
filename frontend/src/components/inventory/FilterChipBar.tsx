@@ -235,7 +235,7 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => setPickerSearch('')}
               aria-label="Clear filter search"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center rounded text-[var(--arcane-ink-soft)] transition hover:bg-[#e2d5bd99] hover:text-[var(--arcane-ink-900)]"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center rounded text-[var(--arcane-ink-soft)] transition hover:bg-[var(--arcane-border-light)] hover:text-[var(--arcane-ink-900)]"
             >
               x
             </button>
@@ -249,7 +249,7 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
               <li key={option.value}>
                 <button
                   type="button"
-                  className="w-full rounded px-2 py-1 text-left text-sm hover:bg-[#b886481a]"
+                  className="w-full rounded px-2 py-1 text-left text-sm hover:bg-[var(--arcane-gold-soft)]"
                   onClick={() => onPick(option.value)}
                 >
                   {option.label}
@@ -272,7 +272,7 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
         className={`rounded-md px-3 py-1.5 text-sm font-medium ${
           current === true
             ? 'bg-[var(--arcane-gold-500)] text-[var(--arcane-ink-950)]'
-            : 'bg-[var(--arcane-paper)] text-[var(--arcane-ink-900)] hover:bg-[#e2d5bd99]'
+            : 'bg-[var(--arcane-paper)] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]'
         }`}
         onClick={() => onPick(current === true ? undefined : true)}
       >
@@ -283,7 +283,7 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
         className={`rounded-md px-3 py-1.5 text-sm font-medium ${
           current === false
             ? 'bg-[var(--arcane-gold-500)] text-[var(--arcane-ink-950)]'
-            : 'bg-[var(--arcane-paper)] text-[var(--arcane-ink-900)] hover:bg-[#e2d5bd99]'
+            : 'bg-[var(--arcane-paper)] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]'
         }`}
         onClick={() => onPick(current === false ? undefined : false)}
       >
@@ -388,7 +388,7 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
       {chips.map((chip) => (
         <span
           key={chip.key}
-          className="inline-flex items-center gap-1.5 rounded-full bg-[#b886481a] px-3 py-1 text-sm text-[var(--arcane-gold-700)] border border-[#b886484d]"
+          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--arcane-gold-soft)] px-3 py-1 text-sm text-[var(--arcane-gold-700)] border border-[var(--arcane-gold-500-border)]"
         >
           {chip.label}
           <button
@@ -426,7 +426,7 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
                   <li key={field.key}>
                     <button
                       type="button"
-                      className="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-[#b886481a]"
+                      className="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-[var(--arcane-gold-soft)]"
                       onClick={() => openField(field)}
                     >
                       {field.label}

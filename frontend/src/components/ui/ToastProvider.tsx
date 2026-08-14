@@ -23,10 +23,10 @@ const ToastContext = React.createContext<ToastContextValue | null>(null);
 
 const variantClassMap: Record<ToastVariant, string> = {
   default: 'border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] text-[var(--arcane-ink-900)]',
-  success: 'border-emerald-200 bg-emerald-50 text-emerald-900',
-  info: 'border-blue-200 bg-blue-50 text-blue-900',
-  warning: 'border-amber-200 bg-amber-50 text-amber-900',
-  error: 'border-red-200 bg-red-50 text-red-900',
+  success: 'border-[var(--arcane-success-border)] bg-[var(--arcane-success-soft)] text-[var(--arcane-success-text)]',
+  info: 'border-[var(--arcane-info-border)] bg-[var(--arcane-info-soft)] text-[var(--arcane-info-text)]',
+  warning: 'border-[var(--arcane-warning-border)] bg-[var(--arcane-warning-soft)] text-[var(--arcane-warning-text)]',
+  error: 'border-[var(--arcane-danger-border)] bg-[var(--arcane-danger-soft)] text-[var(--arcane-danger-text)]',
 };
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {

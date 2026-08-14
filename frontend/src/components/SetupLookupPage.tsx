@@ -167,14 +167,14 @@ export default function SetupLookupPage({
         ) : null}
 
         {isLoading && <p className="text-[var(--arcane-ink-soft)]">Loading...</p>}
-        {error && <p className="text-red-600">Error loading records</p>}
+        {error && <p className="text-[var(--arcane-danger)]">Error loading records</p>}
 
         <div className="bg-[var(--arcane-paper-raised)] rounded-lg shadow overflow-hidden">
           <table className="w-full">
             <thead className="bg-[var(--arcane-paper)] border-b">
               <tr>
                 <th
-                  className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-[#e2d5bd99] transition"
+                  className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-[var(--arcane-border-light)] transition"
                   onClick={handleNameSort}
                 >
                   <div className="flex items-center gap-2">

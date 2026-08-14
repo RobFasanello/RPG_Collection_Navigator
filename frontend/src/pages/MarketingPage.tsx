@@ -72,10 +72,10 @@ export default function MarketingPage() {
 
   return (
     <div className="theme-dark min-h-[100dvh] bg-[var(--arcane-ink-950)] text-[var(--arcane-ivory)]">
-      <header className="sticky top-0 z-40 border-b border-[#3d2e1fcc] bg-[#120f13e6] backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-[var(--arcane-line)] bg-[var(--arcane-ink-950)]/90 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <img src="/favicon.png" alt="Arcane Repository mark" className="h-9 w-9 rounded-md object-contain ring-1 ring-[#9c6a3299]" />
+            <img src="/favicon.png" alt="Arcane Repository mark" className="h-9 w-9 rounded-md object-contain ring-1 ring-[var(--arcane-gold-600)]" />
             <span className="text-lg font-semibold tracking-[0.02em] text-[var(--arcane-ivory)]">
               Arcane Repository
             </span>
@@ -96,7 +96,7 @@ export default function MarketingPage() {
                 >
                   Open App
                 </Link>
-                <span className="text-sm font-normal text-[#b9ae9d]/80">
+                <span className="text-sm font-normal text-[var(--arcane-muted)]/80">
                   Signed in as <span className="font-semibold text-[var(--arcane-ivory)]">{name}</span>
                 </span>
                 <button
@@ -110,7 +110,7 @@ export default function MarketingPage() {
             ) : (
               <a
                 href="/api/auth/login"
-                className="rounded-xl border border-[var(--arcane-gold-500)] bg-[#b886481a] px-4 py-2 text-sm font-semibold text-[var(--arcane-ivory)] transition hover:bg-[var(--arcane-gold-500)] hover:text-[var(--arcane-ink-950)]"
+                className="rounded-xl border border-[var(--arcane-gold-500)] bg-[var(--arcane-gold-soft)] px-4 py-2 text-sm font-semibold text-[var(--arcane-ivory)] transition hover:bg-[var(--arcane-gold-500)] hover:text-[var(--arcane-ink-950)]"
               >
                 Sign In
               </a>
@@ -130,13 +130,13 @@ export default function MarketingPage() {
 
       <main>
         {authErrorMessage ? (
-          <section className="border-b border-red-900/60 bg-red-950/50">
-            <div className="mx-auto flex w-full max-w-[1400px] items-start justify-between gap-4 px-6 py-4 text-sm text-red-200">
+          <section className="border-b border-[var(--arcane-danger-border)] bg-[var(--arcane-danger-soft)]">
+            <div className="mx-auto flex w-full max-w-[1400px] items-start justify-between gap-4 px-6 py-4 text-sm text-[var(--arcane-danger-text)]">
               <span>{authErrorMessage}</span>
               <button
                 type="button"
                 onClick={clearAuthError}
-                className="shrink-0 rounded border border-red-800/80 px-2 py-1 text-red-100 transition hover:border-red-500 hover:text-white"
+                className="shrink-0 rounded border border-[var(--arcane-danger)]/80 px-2 py-1 text-[var(--arcane-danger-text)] transition hover:border-[var(--arcane-danger-hover)] hover:text-[var(--arcane-danger-text)]"
               >
                 Dismiss
               </button>
@@ -144,7 +144,7 @@ export default function MarketingPage() {
           </section>
         ) : null}
 
-        <section className="relative overflow-hidden border-b border-[#3d2e1fcc] bg-[var(--arcane-ink-900)]">
+        <section className="relative overflow-hidden border-b border-[var(--arcane-line)] bg-[var(--arcane-ink-900)]">
           <div
             className="pointer-events-none absolute inset-0"
             style={{
@@ -189,7 +189,7 @@ export default function MarketingPage() {
             </div>
 
             <div className="lg:col-span-6">
-              <figure className="overflow-hidden rounded-2xl border border-[#4c3926] bg-[var(--arcane-ink-950)]">
+              <figure className="overflow-hidden rounded-2xl border border-[var(--arcane-line)] bg-[var(--arcane-ink-950)]">
                 <img
                   src="/marketing/dashboard.png"
                   alt="The Coverage Metrics dashboard showing publisher, collection, and category totals across the repository"
@@ -258,7 +258,7 @@ export default function MarketingPage() {
                       <p className="mt-2 text-sm leading-relaxed text-[var(--arcane-sand)]">{item.description}</p>
                     </article>
                   ))}
-                  <article className="rounded-2xl border border-[var(--arcane-gold-600)] bg-[#b8864817] p-6 sm:col-span-2">
+                  <article className="rounded-2xl border border-[var(--arcane-gold-600)] bg-[var(--arcane-gold-soft)] p-6 sm:col-span-2">
                     <h3 className="text-lg font-semibold text-[var(--arcane-ivory-bright)]">Keep every list in sync</h3>
                     <p className="mt-2 text-sm leading-relaxed text-[var(--arcane-sand)]">
                       With one source of truth, your table stops losing track of what is owned, painted, or still on order.

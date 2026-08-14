@@ -157,7 +157,7 @@ export default function ReferenceListsPage() {
                   onClick={() => navigate({ pathname: '/home/setup/reference-lists', search: `?table=${encodeURIComponent(item.key)}` })}
                   className={`rounded-lg border px-4 py-2.5 text-left text-sm font-medium transition ${
                     isActive
-                      ? 'border-[#b8864866] bg-[#b886481a] text-[var(--arcane-ink-900)] shadow-sm'
+                      ? 'border-[var(--arcane-gold-500)]/50 bg-[var(--arcane-gold-soft)] text-[var(--arcane-ink-900)] shadow-sm'
                       : 'border-transparent bg-[var(--arcane-paper)] text-[var(--arcane-ink-soft)] hover:border-[var(--arcane-border-light)] hover:text-[var(--arcane-ink-900)]'
                   }`}
                 >

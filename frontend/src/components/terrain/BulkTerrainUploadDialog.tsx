@@ -459,7 +459,7 @@ export default function BulkTerrainUploadDialog({
       <div className="space-y-5">
         <div
           className={`rounded-lg border-2 border-dashed p-6 text-center transition ${
-            isDragging ? 'border-[var(--arcane-gold-500)] bg-[#b886481a]' : 'border-[var(--arcane-border-light)] bg-[var(--arcane-paper)]'
+            isDragging ? 'border-[var(--arcane-gold-500)] bg-[var(--arcane-gold-soft)]' : 'border-[var(--arcane-border-light)] bg-[var(--arcane-paper)]'
           }`}
           onDragOver={(event) => {
             event.preventDefault();
@@ -540,7 +540,7 @@ export default function BulkTerrainUploadDialog({
                   const errorFields = getErrorFields(row);
                   const itemSelectOptions = getItemSelectOptions();
                   return (
-                    <TableRow key={row.id} className={row.success ? 'bg-green-50' : ''}>
+                    <TableRow key={row.id} className={row.success ? 'bg-[var(--arcane-success-soft)]' : ''}>
                       <TableCell className="whitespace-nowrap align-top">{row.rowNumber}</TableCell>
                       <TableCell className="align-top">
                         <ComboSelect
@@ -595,7 +595,7 @@ export default function BulkTerrainUploadDialog({
                       </TableCell>
                       <TableCell className="align-top">
                         {row.success ? (
-                          <span className="text-green-700">Added</span>
+                          <span className="text-[var(--arcane-success-text)]">Added</span>
                         ) : row.errors.length > 0 ? (
                           <div className="space-y-1 text-xs">
                             {row.errors.map((errorMessage) => (
@@ -605,7 +605,7 @@ export default function BulkTerrainUploadDialog({
                             ))}
                           </div>
                         ) : (
-                          <div className="font-medium text-green-700 text-xs">Ready</div>
+                          <div className="font-medium text-[var(--arcane-success-text)] text-xs">Ready</div>
                         )}
                       </TableCell>
                       <TableCell className="align-top text-right">
@@ -649,7 +649,7 @@ export default function BulkTerrainUploadDialog({
             </Button>
             <Button
               type="button"
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-[var(--arcane-success)] hover:bg-[var(--arcane-success-hover)]"
               onClick={handleAddTerrains}
               disabled={bulkAddMutation.isLoading || readyRows.length === 0}
             >

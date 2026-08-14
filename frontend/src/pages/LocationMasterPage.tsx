@@ -385,7 +385,7 @@ export default function LocationMasterPage() {
             {locationsLoading ? (
               <SidebarListSkeleton />
             ) : locationsError ? (
-              <div className="p-4 text-sm text-red-600">Error loading locations.</div>
+              <div className="p-4 text-sm text-[var(--arcane-danger)]">Error loading locations.</div>
             ) : filteredLocations.length === 0 ? (
               <div className="p-4 text-sm text-[var(--arcane-ink-soft)]">No locations found.</div>
             ) : (
@@ -401,7 +401,7 @@ export default function LocationMasterPage() {
                       onClick={() => handleSelectLocation(Number(location.LocationID))}
                       className={`w-full rounded-lg border px-4 py-3 text-left transition ${
                         isSelected
-                          ? 'border-[#b8864866] bg-[#b886481a] shadow-sm'
+                          ? 'border-[var(--arcane-gold-500)]/50 bg-[var(--arcane-gold-soft)] shadow-sm'
                           : 'border-transparent bg-[var(--arcane-paper-raised)] hover:border-[var(--arcane-border-light)] hover:bg-[var(--arcane-paper)]'
                       }`}
                     >
@@ -437,8 +437,8 @@ export default function LocationMasterPage() {
           </div>
 
           <div className="p-5">
-            {formError ? <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{formError}</div> : null}
-            {deleteError ? <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{deleteError}</div> : null}
+            {formError ? <div className="mb-4 rounded-lg border border-[var(--arcane-danger-border)] bg-[var(--arcane-danger-soft)] p-3 text-sm text-[var(--arcane-danger-text)]">{formError}</div> : null}
+            {deleteError ? <div className="mb-4 rounded-lg border border-[var(--arcane-danger-border)] bg-[var(--arcane-danger-soft)] p-3 text-sm text-[var(--arcane-danger-text)]">{deleteError}</div> : null}
 
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
               <div className="min-w-0">

@@ -22,6 +22,30 @@
   /* Destructive actions — matches the red already used for error alerts/toasts */
   --arcane-danger: #dc2626;
   --arcane-danger-hover: #b91c1c;
+  --arcane-danger-soft: #fee2e2;
+  --arcane-danger-border: #fca5a5;
+  --arcane-danger-text: #991b1b;
+
+  /* Semantic status tokens */
+  --arcane-success: #16a34a;
+  --arcane-success-hover: #15803d;
+  --arcane-success-soft: #eaf7ee;
+  --arcane-success-border: #bfe3c7;
+  --arcane-success-text: #166534;
+  --arcane-warning-soft: #fff7dc;
+  --arcane-warning-border: #f5d58d;
+  --arcane-warning-text: #8a5f2e;
+  --arcane-info-soft: #eef5ff;
+  --arcane-info-border: #bfd1f6;
+  --arcane-info-text: #204a99;
+
+  /* Reusable accent helpers */
+  --arcane-gold-soft: rgba(184, 134, 72, 0.1);
+  --arcane-gold-soft-strong: rgba(184, 134, 72, 0.18);
+  --arcane-gold-500-border: rgba(184, 134, 72, 0.3);
+  --arcane-gold-500-ring: rgba(184, 134, 72, 0.25);
+  --arcane-overlay-strong: rgba(18, 15, 19, 0.68);
+  --arcane-shadow-ink: rgba(18, 15, 19, 0.2);
 
   /* Text on dark */
   --arcane-ivory: #f4efe8;
@@ -42,7 +66,7 @@ html {
 
 body {
   min-height: 100vh;
-  background: linear-gradient(180deg, #120f13 0%, #17151a 100%);
+  background: linear-gradient(180deg, var(--arcane-ink-950) 0%, var(--arcane-ink-900) 100%);
   color: var(--arcane-ivory);
 }
 

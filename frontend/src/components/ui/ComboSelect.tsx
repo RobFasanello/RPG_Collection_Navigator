@@ -340,7 +340,7 @@ const ComboSelect: React.FC<Props> = ({
                 handleSelect(opt);
               }}
               className={`px-3 py-2 text-sm cursor-pointer flex items-center gap-2 text-[var(--arcane-ink-900)] ${
-                isActive ? 'bg-[#b886481a]' : 'hover:bg-[var(--arcane-paper)]'
+                isActive ? 'bg-[var(--arcane-gold-soft)]' : 'hover:bg-[var(--arcane-paper)]'
               } ${isSelected ? 'font-medium' : ''}`}
             >
               <Check className={`h-4 w-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`} />

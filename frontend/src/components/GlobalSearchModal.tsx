@@ -66,7 +66,7 @@ export default function GlobalSearchModal({ open, query, onClose }: Props) {
               ? `${totalCount} result${totalCount === 1 ? '' : 's'} for "${query}"`
               : `Results for "${query}"`}
           </p>
-          <button type="button" onClick={onClose} aria-label="Close search" className="rounded-md p-1 text-[var(--arcane-ink-soft)] hover:bg-[#e2d5bd99] hover:text-[var(--arcane-ink-900)]">
+          <button type="button" onClick={onClose} aria-label="Close search" className="rounded-md p-1 text-[var(--arcane-ink-soft)] hover:bg-[var(--arcane-gold-soft-strong)] hover:text-[var(--arcane-ink-900)]">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -76,7 +76,7 @@ export default function GlobalSearchModal({ open, query, onClose }: Props) {
         )}
 
         {!isLoading && isError && (
-          <div className="px-4 py-4 text-sm text-red-600">Search failed. Please try again.</div>
+          <div className="px-4 py-4 text-sm text-[var(--arcane-danger)]">Search failed. Please try again.</div>
         )}
 
         {!isLoading && !isError && data && totalCount === 0 && (
@@ -224,7 +224,7 @@ function ResultLink({ to, onClose, children }: { to: string; onClose: () => void
     <Link
       to={to}
       onClick={onClose}
-      className="block px-4 py-2.5 text-sm transition hover:bg-[#b886481a]"
+      className="block px-4 py-2.5 text-sm transition hover:bg-[var(--arcane-gold-soft)]"
     >
       {children}
     </Link>

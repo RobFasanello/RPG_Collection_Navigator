@@ -636,7 +636,7 @@ export default function PublisherMasterPage() {
                       onClick={() => handleSelectPublisher(Number(publisher.PublisherID))}
                       className={`w-full rounded-lg border px-4 py-3 text-left transition ${
                         isSelected
-                          ? 'border-[#b8864866] bg-[#b886481a] shadow-sm'
+                          ? 'border-[var(--arcane-gold-500-border)] bg-[var(--arcane-gold-soft)] shadow-sm'
                           : 'border-transparent bg-[var(--arcane-paper-raised)] hover:border-[var(--arcane-border-light)] hover:bg-[var(--arcane-paper)]'
                       }`}
                     >

@@ -457,7 +457,7 @@ export default function BulkMiniatureUploadDialog({
       <div className="space-y-5">
         <div
           className={`rounded-lg border-2 border-dashed p-6 text-center transition ${
-            isDragging ? 'border-[var(--arcane-gold-500)] bg-[#b886481a]' : 'border-[var(--arcane-border-light)] bg-[var(--arcane-paper)]'
+            isDragging ? 'border-[var(--arcane-gold-500)] bg-[var(--arcane-gold-soft)]' : 'border-[var(--arcane-border-light)] bg-[var(--arcane-paper)]'
           }`}
           onDragOver={(event) => {
             event.preventDefault();
@@ -524,7 +524,7 @@ export default function BulkMiniatureUploadDialog({
                 const errorFields = getErrorFields(row);
                 const itemSelectOptions = getItemSelectOptions();
                 return (
-                  <TableRow key={row.id} className={row.success ? 'bg-green-50' : ''}>
+                  <TableRow key={row.id} className={row.success ? 'bg-[var(--arcane-success-soft)]' : ''}>
                     <TableCell className="whitespace-nowrap align-top">{row.rowNumber}</TableCell>
                     <TableCell className="align-top">
                       <ComboSelect
@@ -578,12 +578,12 @@ export default function BulkMiniatureUploadDialog({
                     </TableCell>
                     <TableCell className="align-top">
                       {row.success ? (
-                        <span className="text-green-700">Added</span>
+                        <span className="text-[var(--arcane-success-text)]">Added</span>
                       ) : row.errors.length > 0 ? (
                         <div className="space-y-1 text-xs">
                           {row.errors.map((errorMessage) => <div key={`${row.id}-${errorMessage}`} className="text-red-700">{errorMessage}</div>)}
                         </div>
-                      ) : <div className="font-medium text-green-700 text-xs">Ready</div>}
+                      ) : <div className="font-medium text-[var(--arcane-success-text)] text-xs">Ready</div>}
                     </TableCell>
                     <TableCell className="align-top text-right">
                       <button type="button" onClick={() => handleRemoveRow(row.id)} className="inline-flex items-center text-red-600 hover:text-red-700" aria-label={`Remove row ${row.rowNumber}`}>
@@ -608,7 +608,7 @@ export default function BulkMiniatureUploadDialog({
             <Button type="button" className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white" onClick={() => onOpenChange(false)} disabled={bulkAddMutation.isLoading}>
               Close
             </Button>
-            <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={handleAddMiniatures} disabled={bulkAddMutation.isLoading || readyRows.length === 0}>
+            <Button type="button" className="bg-[var(--arcane-success)] hover:bg-[var(--arcane-success-hover)]" onClick={handleAddMiniatures} disabled={bulkAddMutation.isLoading || readyRows.length === 0}>
               {bulkAddMutation.isLoading ? 'Uploading Miniatures...' : `Upload Miniatures (${readyRows.length})`}
             </Button>
           </div>

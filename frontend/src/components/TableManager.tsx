@@ -78,8 +78,8 @@ export default function TableManager({ tableName, onBack }: TableManagerProps) {
       </div>
 
       {errorMessage && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-red-800">{errorMessage}</p>
+        <div className="mb-4 p-4 bg-[var(--arcane-danger-soft)] border border-[var(--arcane-danger-border)] rounded-md">
+          <p className="text-[var(--arcane-danger-text)]">{errorMessage}</p>
         </div>
       )}
 

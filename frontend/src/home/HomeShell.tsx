@@ -111,14 +111,14 @@ export default function HomeShell() {
 
   return (
     <div className="theme-light min-h-[100dvh] bg-[var(--arcane-paper)] text-[var(--arcane-ink-900)] flex flex-col">
-      <header className="sticky top-0 z-50 border-b border-[#d6b07c66] bg-[#17151af2] shadow-[0_10px_30px_rgba(18,15,19,0.2)] backdrop-blur-md">
+      <header className="sticky top-0 z-50 border-b border-[var(--arcane-gold-400)] bg-[var(--arcane-ink-900)] shadow-[0_10px_30px_rgba(18,15,19,0.2)] backdrop-blur-md">
         <div className="mx-auto w-full max-w-[1920px] px-4 py-3 sm:px-6 lg:px-8 2xl:px-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3 shrink-0">
               <img
                 src="/favicon.png"
                 alt="Arcane Library"
-                className="h-12 w-12 rounded-md bg-[var(--arcane-ivory)] object-contain ring-1 ring-[#b8864899]"
+                className="h-12 w-12 rounded-md bg-[var(--arcane-ivory)] object-contain ring-1 ring-[var(--arcane-gold-500)]"
               />
               <div>
                 <h1 className="text-xl font-bold text-[var(--arcane-ivory)]">Arcane Repository</h1>
@@ -159,7 +159,7 @@ export default function HomeShell() {
                                 >
                                   <div className="space-y-0.5">
                                     <div className="text-sm font-semibold leading-5">{item.label}</div>
-                                    <div className={`text-xs leading-4 ${active ? 'text-[#120f13cc]' : 'text-[var(--arcane-sand)]'}`}>
+                                    <div className={`text-xs leading-4 ${active ? 'text-[var(--arcane-ink-950)]/80' : 'text-[var(--arcane-sand)]'}`}>
                                       {item.description}
                                     </div>
                                   </div>
@@ -195,7 +195,7 @@ export default function HomeShell() {
                                   >
                                     <div className="space-y-0.5">
                                       <div className="text-sm font-semibold leading-5">{item.label}</div>
-                                      <div className={`text-xs leading-4 ${active ? 'text-[#120f13cc]' : 'text-[var(--arcane-sand)]'}`}>
+                                      <div className={`text-xs leading-4 ${active ? 'text-[var(--arcane-ink-950)]/80' : 'text-[var(--arcane-sand)]'}`}>
                                         {item.description}
                                       </div>
                                     </div>
@@ -211,7 +211,7 @@ export default function HomeShell() {
                 </NavigationMenuList>
               </NavigationMenu>
 
-              <div className="flex items-center gap-2 rounded-lg border border-[var(--arcane-line)] bg-[var(--arcane-ink-800)] px-3 py-2 text-sm text-[var(--arcane-ivory)] shadow-inner shadow-[#120f1333]">
+              <div className="flex items-center gap-2 rounded-lg border border-[var(--arcane-line)] bg-[var(--arcane-ink-800)] px-3 py-2 text-sm text-[var(--arcane-ivory)] shadow-inner shadow-[var(--arcane-shadow-ink)]">
                 <span>
                   Signed in as <span className="font-medium text-[var(--arcane-ivory-bright)]">{name}</span>
                   <span className="text-[var(--arcane-sand)]"> · {MODE_LABELS[mode]}</span>
@@ -227,7 +227,7 @@ export default function HomeShell() {
 
               <form
                 onSubmit={handleSearchSubmit}
-                className="flex items-center gap-1.5 rounded-lg border border-[var(--arcane-line)] bg-[var(--arcane-ink-800)] px-3 py-2 transition focus-within:border-[var(--arcane-gold-500)] focus-within:ring-2 focus-within:ring-[#b8864840]"
+                className="flex items-center gap-1.5 rounded-lg border border-[var(--arcane-line)] bg-[var(--arcane-ink-800)] px-3 py-2 transition focus-within:border-[var(--arcane-gold-500)] focus-within:ring-2 focus-within:ring-[var(--arcane-gold-500-ring)]"
               >
                 <Search className="h-4 w-4 shrink-0 text-[var(--arcane-gold-300)]" />
                 <input
@@ -236,7 +236,7 @@ export default function HomeShell() {
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search…"
                   aria-label="Global search"
-                  className="w-32 bg-transparent text-sm text-[var(--arcane-ivory)] outline-none placeholder:text-[#b9ae9d]/70 sm:w-40"
+                  className="w-32 bg-transparent text-sm text-[var(--arcane-ivory)] outline-none placeholder:text-[var(--arcane-muted)]/70 sm:w-40"
                 />
                 {searchQuery && (
                   <button

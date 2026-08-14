@@ -815,8 +815,8 @@ export async function getTableData(req: Request, res: Response): Promise<void> {
     // Get total count
     const countResult = await pool.request()
       .input('tableName', sql.NVarChar, tableName)
-      .query(`SELECT COUNT(*) as total FROM ${tableName}`);
-    
+      .query(`SELECT COUNT(*) as total FROM [${tableName}]`);
+
     const total = countResult.recordset[0].total;
 
     // Get paginated data
@@ -825,7 +825,7 @@ export async function getTableData(req: Request, res: Response): Promise<void> {
       .input('offset', sql.Int, offset)
       .input('pageSize', sql.Int, pageSize)
       .query(`
-        SELECT * FROM ${tableName}
+        SELECT * FROM [${tableName}]
         ORDER BY (SELECT NULL)
         OFFSET @offset ROWS
         FETCH NEXT @pageSize ROWS ONLY

@@ -56,7 +56,7 @@ export default function TableBrowser() {
           <button
             key={table.TABLE_NAME}
             onClick={() => setSelectedTable(table.TABLE_NAME)}
-            className="p-4 border border-[var(--arcane-border-light)] rounded-lg hover:border-[var(--arcane-gold-500)] hover:bg-[#b886481a] transition text-left"
+            className="p-4 border border-[var(--arcane-border-light)] rounded-lg hover:border-[var(--arcane-gold-500)] hover:bg-[var(--arcane-gold-soft)] transition text-left"
           >
             <h3 className="font-semibold text-lg">{table.TABLE_NAME}</h3>
             <p className="text-sm text-[var(--arcane-ink-soft)]">Click to manage records</p>

@@ -181,7 +181,7 @@ const ComboMultiSelect: React.FC<Props> = ({
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => setSearch('')}
                   aria-label="Clear option search"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center rounded text-[var(--arcane-ink-soft)] transition hover:bg-[#e2d5bd99] hover:text-[var(--arcane-ink-900)]"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center rounded text-[var(--arcane-ink-soft)] transition hover:bg-[var(--arcane-border-light)] hover:text-[var(--arcane-ink-900)]"
                 >
                   x
                 </button>
@@ -199,7 +199,7 @@ const ComboMultiSelect: React.FC<Props> = ({
                 <label
                   key={opt.value}
                   onMouseEnter={() => setActiveIndex(index)}
-                  className={`flex items-center gap-2 p-2 cursor-pointer ${activeIndex === index ? 'bg-[#b886481a]' : 'hover:bg-[var(--arcane-paper)]'}`}
+                  className={`flex items-center gap-2 p-2 cursor-pointer ${activeIndex === index ? 'bg-[var(--arcane-gold-soft)]' : 'hover:bg-[var(--arcane-paper)]'}`}
                 >
                   <input
                     type="checkbox"

@@ -1312,7 +1312,7 @@ export default function TerrainMasterPage() {
         <section className="bg-[var(--arcane-paper-raised)] shadow rounded-lg p-6">
           <div className="space-y-4">
             {selectedTerrainIds.length > 0 ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#b886484d] bg-[#b886481a] px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--arcane-gold-500-border)] bg-[var(--arcane-gold-soft)] px-4 py-3">
                 <div className="flex items-center gap-3 text-sm">
                   <span className="font-semibold text-[var(--arcane-gold-700)]">{selectedTerrainIds.length} selected</span>
                   <button
@@ -1464,7 +1464,7 @@ export default function TerrainMasterPage() {
                       currentPageRows.map((terrain) => (
                         <TableRow
                           key={terrain.TerrainID}
-                          className="cursor-pointer hover:bg-[#b886481a]"
+                          className="cursor-pointer hover:bg-[var(--arcane-gold-soft)]"
                           onClick={() => openEditModal(terrain)}
                           tabIndex={0}
                           onKeyDown={(event) => {
@@ -1603,7 +1603,7 @@ export default function TerrainMasterPage() {
             <Button type="button" className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white" onClick={closeAddModal}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-green-600 hover:bg-green-700" disabled={addMutation.isLoading}>
+            <Button type="submit" className="bg-[var(--arcane-success)] hover:bg-[var(--arcane-success-hover)] text-white" disabled={addMutation.isLoading}>
               {addMutation.isLoading ? 'Saving...' : 'Add Terrain'}
             </Button>
           </div>
@@ -1634,7 +1634,7 @@ export default function TerrainMasterPage() {
             <div className="flex items-center gap-2">
               <Button
                 type="button"
-                className="h-9 !bg-[#e2d5bd99] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
+                className="h-9 !bg-[var(--arcane-border-light)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
                 onClick={() => handleNavigateEditTerrain('previous')}
                 disabled={!canNavigateToPreviousEditTerrain || editMutation.isLoading || editDeleteMutation.isLoading}
                 aria-label="Previous terrain"
@@ -1644,7 +1644,7 @@ export default function TerrainMasterPage() {
               </Button>
               <Button
                 type="button"
-                className="h-9 !bg-[#e2d5bd99] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
+                className="h-9 !bg-[var(--arcane-border-light)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
                 onClick={() => handleNavigateEditTerrain('next')}
                 disabled={!canNavigateToNextEditTerrain || editMutation.isLoading || editDeleteMutation.isLoading}
                 aria-label="Next terrain"
@@ -1782,7 +1782,7 @@ export default function TerrainMasterPage() {
                 />
               </label>
               <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" className="bg-[#e2d5bd99] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]" onClick={closeBulkUpdateDialog}>
+                <Button type="button" className="bg-[var(--arcane-border-light)] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]" onClick={closeBulkUpdateDialog}>
                   Cancel
                 </Button>
                 <Button type="submit" className="bg-amber-600 hover:bg-amber-700" disabled={bulkUpdateMutation.isLoading}>
@@ -1821,7 +1821,7 @@ export default function TerrainMasterPage() {
               <div className="flex justify-end gap-2 pt-2">
                 <Button
                   type="button"
-                  className="bg-[#e2d5bd99] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]"
+                  className="bg-[var(--arcane-border-light)] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]"
                   onClick={() => setBulkStep('edit')}
                   disabled={bulkUpdateMutation.isLoading}
                 >

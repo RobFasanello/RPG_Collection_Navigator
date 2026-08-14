@@ -31,6 +31,7 @@ export default function UsersSetupPage() {
   const { email: currentUserEmail } = useAppMode();
   const queryClient = useQueryClient();
   const [newEmail, setNewEmail] = useState('');
+  const [newDisplayName, setNewDisplayName] = useState('');
   const [newMode, setNewMode] = useState<AppMode>('read-only');
 
   const { data: users, isLoading } = useQuery({
@@ -44,9 +45,15 @@ export default function UsersSetupPage() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['users'] });
 
   const addUserMutation = useMutation({
-    mutationFn: () => tablesAPI.createRecord('User', { Email: newEmail.trim(), AppMode: newMode }),
+    mutationFn: () =>
+      tablesAPI.createRecord('User', {
+        Email: newEmail.trim(),
+        DisplayName: newDisplayName.trim() || null,
+        AppMode: newMode,
+      }),
     onSuccess: () => {
       setNewEmail('');
+      setNewDisplayName('');
       setNewMode('read-only');
       invalidate();
       toast({ title: 'User added', variant: 'success' });
@@ -79,8 +86,11 @@ export default function UsersSetupPage() {
   return (
     <AdminLayout title="Users" subtitle="Manage who can sign in and what they can do.">
       <div className="space-y-6">
-        <form onSubmit={handleAddUser} className="flex flex-wrap items-end gap-3 rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-4">
-          <label className="flex flex-col gap-1 text-sm text-[var(--arcane-ink-900)]">
+        <form
+          onSubmit={handleAddUser}
+          className="grid gap-3 rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-4 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_auto] md:items-end"
+        >
+          <label className="flex min-w-0 flex-col gap-1 text-sm text-[var(--arcane-ink-900)]">
             <span className="font-medium">Email</span>
             <Input
               type="email"
@@ -88,15 +98,25 @@ export default function UsersSetupPage() {
               value={newEmail}
               onChange={(event) => setNewEmail(event.target.value)}
               placeholder="name@example.com"
-              className="w-64"
+              className="w-full min-h-[2.75rem]"
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm text-[var(--arcane-ink-900)]">
+          <label className="flex min-w-0 flex-col gap-1 text-sm text-[var(--arcane-ink-900)]">
+            <span className="font-medium">Display Name</span>
+            <Input
+              type="text"
+              value={newDisplayName}
+              onChange={(event) => setNewDisplayName(event.target.value)}
+              placeholder="Optional name"
+              className="w-full min-h-[2.75rem]"
+            />
+          </label>
+          <label className="flex min-w-0 flex-col gap-1 text-sm text-[var(--arcane-ink-900)]">
             <span className="font-medium">Mode</span>
             <select
               value={newMode}
               onChange={(event) => setNewMode(event.target.value as AppMode)}
-              className="rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-3 py-2 text-sm"
+              className="w-full min-h-[2.75rem] rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-3 py-2 text-sm"
             >
               {MODE_OPTIONS.map((mode) => (
                 <option key={mode} value={mode}>
@@ -105,9 +125,11 @@ export default function UsersSetupPage() {
               ))}
             </select>
           </label>
-          <Button type="submit" disabled={addUserMutation.isPending}>
-            {addUserMutation.isPending ? 'Adding...' : 'Grant Access'}
-          </Button>
+          <div className="flex md:justify-end">
+            <Button type="submit" disabled={addUserMutation.isPending} className="w-full md:w-auto">
+              {addUserMutation.isPending ? 'Adding...' : 'Grant Access'}
+            </Button>
+          </div>
         </form>
 
         {isLoading ? (
@@ -121,7 +143,7 @@ export default function UsersSetupPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Email</TableHead>
-                <TableHead>Name</TableHead>
+                <TableHead>Display Name</TableHead>
                 <TableHead>Mode</TableHead>
                 <TableHead>Last Login</TableHead>
                 <TableHead className="text-right">Actions</TableHead>

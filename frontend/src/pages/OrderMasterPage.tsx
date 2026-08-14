@@ -455,6 +455,7 @@ export default function OrderMasterPage() {
           StatusName: variables.StatusName,
         };
       });
+      handleCloseModal();
       toast({
         title: 'Order Saved',
         description: `Saved invoice ${variables.InvoiceNumber} for ${variables.StoreName}.`,
@@ -1369,7 +1370,7 @@ export default function OrderMasterPage() {
         <section className="bg-[var(--arcane-paper-raised)] shadow rounded-lg p-6">
           <div className="space-y-4">
             {selectedOrderIds.length > 0 ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#b886484d] bg-[#b886481a] px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--arcane-gold-500-border)] bg-[var(--arcane-gold-soft)] px-4 py-3">
                 <div className="flex items-center gap-3 text-sm">
                   <span className="font-semibold text-[var(--arcane-gold-700)]">{selectedOrderIds.length} selected</span>
                   <button
@@ -1509,7 +1510,7 @@ export default function OrderMasterPage() {
                       data.data.map((order: PurchaseOrder) => (
                         <TableRow
                           key={order.PurchaseOrderID}
-                          className={`hover:bg-[var(--arcane-paper)] cursor-pointer ${selectedOrderIds.includes(order.PurchaseOrderID) ? 'bg-[#b886481a]' : ''}`}
+                          className={`hover:bg-[var(--arcane-paper)] cursor-pointer ${selectedOrderIds.includes(order.PurchaseOrderID) ? 'bg-[var(--arcane-gold-soft)]' : ''}`}
                           onClick={() => handleOrderRowClick(order)}
                         >
                           <TableCell>
@@ -1767,7 +1768,7 @@ export default function OrderMasterPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
                 <Button
                   type="button"
-                  className="bg-[#e2d5bd99] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]"
+                  className="bg-[var(--arcane-border-light)] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]"
                   onClick={() => setBulkStep('edit')}
                   disabled={bulkUpdateMutation.isPending}
                 >
@@ -1811,7 +1812,7 @@ export default function OrderMasterPage() {
             <div className="flex items-center justify-end gap-2">
               <Button
                 type="button"
-                className="h-9 !bg-[#e2d5bd99] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
+                className="h-9 !bg-[var(--arcane-border-light)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
                 onClick={() => handleNavigateOrder('previous')}
                 disabled={!canNavigateToPreviousOrder || updateMutation.isPending || deleteOrderMutation.isPending}
                 aria-label="Previous order"
@@ -1821,7 +1822,7 @@ export default function OrderMasterPage() {
               </Button>
               <Button
                 type="button"
-                className="h-9 !bg-[#e2d5bd99] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
+                className="h-9 !bg-[var(--arcane-border-light)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
                 onClick={() => handleNavigateOrder('next')}
                 disabled={!canNavigateToNextOrder || updateMutation.isPending || deleteOrderMutation.isPending}
                 aria-label="Next order"
@@ -1946,7 +1947,7 @@ export default function OrderMasterPage() {
                 <Button
                   type="button"
                   onClick={addNewDetailRow}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-[var(--arcane-success)] hover:bg-[var(--arcane-success-hover)] text-white"
                   disabled={!!newDetailDraft || addDetailMutation.isPending}
                 >
                   Add Item
@@ -1969,7 +1970,7 @@ export default function OrderMasterPage() {
                     </TableHeader>
                     <TableBody>
                       {newDetailDraft && (
-                        <TableRow className="bg-green-50/40">
+                        <TableRow className="bg-[var(--arcane-success-soft)]">
                           <TableCell>
                             <ComboSelect
                               options={itemLookupOptions}
@@ -2013,7 +2014,7 @@ export default function OrderMasterPage() {
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
                               <Button
-                                className="bg-green-600 hover:bg-green-700"
+                                className="bg-[var(--arcane-success)] hover:bg-[var(--arcane-success-hover)] text-white"
                                 onClick={saveNewDetailRow}
                                 disabled={addDetailMutation.isPending}
                               >
@@ -2079,7 +2080,7 @@ export default function OrderMasterPage() {
                                   <TableCell className="text-right">
                                     <div className="flex justify-end gap-2">
                                       <Button
-                                        className="bg-green-600 hover:bg-green-700"
+                                        className="bg-[var(--arcane-success)] hover:bg-[var(--arcane-success-hover)] text-white"
                                         onClick={saveEditDetail}
                                         disabled={updateDetailMutation.isPending}
                                       >
@@ -2107,7 +2108,7 @@ export default function OrderMasterPage() {
                                       <button
                                         type="button"
                                         onClick={() => startEditDetail(item)}
-                                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#b886484d] text-[var(--arcane-gold-700)] hover:bg-[#b886481a] disabled:opacity-50"
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--arcane-gold-500-border)] text-[var(--arcane-gold-700)] hover:bg-[var(--arcane-gold-soft)] disabled:opacity-50"
                                         title={canWrite ? 'Edit row' : 'Switch to Update mode to edit rows'}
                                         disabled={!canWrite || !!editingDetailId || updateDetailMutation.isPending || addDetailMutation.isPending}
                                       >
@@ -2259,7 +2260,7 @@ export default function OrderMasterPage() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Inventory Items</h3>
-              <Button className="bg-green-600 hover:bg-green-700" onClick={handleAddDetailRow}>
+              <Button className="bg-[var(--arcane-success)] hover:bg-[var(--arcane-success-hover)] text-white" onClick={handleAddDetailRow}>
                 Add Item
               </Button>
             </div>
@@ -2351,7 +2352,7 @@ export default function OrderMasterPage() {
               Cancel
             </Button>
             <Button
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-[var(--arcane-success)] hover:bg-[var(--arcane-success-hover)] text-white"
               onClick={handleCreateOrder}
               disabled={addOrderMutation.isPending || (isOnOrderStatusMissing && !addOrderValues.StatusID)}
             >

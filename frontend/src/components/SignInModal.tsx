@@ -41,7 +41,7 @@ export default function SignInModal({ open, onClose, authError }: Props) {
           type="button"
           onClick={onClose}
           aria-label="Close dialog"
-          className="absolute right-3 top-3 text-2xl leading-none text-[#b9ae9d]/70 transition hover:text-[var(--arcane-ivory)]"
+          className="absolute right-3 top-3 text-2xl leading-none text-[var(--arcane-muted)]/70 transition hover:text-[var(--arcane-ivory)]"
         >
           ×
         </button>
@@ -49,12 +49,12 @@ export default function SignInModal({ open, onClose, authError }: Props) {
         <img
           src="/favicon.png"
           alt=""
-          className="mx-auto h-14 w-14 rounded-sm object-contain ring-1 ring-[#9c6a3299]"
+          className="mx-auto h-14 w-14 rounded-sm object-contain ring-1 ring-[var(--arcane-gold-600)]"
         />
         <h2 id="sign-in-modal-title" className="font-display mt-4 text-xl font-bold uppercase tracking-[0.08em] text-[var(--arcane-ivory-bright)]">
           Sign In
         </h2>
-        <p className="mt-1 text-sm text-[#b9ae9d]/85">Sign in with Google to view your collection.</p>
+        <p className="mt-1 text-sm text-[var(--arcane-muted)]/85">Sign in with Google to view your collection.</p>
 
         {errorMessage && (
           <div className="mt-4 border border-red-900/60 bg-red-950/40 px-3 py-2 text-sm text-red-300">

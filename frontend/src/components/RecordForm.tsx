@@ -194,7 +194,7 @@ export default function RecordForm({
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded">
+          <div className="mb-4 p-3 bg-[var(--arcane-danger-soft)] border border-[var(--arcane-danger-border)] text-[var(--arcane-danger-text)] rounded">
             {error}
           </div>
         )}

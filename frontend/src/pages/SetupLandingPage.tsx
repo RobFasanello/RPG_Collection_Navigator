@@ -19,7 +19,7 @@ export default function SetupLandingPage() {
                   <Link
                     key={item.path}
                     to={item.path}
-                    className="block rounded-lg border border-transparent bg-[var(--arcane-paper-raised)] px-4 py-3 shadow-sm transition hover:border-[#b8864866] hover:bg-[#b886481a]"
+                    className="block rounded-lg border border-transparent bg-[var(--arcane-paper-raised)] px-4 py-3 shadow-sm transition hover:border-[var(--arcane-gold-500)]/50 hover:bg-[var(--arcane-gold-soft)]"
                   >
                     <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">{item.label}</div>
                     <div className="text-sm text-[var(--arcane-ink-soft)]">{item.description}</div>

@@ -872,7 +872,7 @@ export default function BulkItemUploadDialog({
       <div className="space-y-5">
         <div
           className={`rounded-lg border-2 border-dashed p-6 text-center transition ${
-            isDragging ? 'border-[var(--arcane-gold-500)] bg-[#b886481a]' : 'border-[var(--arcane-border-light)] bg-[var(--arcane-paper)]'
+            isDragging ? 'border-[var(--arcane-gold-500)] bg-[var(--arcane-gold-soft)]' : 'border-[var(--arcane-border-light)] bg-[var(--arcane-paper)]'
           }`}
           onDragOver={(event) => {
             event.preventDefault();
@@ -963,7 +963,7 @@ export default function BulkItemUploadDialog({
                   const rowSubTypeOptions = getSubTypeOptionsForRow(row);
 
                   return (
-                  <TableRow key={row.id} className={row.success ? 'bg-green-50' : ''}>
+                  <TableRow key={row.id} className={row.success ? 'bg-[var(--arcane-success-soft)]' : ''}>
                     <TableCell className="whitespace-nowrap align-top">{row.rowNumber}</TableCell>
                     <TableCell className="align-top">
                       <ComboSelect
@@ -1077,7 +1077,7 @@ export default function BulkItemUploadDialog({
                     </TableCell>
                     <TableCell className="align-top">
                       {row.success ? (
-                        <span className="text-green-700">Added</span>
+                        <span className="text-[var(--arcane-success-text)]">Added</span>
                       ) : row.errors.length > 0 ? (
                         <div className="space-y-1 text-xs">
                           {row.errors.map((errorMessage) => (
@@ -1089,7 +1089,7 @@ export default function BulkItemUploadDialog({
                         </div>
                       ) : (
                         <div className="space-y-1 text-xs">
-                          <div className="font-medium text-green-700">Ready</div>
+                          <div className="font-medium text-[var(--arcane-success-text)]">Ready</div>
                           {row.warnings.map((warningMessage) => (
                             <div key={`${row.id}-${warningMessage}`} className="text-amber-700">{warningMessage}</div>
                           ))}
@@ -1137,7 +1137,7 @@ export default function BulkItemUploadDialog({
             </Button>
             <Button
               type="button"
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-[var(--arcane-success)] hover:bg-[var(--arcane-success-hover)]"
               onClick={handleAddItems}
               disabled={bulkAddMutation.isLoading || readyRows.length === 0}
             >

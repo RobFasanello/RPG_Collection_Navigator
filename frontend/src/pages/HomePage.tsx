@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import useEmblaCarousel from 'embla-carousel-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import AdminLayout from '../components/AdminLayout';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -404,13 +406,13 @@ function MetricCard({ label, value, loading, to }: { label: string; value: numbe
   return (
     <Link
       to={to}
-      className="block rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-5 text-center transition hover:bg-[#e2d5bd66] hover:border-[var(--arcane-border-light)] focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)]"
+      className="flex h-[108px] flex-col items-center justify-center rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-3 text-center transition hover:border-[var(--arcane-border-light)] hover:bg-[var(--arcane-gold-soft-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)]"
     >
       <p className="text-sm font-medium text-[var(--arcane-ink-soft)]">{label}</p>
       {loading ? (
-        <Skeleton className="mx-auto mt-3 h-8 w-20" />
+        <Skeleton className="mx-auto mt-2 h-7 w-20" />
       ) : (
-        <p className="mt-2 text-3xl font-bold text-[var(--arcane-ink-900)]">{value.toLocaleString()}</p>
+        <p className="mt-2 text-2xl font-bold leading-none text-[var(--arcane-ink-900)]">{value.toLocaleString()}</p>
       )}
     </Link>
   );
@@ -427,27 +429,27 @@ function formatPercent(value: number) {
 function getCoverageBandClasses(coveragePercent: number) {
   if (coveragePercent < 40) {
     return {
-      card: 'border-red-200 bg-red-50 hover:bg-red-100 hover:border-red-300',
-      title: 'text-red-800',
-      value: 'text-red-900',
-      detail: 'text-red-700',
+      card: 'border-[var(--arcane-danger-border)] bg-[var(--arcane-danger-soft)] hover:bg-[var(--arcane-danger-soft)] hover:border-[var(--arcane-danger)]',
+      title: 'text-[var(--arcane-danger-text)]',
+      value: 'text-[var(--arcane-danger-text)]',
+      detail: 'text-[var(--arcane-danger)]',
     };
   }
 
   if (coveragePercent < 80) {
     return {
-      card: 'border-amber-200 bg-amber-50 hover:bg-amber-100 hover:border-amber-300',
-      title: 'text-amber-800',
-      value: 'text-amber-900',
-      detail: 'text-amber-700',
+      card: 'border-[var(--arcane-warning-border)] bg-[var(--arcane-warning-soft)] hover:bg-[var(--arcane-warning-soft)] hover:border-[var(--arcane-warning-text)]',
+      title: 'text-[var(--arcane-warning-text)]',
+      value: 'text-[var(--arcane-warning-text)]',
+      detail: 'text-[var(--arcane-warning-text)]',
     };
   }
 
   return {
-    card: 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-300',
-    title: 'text-emerald-800',
-    value: 'text-emerald-900',
-    detail: 'text-emerald-700',
+    card: 'border-[var(--arcane-success-border)] bg-[var(--arcane-success-soft)] hover:bg-[var(--arcane-success-soft)] hover:border-[var(--arcane-success-text)]',
+    title: 'text-[var(--arcane-success-text)]',
+    value: 'text-[var(--arcane-success-text)]',
+    detail: 'text-[var(--arcane-success-text)]',
   };
 }
 
@@ -564,7 +566,7 @@ function CollectionStatusLinks({ uncollectedTo, collectedTo }: { uncollectedTo: 
     <div className="absolute bottom-3 right-3 flex flex-col gap-2 sm:flex-row">
       <Link
         to={collectedTo}
-        className="rounded-md border border-emerald-300 bg-[var(--arcane-paper-raised)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 shadow-sm transition hover:bg-emerald-50 hover:text-emerald-900 focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)]"
+        className="rounded-md border border-[var(--arcane-success-border)] bg-[var(--arcane-paper-raised)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--arcane-success-text)] shadow-sm transition hover:bg-[var(--arcane-success-soft)] hover:text-[var(--arcane-success-text)] focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)]"
         title="View collected items"
         aria-label="View collected items"
       >
@@ -584,17 +586,415 @@ function CollectionStatusLinks({ uncollectedTo, collectedTo }: { uncollectedTo: 
 
 function TopListCard({ title, loading, children }: { title: string; loading: boolean; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] p-4">
+    <div className="flex h-full min-h-[228px] flex-col rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] p-3">
       <h4 className="text-sm font-semibold text-[var(--arcane-ink-900)]">{title}</h4>
       {loading ? (
-        <div className="mt-3 space-y-2" aria-label="Loading list">
+        <div className="mt-2 flex-1 space-y-2" aria-label="Loading list">
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-5/6" />
           <Skeleton className="h-4 w-4/6" />
         </div>
       ) : (
-        <div className="mt-3">{children}</div>
+        <div className="mt-2 flex-1">{children}</div>
       )}
+    </div>
+  );
+}
+
+function RepositoryMetricColumn({ metric, detail }: { metric: React.ReactNode; detail: React.ReactNode }) {
+  return (
+    <div className="flex h-full min-h-[360px] flex-col gap-3">
+      <div className="flex-shrink-0">{metric}</div>
+      <div className="flex-1">{detail}</div>
+    </div>
+  );
+}
+
+function CollectionCoverageCarousel({ collectionBoxes }: { collectionBoxes: CoverageBox[] }) {
+  const [emblaRef, emblaApi] = useEmblaCarousel({ align: 'start', loop: false, slidesToScroll: 1 });
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const pages = useMemo(() => {
+    const cardsPerPage = 12;
+    const groups: CoverageBox[][] = [];
+
+    for (let index = 0; index < collectionBoxes.length; index += cardsPerPage) {
+      groups.push(collectionBoxes.slice(index, index + cardsPerPage));
+    }
+
+    return groups;
+  }, [collectionBoxes]);
+
+  const onSelect = useCallback(() => {
+    setSelectedIndex(emblaApi?.selectedScrollSnap() ?? 0);
+  }, [emblaApi]);
+
+  useEffect(() => {
+    if (!emblaApi) {
+      return;
+    }
+
+    emblaApi.on('select', onSelect);
+    onSelect();
+
+    return () => {
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi, onSelect]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => emblaApi?.scrollPrev()}
+          disabled={!emblaApi?.canScrollPrev()}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] text-[var(--arcane-ink-900)] transition hover:bg-[var(--arcane-gold-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="Previous collection group"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => emblaApi?.scrollNext()}
+          disabled={!emblaApi?.canScrollNext()}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] text-[var(--arcane-ink-900)] transition hover:bg-[var(--arcane-gold-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="Next collection group"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="overflow-hidden rounded-xl" ref={emblaRef}>
+        <div className="flex">
+          {pages.map((page, pageIndex) => (
+            <div key={`collection-page-${pageIndex}`} className="min-w-full flex-[0_0_100%]">
+              <div className="grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {page.map((collection) => {
+                  const coverageBand = getCoverageBandClasses(collection.CoveragePercent);
+                  const collectionImageUrl = getCollectionImageUrl(collection.ImageFileName);
+                  const hasCollectionImage = Boolean(collectionImageUrl);
+                  const titleClass = hasCollectionImage ? 'text-white drop-shadow' : coverageBand.title;
+                  const valueClass = hasCollectionImage ? 'text-white drop-shadow' : coverageBand.value;
+                  const detailClass = hasCollectionImage ? 'text-gray-100 drop-shadow' : coverageBand.detail;
+                  const baseInventoryLink = buildInventoryLink({ collection: String(collection.EntityID || collection.EntityName) });
+                  const uncollectedInventoryLink = buildInventoryLink({
+                    collection: String(collection.EntityID || collection.EntityName),
+                    hasPurchaseOrder: false,
+                  });
+
+                  return (
+                    <div
+                      key={collection.EntityID || collection.EntityName}
+                      className={`relative flex h-full min-h-[240px] flex-col overflow-hidden rounded-xl border p-5 transition ${
+                        hasCollectionImage
+                          ? 'border-[var(--arcane-border-light)] bg-[var(--arcane-ink-900)] bg-cover bg-center hover:border-[var(--arcane-gold-500)]'
+                          : coverageBand.card
+                      }`}
+                      style={hasCollectionImage ? { backgroundImage: `url("${collectionImageUrl}")` } : undefined}
+                    >
+                      {hasCollectionImage ? <div className="absolute inset-0 bg-black/55" /> : null}
+                      <Link
+                        to={baseInventoryLink}
+                        className="relative z-10 block h-full pr-36 pb-16 focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)] rounded-md"
+                        title={`Open Item Master for ${collection.EntityName}`}
+                      >
+                        <p className={`text-3xl font-bold leading-tight ${titleClass}`} title={collection.EntityName}>
+                          {collection.EntityName}
+                        </p>
+                        <p className={`mt-2 text-sm ${detailClass}`}>
+                          {collection.ItemsInPurchaseOrder.toLocaleString()} / {collection.TotalItems.toLocaleString()} items in orders
+                        </p>
+                      </Link>
+                      <p className={`absolute bottom-3 left-3 z-10 text-3xl font-bold ${valueClass}`}>
+                        {formatPercent(collection.CoveragePercent)}
+                      </p>
+                      <CollectionStatusLinks
+                        collectedTo={buildInventoryLink({ collection: String(collection.EntityID || collection.EntityName), hasPurchaseOrder: true })}
+                        uncollectedTo={uncollectedInventoryLink}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {pages.length > 1 ? (
+        <div className="flex items-center justify-center gap-2">
+          {pages.map((_, pageIndex) => (
+            <button
+              key={`collection-dot-${pageIndex}`}
+              type="button"
+              aria-label={`Go to collection page ${pageIndex + 1}`}
+              onClick={() => emblaApi?.scrollTo(pageIndex)}
+              className={`h-2.5 w-2.5 rounded-full transition ${selectedIndex === pageIndex ? 'bg-[var(--arcane-gold-500)]' : 'bg-[var(--arcane-border-light)]'}`}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DetailCoverageCarousel({ detailRows }: { detailRows: Array<{ categoryName: string; subTypeName: string; itemCount: number; itemsInPurchaseOrder: number; coveragePercent: number; publishers: string[]; collections: string[] }> }) {
+  const [emblaRef, emblaApi] = useEmblaCarousel({ align: 'start', loop: false, slidesToScroll: 1 });
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const pages = useMemo(() => {
+    const cardsPerPage = 8;
+    const groups: typeof detailRows[] = [];
+
+    for (let index = 0; index < detailRows.length; index += cardsPerPage) {
+      groups.push(detailRows.slice(index, index + cardsPerPage));
+    }
+
+    return groups;
+  }, [detailRows]);
+
+  const onSelect = useCallback(() => {
+    setSelectedIndex(emblaApi?.selectedScrollSnap() ?? 0);
+  }, [emblaApi]);
+
+  useEffect(() => {
+    if (!emblaApi) {
+      return;
+    }
+
+    emblaApi.on('select', onSelect);
+    onSelect();
+
+    return () => {
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi, onSelect]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => emblaApi?.scrollPrev()}
+          disabled={!emblaApi?.canScrollPrev()}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] text-[var(--arcane-ink-900)] transition hover:bg-[var(--arcane-gold-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="Previous detail group"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => emblaApi?.scrollNext()}
+          disabled={!emblaApi?.canScrollNext()}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] text-[var(--arcane-ink-900)] transition hover:bg-[var(--arcane-gold-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="Next detail group"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="overflow-hidden rounded-xl" ref={emblaRef}>
+        <div className="flex">
+          {pages.map((page, pageIndex) => (
+            <div key={`detail-page-${pageIndex}`} className="min-w-full flex-[0_0_100%]">
+              <div className="grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {page.map((row) => {
+                  const inventoryBaseLink =
+                    `/admin/inventory?category=${encodeURIComponent(row.categoryName)}` +
+                    `&subType=${encodeURIComponent(row.subTypeName)}`;
+                  const uncollectedInventoryLink = `${inventoryBaseLink}&hasPurchaseOrder=false`;
+
+                  return (
+                    <div
+                      key={`${row.categoryName}:${row.subTypeName}`}
+                      className="relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-5 shadow-sm"
+                    >
+                      <Link
+                        to={inventoryBaseLink}
+                        className="block pr-28 focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)] rounded-md"
+                        title={`Open Item Master for ${row.categoryName} (${row.subTypeName})`}
+                      >
+                        <p className="text-sm font-medium whitespace-normal break-words leading-snug text-[var(--arcane-ink-900)]" title={`${row.categoryName} (${row.subTypeName})`}>
+                          {row.categoryName} ({row.subTypeName})
+                        </p>
+                        <p className="mt-2 text-3xl font-bold text-[var(--arcane-ink-950)]">{row.itemCount.toLocaleString()}</p>
+                        <p className="mt-2 text-sm text-[var(--arcane-gold-700)]">Publisher Count: {row.publishers.length.toLocaleString()}</p>
+                        <p className="text-sm text-[var(--arcane-gold-700)]">Collection Count: {row.collections.length.toLocaleString()}</p>
+                      </Link>
+
+                      <div className="mt-3 border-t border-[var(--arcane-border-light)] pt-3 pb-14">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--arcane-ink-900)]">Collections</p>
+                        {row.collections.length ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {row.collections.map((collectionName: string) => (
+                              <Link
+                                key={collectionName}
+                                to={`${inventoryBaseLink}&collection=${encodeURIComponent(collectionName)}`}
+                                className="inline-flex items-center rounded-md bg-[var(--arcane-gold-500)] px-2 py-1 text-xs font-medium text-[var(--arcane-ink-950)]"
+                                title={`Add collection filter: ${collectionName}`}
+                              >
+                                {collectionName}
+                              </Link>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-[var(--arcane-ink-soft)]">No collections</p>
+                        )}
+                      </div>
+
+                      <CollectionStatusLinks
+                        collectedTo={`${inventoryBaseLink}&hasPurchaseOrder=true`}
+                        uncollectedTo={uncollectedInventoryLink}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {pages.length > 1 ? (
+        <div className="flex items-center justify-center gap-2">
+          {pages.map((_, pageIndex) => (
+            <button
+              key={`detail-dot-${pageIndex}`}
+              type="button"
+              aria-label={`Go to detail page ${pageIndex + 1}`}
+              onClick={() => emblaApi?.scrollTo(pageIndex)}
+              className={`h-2.5 w-2.5 rounded-full transition ${selectedIndex === pageIndex ? 'bg-[var(--arcane-gold-500)]' : 'bg-[var(--arcane-border-light)]'}`}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function PublisherCoverageCarousel({ publisherBoxes }: { publisherBoxes: CoverageBox[] }) {
+  const [emblaRef, emblaApi] = useEmblaCarousel({ align: 'start', loop: false, slidesToScroll: 1 });
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const pages = useMemo(() => {
+    const cardsPerPage = 12;
+    const groups: CoverageBox[][] = [];
+
+    for (let index = 0; index < publisherBoxes.length; index += cardsPerPage) {
+      groups.push(publisherBoxes.slice(index, index + cardsPerPage));
+    }
+
+    return groups;
+  }, [publisherBoxes]);
+
+  const onSelect = useCallback(() => {
+    setSelectedIndex(emblaApi?.selectedScrollSnap() ?? 0);
+  }, [emblaApi]);
+
+  useEffect(() => {
+    if (!emblaApi) {
+      return;
+    }
+
+    emblaApi.on('select', onSelect);
+    onSelect();
+
+    return () => {
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi, onSelect]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => emblaApi?.scrollPrev()}
+          disabled={!emblaApi?.canScrollPrev()}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] text-[var(--arcane-ink-900)] transition hover:bg-[var(--arcane-gold-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="Previous publisher group"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => emblaApi?.scrollNext()}
+          disabled={!emblaApi?.canScrollNext()}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] text-[var(--arcane-ink-900)] transition hover:bg-[var(--arcane-gold-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="Next publisher group"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="overflow-hidden rounded-xl" ref={emblaRef}>
+        <div className="flex">
+          {pages.map((page, pageIndex) => (
+            <div key={`publisher-page-${pageIndex}`} className="min-w-full flex-[0_0_100%]">
+              <div className="grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {page.map((publisher) => {
+                  const coverageBand = getCoverageBandClasses(publisher.CoveragePercent);
+                  const publisherImageUrl = getPublisherImageUrl(publisher.ImageFileName);
+                  const hasPublisherImage = Boolean(publisherImageUrl);
+                  const titleClass = hasPublisherImage ? 'text-white drop-shadow' : coverageBand.title;
+                  const valueClass = hasPublisherImage ? 'text-white drop-shadow' : coverageBand.value;
+                  const detailClass = hasPublisherImage ? 'text-gray-100 drop-shadow' : coverageBand.detail;
+                  const baseInventoryLink = buildInventoryLink({ publisher: publisher.EntityName });
+                  const uncollectedInventoryLink = buildInventoryLink({ publisher: publisher.EntityName, hasPurchaseOrder: false });
+
+                  return (
+                    <div
+                      key={publisher.EntityID || publisher.EntityName}
+                      className={`relative flex h-full min-h-[240px] flex-col overflow-hidden rounded-xl border p-5 transition ${
+                        hasPublisherImage
+                          ? 'border-[var(--arcane-border-light)] bg-[var(--arcane-ink-900)] bg-cover bg-center hover:border-[var(--arcane-gold-500)]'
+                          : coverageBand.card
+                      }`}
+                      style={hasPublisherImage ? { backgroundImage: `url("${publisherImageUrl}")` } : undefined}
+                    >
+                      {hasPublisherImage ? <div className="absolute inset-0 bg-black/55" /> : null}
+                      <Link
+                        to={baseInventoryLink}
+                        className="relative z-10 block h-full pr-36 pb-16 focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)] rounded-md"
+                        title={`Open Item Master for ${publisher.EntityName}`}
+                      >
+                        <p className={`text-3xl font-bold leading-tight truncate ${titleClass}`} title={publisher.EntityName}>
+                          {publisher.EntityName}
+                        </p>
+                        <p className={`mt-2 text-sm ${detailClass}`}>
+                          {publisher.ItemsInPurchaseOrder.toLocaleString()} / {publisher.TotalItems.toLocaleString()} items in orders
+                        </p>
+                      </Link>
+                      <p className={`absolute bottom-3 left-3 z-10 text-3xl font-bold ${valueClass}`}>
+                        {formatPercent(publisher.CoveragePercent)}
+                      </p>
+                      <CollectionStatusLinks
+                        collectedTo={buildInventoryLink({ publisher: publisher.EntityName, hasPurchaseOrder: true })}
+                        uncollectedTo={uncollectedInventoryLink}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {pages.length > 1 ? (
+        <div className="flex items-center justify-center gap-2">
+          {pages.map((_, pageIndex) => (
+            <button
+              key={`publisher-dot-${pageIndex}`}
+              type="button"
+              aria-label={`Go to publisher page ${pageIndex + 1}`}
+              onClick={() => emblaApi?.scrollTo(pageIndex)}
+              className={`h-2.5 w-2.5 rounded-full transition ${selectedIndex === pageIndex ? 'bg-[var(--arcane-gold-500)]' : 'bg-[var(--arcane-border-light)]'}`}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -800,9 +1200,9 @@ export default function HomePage() {
         }))
         .sort(
           (a, b) =>
-            b.itemCount - a.itemCount ||
             a.categoryName.localeCompare(b.categoryName) ||
-            a.subTypeName.localeCompare(b.subTypeName)
+            a.subTypeName.localeCompare(b.subTypeName) ||
+            b.itemCount - a.itemCount
         );
 
       return { matrixRows };
@@ -857,7 +1257,7 @@ export default function HomePage() {
       catalogNameKey: 'PublisherName',
       dashboardIdKey: 'PublisherID',
       dashboardNameKey: 'PublisherName',
-    });
+    }).sort((a, b) => a.EntityName.localeCompare(b.EntityName) || a.EntityID - b.EntityID);
 
     const collectionTypeNameById = new Map<number, string>();
     (allCollectionTypeRows || []).forEach((row: any) => {
@@ -888,28 +1288,30 @@ export default function HomePage() {
       }
     });
 
-    const collectionBoxes: CoverageBox[] = (allCollectionsRows || []).map((row: any) => {
-      const collectionId = Number(row.CollectionID || 0);
-      const collectionName = String(row.CollectionName || '').trim();
-      const collectionTypeName = collectionTypeNameById.get(Number(row.CollectionTypeID)) || '';
-      const entityName = collectionTypeName ? `${collectionName} (${collectionTypeName})` : collectionName;
-      const coverage =
-        collectionCoverageById.get(collectionId) ||
-        collectionCoverageByName.get(collectionName.toLowerCase()) || {
-          totalItems: 0,
-          itemsInPurchaseOrder: 0,
-          coveragePercent: 0,
-        };
+    const collectionBoxes: CoverageBox[] = (allCollectionsRows || [])
+      .map((row: any) => {
+        const collectionId = Number(row.CollectionID || 0);
+        const collectionName = String(row.CollectionName || '').trim();
+        const collectionTypeName = collectionTypeNameById.get(Number(row.CollectionTypeID)) || '';
+        const entityName = collectionTypeName ? `${collectionName} (${collectionTypeName})` : collectionName;
+        const coverage =
+          collectionCoverageById.get(collectionId) ||
+          collectionCoverageByName.get(collectionName.toLowerCase()) || {
+            totalItems: 0,
+            itemsInPurchaseOrder: 0,
+            coveragePercent: 0,
+          };
 
-      return {
-        EntityID: collectionId,
-        EntityName: entityName,
-        TotalItems: coverage.totalItems,
-        ItemsInPurchaseOrder: coverage.itemsInPurchaseOrder,
-        CoveragePercent: coverage.coveragePercent,
-        ImageFileName: String(row.ImageFileName || '').trim() || undefined,
-      };
-    });
+        return {
+          EntityID: collectionId,
+          EntityName: entityName,
+          TotalItems: coverage.totalItems,
+          ItemsInPurchaseOrder: coverage.itemsInPurchaseOrder,
+          CoveragePercent: coverage.coveragePercent,
+          ImageFileName: String(row.ImageFileName || '').trim() || undefined,
+        };
+      })
+      .sort((a, b) => a.EntityName.localeCompare(b.EntityName) || a.EntityID - b.EntityID);
 
     return {
       totals,
@@ -971,8 +1373,8 @@ export default function HomePage() {
                     aria-pressed={active}
                     className={`px-3 py-2 text-sm rounded-md transition duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)] focus:ring-offset-1 ${
                       active
-                        ? 'bg-[var(--arcane-gold-500)] text-[var(--arcane-ink-950)] shadow-md shadow-[#b886484d] -translate-y-0.5'
-                        : 'text-[var(--arcane-ink-900)] hover:bg-[#e2d5bd99] hover:-translate-y-0.5'
+                        ? 'bg-[var(--arcane-gold-500)] text-[var(--arcane-ink-950)] shadow-md shadow-[var(--arcane-gold-500-border)] -translate-y-0.5'
+                        : 'text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)] hover:-translate-y-0.5'
                     }`}
                   >
                     {tab.label}
@@ -985,197 +1387,213 @@ export default function HomePage() {
           <div key={coverageView} className="animate-coverage-swap">
           {coverageView === 'repository' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              <div className="space-y-3">
-                <MetricCard label="Publishers" value={totals.publishers} loading={dashboardLoading} to="/admin/publishers" />
-                <TopListCard title="Top 10 Publishers by Item Count" loading={dashboardLoading}>
-                  {topPublishers.length ? (
-                    <ul className="space-y-1 text-sm">
-                      {topPublishers.map((row) => (
-                        <li key={row.PublisherName} className="flex items-center justify-between gap-2">
-                          <Link
-                            to={`/admin/inventory?publisher=${encodeURIComponent(row.PublisherName)}`}
-                            className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
-                            title={`View items for ${row.PublisherName}`}
-                          >
-                            {row.PublisherName}
-                          </Link>
-                          <span className="font-semibold text-[var(--arcane-ink-900)]">{row.ItemCount}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-[var(--arcane-ink-soft)]">No data.</p>
-                  )}
-                </TopListCard>
-              </div>
+              <RepositoryMetricColumn
+                metric={<MetricCard label="Categories" value={totals.categories} loading={dashboardLoading || categoryTerrainLoading} to="/admin/categories" />}
+                detail={
+                  <TopListCard title="Top 10 Category Counts" loading={dashboardLoading || categoryTerrainLoading}>
+                    {topCategories.length ? (
+                      <ul className="space-y-1 text-sm">
+                        {topCategories.map((row) => (
+                          <li key={row.CategoryName} className="flex items-center justify-between gap-2">
+                            <Link
+                              to={`/admin/inventory?category=${encodeURIComponent(row.CategoryName)}`}
+                              className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
+                              title={`View items for ${row.CategoryName}`}
+                            >
+                              {row.CategoryName}
+                            </Link>
+                            <span className="font-semibold text-[var(--arcane-ink-900)]">{row.ItemCount}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-[var(--arcane-ink-soft)]">No data.</p>
+                    )}
+                  </TopListCard>
+                }
+              />
 
-              <div className="space-y-3">
-                <MetricCard label="Collections" value={totals.collections} loading={dashboardLoading} to="/admin/collections" />
-                <TopListCard title="Top 10 Collections by Item Count" loading={dashboardLoading}>
-                  {topCollections.length ? (
-                    <ul className="space-y-1 text-sm">
-                      {topCollections.map((row) => (
-                        <li key={row.CollectionName} className="flex items-center justify-between gap-2">
-                          <Link
-                            to={`/admin/inventory?collection=${encodeURIComponent(row.CollectionName)}`}
-                            className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
-                            title={`View items for ${row.CollectionName}`}
-                          >
-                            {row.CollectionName}
-                          </Link>
-                          <span className="font-semibold text-[var(--arcane-ink-900)]">{row.ItemCount}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-[var(--arcane-ink-soft)]">No data.</p>
-                  )}
-                </TopListCard>
-              </div>
+              <RepositoryMetricColumn
+                metric={<MetricCard label="Collections" value={totals.collections} loading={dashboardLoading} to="/admin/collections" />}
+                detail={
+                  <TopListCard title="Top 10 Collections by Item Count" loading={dashboardLoading}>
+                    {topCollections.length ? (
+                      <ul className="space-y-1 text-sm">
+                        {topCollections.map((row) => (
+                          <li key={row.CollectionName} className="flex items-center justify-between gap-2">
+                            <Link
+                              to={`/admin/inventory?collection=${encodeURIComponent(row.CollectionName)}`}
+                              className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
+                              title={`View items for ${row.CollectionName}`}
+                            >
+                              {row.CollectionName}
+                            </Link>
+                            <span className="font-semibold text-[var(--arcane-ink-900)]">{row.ItemCount}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-[var(--arcane-ink-soft)]">No data.</p>
+                    )}
+                  </TopListCard>
+                }
+              />
 
-              <div className="space-y-3">
-                <MetricCard label="Categories" value={totals.categories} loading={dashboardLoading || categoryTerrainLoading} to="/admin/categories" />
-                <TopListCard title="Top 10 Category Counts" loading={dashboardLoading || categoryTerrainLoading}>
-                  {topCategories.length ? (
-                    <ul className="space-y-1 text-sm">
-                      {topCategories.map((row) => (
-                        <li key={row.CategoryName} className="flex items-center justify-between gap-2">
-                          <Link
-                            to={`/admin/inventory?category=${encodeURIComponent(row.CategoryName)}`}
-                            className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
-                            title={`View items for ${row.CategoryName}`}
-                          >
-                            {row.CategoryName}
-                          </Link>
-                          <span className="font-semibold text-[var(--arcane-ink-900)]">{row.ItemCount}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-[var(--arcane-ink-soft)]">No data.</p>
-                  )}
-                </TopListCard>
-              </div>
+              <RepositoryMetricColumn
+                metric={<MetricCard label="Items" value={totals.items} loading={dashboardLoading} to="/admin/inventory" />}
+                detail={
+                  <TopListCard title="Top 10 Most Expensive Items" loading={dashboardLoading}>
+                    {topItemsByPrice.length ? (
+                      <ul className="space-y-1 text-sm">
+                        {topItemsByPrice.map((row) => (
+                          <li key={row.ItemID} className="flex items-center justify-between gap-2">
+                            <Link
+                              to={`/admin/inventory?item=${encodeURIComponent(row.ItemName)}`}
+                              className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
+                              title={`View item ${row.ItemName}`}
+                            >
+                              {row.ItemName}{row.ProductID ? ` (${row.ProductID})` : ''}
+                            </Link>
+                            <span className="font-semibold text-[var(--arcane-ink-900)]">{formatCurrency(Number(row.MaxPrice || 0))}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-[var(--arcane-ink-soft)]">No pricing data.</p>
+                    )}
+                  </TopListCard>
+                }
+              />
 
-              <div className="space-y-3">
-                <MetricCard label="Items" value={totals.items} loading={dashboardLoading} to="/admin/inventory" />
-                <TopListCard title="Top 10 Most Expensive Items" loading={dashboardLoading}>
-                  {topItemsByPrice.length ? (
-                    <ul className="space-y-1 text-sm">
-                      {topItemsByPrice.map((row) => (
-                        <li key={row.ItemID} className="flex items-center justify-between gap-2">
-                          <Link
-                            to={`/admin/inventory?item=${encodeURIComponent(row.ItemName)}`}
-                            className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
-                            title={`View item ${row.ItemName}`}
-                          >
-                            {row.ItemName}{row.ProductID ? ` (${row.ProductID})` : ''}
-                          </Link>
-                          <span className="font-semibold text-[var(--arcane-ink-900)]">{formatCurrency(Number(row.MaxPrice || 0))}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-[var(--arcane-ink-soft)]">No pricing data.</p>
-                  )}
-                </TopListCard>
-              </div>
+              <RepositoryMetricColumn
+                metric={<MetricCard label="Miniatures" value={totals.miniatures} loading={dashboardLoading} to="/admin/miniatures" />}
+                detail={
+                  <TopListCard title="Top 10 Miniature Items by Quantity" loading={dashboardLoading}>
+                    {topMiniatureItemsByQuantity.length ? (
+                      <ul className="space-y-1 text-sm">
+                        {topMiniatureItemsByQuantity.map((row) => (
+                          <li key={row.ItemID} className="flex items-center justify-between gap-2">
+                            <Link
+                              to={`/admin/miniatures?itemId=${encodeURIComponent(String(row.ItemID))}`}
+                              className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
+                              title={`View miniatures for ${row.ItemName}`}
+                            >
+                              {row.ItemName}{row.ProductID ? ` (${row.ProductID})` : ''}
+                            </Link>
+                            <span className="font-semibold text-[var(--arcane-ink-900)]">{Number(row.TotalQuantity || 0).toLocaleString()}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-[var(--arcane-ink-soft)]">No miniature data.</p>
+                    )}
+                  </TopListCard>
+                }
+              />
 
-              <div className="space-y-3">
-                <MetricCard label="Miniatures" value={totals.miniatures} loading={dashboardLoading} to="/admin/miniatures" />
-                <TopListCard title="Top 10 Miniature Items by Quantity" loading={dashboardLoading}>
-                  {topMiniatureItemsByQuantity.length ? (
-                    <ul className="space-y-1 text-sm">
-                      {topMiniatureItemsByQuantity.map((row) => (
-                        <li key={row.ItemID} className="flex items-center justify-between gap-2">
-                          <Link
-                            to={`/admin/miniatures?itemId=${encodeURIComponent(String(row.ItemID))}`}
-                            className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
-                            title={`View miniatures for ${row.ItemName}`}
-                          >
-                            {row.ItemName}{row.ProductID ? ` (${row.ProductID})` : ''}
-                          </Link>
-                          <span className="font-semibold text-[var(--arcane-ink-900)]">{Number(row.TotalQuantity || 0).toLocaleString()}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-[var(--arcane-ink-soft)]">No miniature data.</p>
-                  )}
-                </TopListCard>
-              </div>
+              <RepositoryMetricColumn
+                metric={<MetricCard label="Orders" value={totals.orders} loading={dashboardLoading} to="/admin/order-master" />}
+                detail={
+                  <TopListCard title="Top 10 Most Expensive Orders" loading={dashboardLoading}>
+                    {topOrdersByAmount.length ? (
+                      <ul className="space-y-1 text-sm">
+                        {topOrdersByAmount.map((row) => (
+                          <li key={row.PurchaseOrderID} className="flex items-center justify-between gap-2">
+                            <Link
+                              to={`/admin/order-master?invoice=${encodeURIComponent(row.InvoiceNumber)}&store=${encodeURIComponent(row.StoreName)}`}
+                              className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
+                              title={`View order ${row.InvoiceNumber}`}
+                            >
+                              #{row.InvoiceNumber} - {row.StoreName}
+                            </Link>
+                            <span className="font-semibold text-[var(--arcane-ink-900)]">{formatCurrency(Number(row.TotalAmount || 0))}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-[var(--arcane-ink-soft)]">No order data.</p>
+                    )}
+                  </TopListCard>
+                }
+              />
 
-              <div className="space-y-3">
-                <MetricCard label="Terrain" value={totals.terrain} loading={dashboardLoading || categoryTerrainLoading} to="/admin/terrain" />
-                <TopListCard title="Top 10 Terrain Items by Quantity" loading={dashboardLoading || categoryTerrainLoading}>
-                  {topTerrainItemsByQuantity.length ? (
-                    <ul className="space-y-1 text-sm">
-                      {topTerrainItemsByQuantity.map((row) => (
-                        <li key={row.ItemID} className="flex items-center justify-between gap-2">
-                          <Link
-                            to={`/admin/terrain?itemId=${encodeURIComponent(String(row.ItemID))}`}
-                            className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
-                            title={`View terrain for ${row.ItemName}`}
-                          >
-                            {row.ItemName}{row.ProductID ? ` (${row.ProductID})` : ''}
-                          </Link>
-                          <span className="font-semibold text-[var(--arcane-ink-900)]">{Number(row.TotalQuantity || 0).toLocaleString()}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-[var(--arcane-ink-soft)]">No terrain data.</p>
-                  )}
-                </TopListCard>
-              </div>
+              <RepositoryMetricColumn
+                metric={<MetricCard label="Publishers" value={totals.publishers} loading={dashboardLoading} to="/admin/publishers" />}
+                detail={
+                  <TopListCard title="Top 10 Publishers by Item Count" loading={dashboardLoading}>
+                    {topPublishers.length ? (
+                      <ul className="space-y-1 text-sm">
+                        {topPublishers.map((row) => (
+                          <li key={row.PublisherName} className="flex items-center justify-between gap-2">
+                            <Link
+                              to={`/admin/inventory?publisher=${encodeURIComponent(row.PublisherName)}`}
+                              className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
+                              title={`View items for ${row.PublisherName}`}
+                            >
+                              {row.PublisherName}
+                            </Link>
+                            <span className="font-semibold text-[var(--arcane-ink-900)]">{row.ItemCount}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-[var(--arcane-ink-soft)]">No data.</p>
+                    )}
+                  </TopListCard>
+                }
+              />
 
-              <div className="space-y-3">
-                <MetricCard label="Orders" value={totals.orders} loading={dashboardLoading} to="/admin/order-master" />
-                <TopListCard title="Top 10 Most Expensive Orders" loading={dashboardLoading}>
-                  {topOrdersByAmount.length ? (
-                    <ul className="space-y-1 text-sm">
-                      {topOrdersByAmount.map((row) => (
-                        <li key={row.PurchaseOrderID} className="flex items-center justify-between gap-2">
-                          <Link
-                            to={`/admin/order-master?invoice=${encodeURIComponent(row.InvoiceNumber)}&store=${encodeURIComponent(row.StoreName)}`}
-                            className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
-                            title={`View order ${row.InvoiceNumber}`}
-                          >
-                            #{row.InvoiceNumber} - {row.StoreName}
-                          </Link>
-                          <span className="font-semibold text-[var(--arcane-ink-900)]">{formatCurrency(Number(row.TotalAmount || 0))}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-[var(--arcane-ink-soft)]">No order data.</p>
-                  )}
-                </TopListCard>
-              </div>
+              <RepositoryMetricColumn
+                metric={<MetricCard label="Stores" value={totals.stores} loading={dashboardLoading || categoryTerrainLoading} to="/admin/stores" />}
+                detail={
+                  <TopListCard title="Top 10 Stores by Order Count" loading={dashboardLoading || categoryTerrainLoading}>
+                    {topStoresByOrderCount.length ? (
+                      <ul className="space-y-1 text-sm">
+                        {topStoresByOrderCount.map((row) => (
+                          <li key={row.StoreName} className="flex items-center justify-between gap-2">
+                            <Link
+                              to={`/admin/order-master?store=${encodeURIComponent(row.StoreName)}`}
+                              className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
+                              title={`View orders for ${row.StoreName}`}
+                            >
+                              {row.StoreName}
+                            </Link>
+                            <span className="font-semibold text-[var(--arcane-ink-900)]">{row.OrderCount.toLocaleString()}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-[var(--arcane-ink-soft)]">No store order data.</p>
+                    )}
+                  </TopListCard>
+                }
+              />
 
-              <div className="space-y-3">
-                <MetricCard label="Stores" value={totals.stores} loading={dashboardLoading || categoryTerrainLoading} to="/admin/stores" />
-                <TopListCard title="Top 10 Stores by Order Count" loading={dashboardLoading || categoryTerrainLoading}>
-                  {topStoresByOrderCount.length ? (
-                    <ul className="space-y-1 text-sm">
-                      {topStoresByOrderCount.map((row) => (
-                        <li key={row.StoreName} className="flex items-center justify-between gap-2">
-                          <Link
-                            to={`/admin/order-master?store=${encodeURIComponent(row.StoreName)}`}
-                            className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
-                            title={`View orders for ${row.StoreName}`}
-                          >
-                            {row.StoreName}
-                          </Link>
-                          <span className="font-semibold text-[var(--arcane-ink-900)]">{row.OrderCount.toLocaleString()}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-[var(--arcane-ink-soft)]">No store order data.</p>
-                  )}
-                </TopListCard>
-              </div>
+              <RepositoryMetricColumn
+                metric={<MetricCard label="Terrain" value={totals.terrain} loading={dashboardLoading || categoryTerrainLoading} to="/admin/terrain" />}
+                detail={
+                  <TopListCard title="Top 10 Terrain Items by Quantity" loading={dashboardLoading || categoryTerrainLoading}>
+                    {topTerrainItemsByQuantity.length ? (
+                      <ul className="space-y-1 text-sm">
+                        {topTerrainItemsByQuantity.map((row) => (
+                          <li key={row.ItemID} className="flex items-center justify-between gap-2">
+                            <Link
+                              to={`/admin/terrain?itemId=${encodeURIComponent(String(row.ItemID))}`}
+                              className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
+                              title={`View terrain for ${row.ItemName}`}
+                            >
+                              {row.ItemName}{row.ProductID ? ` (${row.ProductID})` : ''}
+                            </Link>
+                            <span className="font-semibold text-[var(--arcane-ink-900)]">{Number(row.TotalQuantity || 0).toLocaleString()}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-[var(--arcane-ink-soft)]">No terrain data.</p>
+                    )}
+                  </TopListCard>
+                }
+              />
             </div>
           ) : coverageView === 'publisher' ? (
             dashboardLoading && !publisherBoxes.length ? (
@@ -1183,181 +1601,31 @@ export default function HomePage() {
             ) : publishersLoading && !publisherBoxes.length ? (
               <p className="text-sm text-[var(--arcane-ink-soft)]">Loading publishers...</p>
             ) : publisherBoxes.length ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {publisherBoxes.map((publisher) => {
-                  const coverageBand = getCoverageBandClasses(publisher.CoveragePercent);
-                  const publisherImageUrl = getPublisherImageUrl(publisher.ImageFileName);
-                  const hasPublisherImage = Boolean(publisherImageUrl);
-                  const titleClass = hasPublisherImage ? 'text-white drop-shadow' : coverageBand.title;
-                  const valueClass = hasPublisherImage ? 'text-white drop-shadow' : coverageBand.value;
-                  const detailClass = hasPublisherImage ? 'text-gray-100 drop-shadow' : coverageBand.detail;
-                  const baseInventoryLink = buildInventoryLink({ publisher: publisher.EntityName });
-                  const uncollectedInventoryLink = buildInventoryLink({ publisher: publisher.EntityName, hasPurchaseOrder: false });
-
-                  return (
-                    <div
-                      key={publisher.EntityID || publisher.EntityName}
-                      className={`relative aspect-video overflow-hidden rounded-xl border p-5 transition ${
-                        hasPublisherImage
-                          ? 'border-[var(--arcane-border-light)] bg-gray-900 bg-cover bg-center hover:border-[#b8864899]'
-                          : coverageBand.card
-                      }`}
-                      style={hasPublisherImage ? { backgroundImage: `url("${publisherImageUrl}")` } : undefined}
-                    >
-                      {hasPublisherImage ? <div className="absolute inset-0 bg-black/55" /> : null}
-                      <Link
-                        to={baseInventoryLink}
-                        className="relative z-10 block h-full pr-36 pb-16 focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)] rounded-md"
-                        title={`Open Item Master for ${publisher.EntityName}`}
-                      >
-                        <p className={`text-3xl font-bold leading-tight truncate ${titleClass}`} title={publisher.EntityName}>
-                          {publisher.EntityName}
-                        </p>
-                        <p className={`mt-2 text-sm ${detailClass}`}>
-                          {publisher.ItemsInPurchaseOrder.toLocaleString()} / {publisher.TotalItems.toLocaleString()} items in orders
-                        </p>
-                      </Link>
-                      <p className={`absolute bottom-3 left-3 z-10 text-3xl font-bold ${valueClass}`}>
-                        {formatPercent(publisher.CoveragePercent)}
-                      </p>
-                      <CollectionStatusLinks
-                        collectedTo={buildInventoryLink({ publisher: publisher.EntityName, hasPurchaseOrder: true })}
-                        uncollectedTo={uncollectedInventoryLink}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
+              <PublisherCoverageCarousel publisherBoxes={publisherBoxes} />
             ) : (
               <p className="text-sm text-[var(--arcane-ink-soft)]">No publishers found.</p>
-              )
+            )
             ) : coverageView === 'collection' ? (
               dashboardLoading && !collectionBoxes.length ? (
             <p className="text-sm text-[var(--arcane-ink-soft)]">Loading collection coverage...</p>
           ) : collectionsLoading && !collectionBoxes.length ? (
             <p className="text-sm text-[var(--arcane-ink-soft)]">Loading collections...</p>
           ) : collectionBoxes.length ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {collectionBoxes.map((collection) => {
-                const coverageBand = getCoverageBandClasses(collection.CoveragePercent);
-                const collectionImageUrl = getCollectionImageUrl(collection.ImageFileName);
-                const hasCollectionImage = Boolean(collectionImageUrl);
-                const titleClass = hasCollectionImage ? 'text-white drop-shadow' : coverageBand.title;
-                const valueClass = hasCollectionImage ? 'text-white drop-shadow' : coverageBand.value;
-                const detailClass = hasCollectionImage ? 'text-gray-100 drop-shadow' : coverageBand.detail;
-                const baseInventoryLink = buildInventoryLink({ collection: String(collection.EntityID || collection.EntityName) });
-                const uncollectedInventoryLink = buildInventoryLink({
-                  collection: String(collection.EntityID || collection.EntityName),
-                  hasPurchaseOrder: false,
-                });
-
-                return (
-                  <div
-                    key={collection.EntityID || collection.EntityName}
-                    className={`relative aspect-video overflow-hidden rounded-xl border p-5 transition ${
-                      hasCollectionImage
-                        ? 'border-[var(--arcane-border-light)] bg-gray-900 bg-cover bg-center hover:border-[#b8864899]'
-                        : coverageBand.card
-                    }`}
-                    style={hasCollectionImage ? { backgroundImage: `url("${collectionImageUrl}")` } : undefined}
-                  >
-                    {hasCollectionImage ? <div className="absolute inset-0 bg-black/55" /> : null}
-                    <Link
-                      to={baseInventoryLink}
-                      className="relative z-10 block pr-36 pb-14 focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)] rounded-md"
-                      title={`Open Item Master for ${collection.EntityName}`}
-                    >
-                      <p className={`text-sm font-medium truncate ${titleClass}`} title={collection.EntityName}>
-                        {collection.EntityName}
-                      </p>
-                      <p className={`mt-2 text-3xl font-bold ${valueClass}`}>{formatPercent(collection.CoveragePercent)}</p>
-                      <p className={`mt-2 text-sm ${detailClass}`}>
-                        {collection.ItemsInPurchaseOrder.toLocaleString()} / {collection.TotalItems.toLocaleString()} items in orders
-                      </p>
-                    </Link>
-                    <CollectionStatusLinks
-                      collectedTo={buildInventoryLink({ collection: String(collection.EntityID || collection.EntityName), hasPurchaseOrder: true })}
-                      uncollectedTo={uncollectedInventoryLink}
-                    />
-                  </div>
-                );
-              })}
-            </div>
+            <CollectionCoverageCarousel collectionBoxes={collectionBoxes} />
           ) : (
             <p className="text-sm text-[var(--arcane-ink-soft)]">No collections found.</p>
           )
           ) : collectionDetailLoading && !collectionDetailCounts ? (
             <p className="text-sm text-[var(--arcane-ink-soft)]">Loading collection detail counts...</p>
-          ) : (
+          ) : collectionDetailCounts?.matrixRows?.length ? (
             <div className="rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] p-4">
               <h4 className="text-sm font-semibold text-[var(--arcane-ink-900)]">Category + Sub Category Detail</h4>
-              {collectionDetailCounts?.matrixRows?.length ? (
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                  {collectionDetailCounts.matrixRows.map((row) => {
-                    const inventoryBaseLink =
-                      `/admin/inventory?category=${encodeURIComponent(row.categoryName)}` +
-                      `&subType=${encodeURIComponent(row.subTypeName)}`;
-                    const uncollectedInventoryLink = `${inventoryBaseLink}&hasPurchaseOrder=false`;
-
-                    return (
-                      <div
-                        key={`${row.categoryName}:${row.subTypeName}`}
-                        className="relative overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50 p-5"
-                      >
-                        <Link
-                          to={inventoryBaseLink}
-                          className="block pr-28 focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)] rounded-md"
-                          title={`Open Item Master for ${row.categoryName} (${row.subTypeName})`}
-                        >
-                          <p
-                            className="text-sm font-medium whitespace-normal break-words leading-snug text-emerald-800"
-                            title={`${row.categoryName} (${row.subTypeName})`}
-                          >
-                            {row.categoryName} ({row.subTypeName})
-                          </p>
-                          <p className="mt-2 text-3xl font-bold text-emerald-900">
-                            {row.itemCount.toLocaleString()}
-                          </p>
-                          <p className="mt-2 text-sm text-emerald-700">
-                            Publisher Count: {row.publishers.length.toLocaleString()}
-                          </p>
-                          <p className="text-sm text-emerald-700">
-                            Collection Count: {row.collections.length.toLocaleString()}
-                          </p>
-                        </Link>
-
-                        <div className="mt-3 border-t border-green-200/70 pt-3 pb-14">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-green-900/90 mb-2">Collections</p>
-                          {row.collections.length ? (
-                            <div className="flex flex-wrap gap-1.5">
-                              {row.collections.map((collectionName: string) => (
-                                <Link
-                                  key={collectionName}
-                                  to={`${inventoryBaseLink}&collection=${encodeURIComponent(collectionName)}`}
-                                  className="inline-flex items-center rounded-md bg-green-800 text-green-50 px-2 py-1 text-xs"
-                                  title={`Add collection filter: ${collectionName}`}
-                                >
-                                  {collectionName}
-                                </Link>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-green-900/80">No collections</p>
-                          )}
-                        </div>
-
-                        <CollectionStatusLinks
-                          collectedTo={`${inventoryBaseLink}&hasPurchaseOrder=true`}
-                          uncollectedTo={uncollectedInventoryLink}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="mt-3 text-sm text-[var(--arcane-ink-soft)]">No matrix rows available.</p>
-              )}
+              <div className="mt-3">
+                <DetailCoverageCarousel detailRows={collectionDetailCounts.matrixRows} />
               </div>
+            </div>
+          ) : (
+            <p className="text-sm text-[var(--arcane-ink-soft)]">No matrix rows available.</p>
           )}
             </div>
         </section>

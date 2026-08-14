@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, CircleHelp, Link2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
@@ -141,7 +141,26 @@ export default function InventoryLookupPage() {
   const [selectedEditImageFile, setSelectedEditImageFile] = useState<File | null>(null);
   const [selectedEditImageUrl, setSelectedEditImageUrl] = useState('');
   const [editCropSourceFile, setEditCropSourceFile] = useState<File | null>(null);
-  const editModalRef = useModalFocusTrap<HTMLDivElement>(Boolean(editingItem), () => closeEditModal());
+  const closeEditModal = useCallback(() => {
+    setPendingEditNavigation(null);
+    setEditingItem(null);
+    setSelectedEditImageFile(null);
+    setEditCropSourceFile(null);
+    setEditValues({
+      ItemName: '',
+      ItemVersion: '',
+      ProductID: '',
+      ReleaseDate: '',
+      IsPhysical: false,
+      IsDigital: false,
+      PublisherID: '',
+      CollectionID: '',
+      CategoryID: '',
+      SubTypeID: '',
+    });
+    setEditError('');
+  }, []);
+  const editModalRef = useModalFocusTrap<HTMLDivElement>(Boolean(editingItem), closeEditModal);
   const [pendingEditNavigation, setPendingEditNavigation] = useState<
     { direction: 'previous' | 'next'; targetPage: number } | null
   >(null);
@@ -1823,26 +1842,6 @@ export default function InventoryLookupPage() {
     setSelectedItemForRelatedOrders(null);
   };
 
-  const closeEditModal = () => {
-    setPendingEditNavigation(null);
-    setEditingItem(null);
-    setSelectedEditImageFile(null);
-    setEditCropSourceFile(null);
-    setEditValues({
-      ItemName: '',
-      ItemVersion: '',
-      ProductID: '',
-      ReleaseDate: '',
-      IsPhysical: false,
-      IsDigital: false,
-      PublisherID: '',
-      CollectionID: '',
-      CategoryID: '',
-      SubTypeID: '',
-    });
-    setEditError('');
-  };
-
   const requestCloseEditModal = () => {
     if (isEditDirty) {
       const confirmed = window.confirm('Changes have not been applied. Close without saving?');
@@ -2142,7 +2141,7 @@ export default function InventoryLookupPage() {
         <section className="bg-[var(--arcane-paper-raised)] shadow rounded-lg p-6">
           <div className="space-y-4">
             {selectedItemIds.length > 0 ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#b886484d] bg-[#b886481a] px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--arcane-gold-500-border)] bg-[var(--arcane-gold-soft)] px-4 py-3">
                 <div className="flex items-center gap-3 text-sm">
                   <span className="font-semibold text-[var(--arcane-gold-700)]">{selectedItemIds.length} selected</span>
                   <button
@@ -2494,7 +2493,7 @@ export default function InventoryLookupPage() {
                   type="button"
                   onClick={() => setViewingImageItem(currentPageItemsWithImages[currentImageItemIndex - 1])}
                   disabled={currentImageItemIndex <= 0}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--arcane-border-light)] text-[var(--arcane-ink-900)] hover:bg-[#e2d5bd66] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--arcane-border-light)] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-gold-soft-strong)] disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label="Previous item with image"
                   title="Previous item with image"
                 >
@@ -2504,7 +2503,7 @@ export default function InventoryLookupPage() {
                   type="button"
                   onClick={() => setViewingImageItem(currentPageItemsWithImages[currentImageItemIndex + 1])}
                   disabled={currentImageItemIndex < 0 || currentImageItemIndex >= currentPageItemsWithImages.length - 1}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--arcane-border-light)] text-[var(--arcane-ink-900)] hover:bg-[#e2d5bd66] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--arcane-border-light)] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-gold-soft-strong)] disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label="Next item with image"
                   title="Next item with image"
                 >
@@ -2513,12 +2512,14 @@ export default function InventoryLookupPage() {
               </div>
             </div>
 
-            <div className="flex min-h-[420px] items-center justify-center overflow-hidden rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-4 md:min-h-[600px]">
-              <img
-                src={getItemImageUrl(viewingImageItem.ImageFileName)}
-                alt={viewingImageItem.ItemName}
-                className="max-h-[65vh] max-w-full object-contain"
-              />
+            <div className="flex items-center justify-center overflow-hidden rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-4">
+              <div className="relative aspect-[4/3] w-full max-w-[980px] overflow-hidden rounded-md bg-[var(--arcane-paper-raised)]">
+                <img
+                  src={getItemImageUrl(viewingImageItem.ImageFileName)}
+                  alt={viewingImageItem.ItemName}
+                  className="h-full w-full object-cover object-center"
+                />
+              </div>
             </div>
 
             <div className="mt-3 space-y-1 text-sm text-[var(--arcane-ink-soft)]">
@@ -2622,7 +2623,7 @@ export default function InventoryLookupPage() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Inventory Items</h3>
-              <Button className="bg-green-600 hover:bg-green-700" onClick={handleCreateOrderAddDetailRow}>
+              <Button className="bg-[var(--arcane-success)] hover:bg-[var(--arcane-success-hover)] text-white" onClick={handleCreateOrderAddDetailRow}>
                 Add Item
               </Button>
             </div>
@@ -2714,7 +2715,7 @@ export default function InventoryLookupPage() {
               Cancel
             </Button>
             <Button
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-[var(--arcane-success)] hover:bg-[var(--arcane-success-hover)] text-white"
               onClick={handleCreateOrderSubmit}
               disabled={createOrderMutation.isLoading || (isOnOrderStatusMissing && !createOrderValues.StatusID)}
             >
@@ -2735,7 +2736,7 @@ export default function InventoryLookupPage() {
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
-                  className="h-9 !bg-[#e2d5bd99] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
+                  className="h-9 !bg-[var(--arcane-border-light)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
                   onClick={() => handleNavigateEditItem('previous')}
                   disabled={!canNavigateToPreviousEditItem || editMutation.isLoading || deleteMutation.isLoading}
                   aria-label="Previous item"
@@ -2745,7 +2746,7 @@ export default function InventoryLookupPage() {
                 </Button>
                 <Button
                   type="button"
-                  className="h-9 !bg-[#e2d5bd99] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
+                  className="h-9 !bg-[var(--arcane-border-light)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
                   onClick={() => handleNavigateEditItem('next')}
                   disabled={!canNavigateToNextEditItem || editMutation.isLoading || deleteMutation.isLoading}
                   aria-label="Next item"
@@ -3082,7 +3083,7 @@ export default function InventoryLookupPage() {
               >
                 Cancel
               </Button>
-              <Button type="submit" className="bg-green-600 hover:bg-green-700" disabled={addMutation.isLoading}>
+              <Button type="submit" className="bg-[var(--arcane-success)] hover:bg-[var(--arcane-success-hover)] text-white" disabled={addMutation.isLoading}>
                 {addMutation.isLoading ? 'Saving...' : 'Add Item'}
               </Button>
             </div>
@@ -3199,7 +3200,7 @@ export default function InventoryLookupPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
                   <Button
                     type="button"
-                    className="bg-[#e2d5bd99] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]"
+                    className="bg-[var(--arcane-border-light)] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]"
                     onClick={closeBulkUpdateDialog}
                     disabled={bulkUpdateMutation.isLoading}
                   >
@@ -3258,7 +3259,7 @@ export default function InventoryLookupPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
                   <Button
                     type="button"
-                    className="bg-[#e2d5bd99] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]"
+                    className="bg-[var(--arcane-border-light)] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]"
                     onClick={() => setBulkStep('edit')}
                     disabled={bulkUpdateMutation.isLoading}
                   >
