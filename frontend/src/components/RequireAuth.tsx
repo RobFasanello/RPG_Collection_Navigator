@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
+import { Navigate } from 'react-router';
 import { useAppMode } from '../context/AppModeContext';
-import LoginPage from '../pages/LoginPage';
 import { Skeleton } from './ui/Skeleton';
 
 export default function RequireAuth({ children }: { children: ReactNode }) {
@@ -16,7 +16,7 @@ export default function RequireAuth({ children }: { children: ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    return <LoginPage />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

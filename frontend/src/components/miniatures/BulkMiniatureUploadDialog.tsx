@@ -457,7 +457,7 @@ export default function BulkMiniatureUploadDialog({
       <div className="space-y-5">
         <div
           className={`rounded-lg border-2 border-dashed p-6 text-center transition ${
-            isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'
+            isDragging ? 'border-[var(--arcane-gold-500)] bg-[#b886481a]' : 'border-[var(--arcane-border-light)] bg-[var(--arcane-paper)]'
           }`}
           onDragOver={(event) => {
             event.preventDefault();
@@ -469,10 +469,10 @@ export default function BulkMiniatureUploadDialog({
           }}
           onDrop={handleDrop}
         >
-          <p className="text-sm text-gray-700">Drag and drop an Excel file here</p>
-          <p className="text-xs text-gray-500 mt-1">Accepted format: .xlsx</p>
+          <p className="text-sm text-[var(--arcane-ink-900)]">Drag and drop an Excel file here</p>
+          <p className="text-xs text-[var(--arcane-ink-soft)] mt-1">Accepted format: .xlsx</p>
           <div className="mt-3">
-            <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleSelectFile}>
+            <Button type="button" className="bg-[var(--arcane-gold-500)] hover:bg-[var(--arcane-gold-300)]" onClick={handleSelectFile}>
               Select File
             </Button>
             <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleFileInputChange} />
@@ -482,7 +482,7 @@ export default function BulkMiniatureUploadDialog({
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
           Required columns: Item, Miniature Name, Miniature Size, Miniature Rarity, and Quantity. Item, Miniature Size, and Miniature Rarity must match existing values. Location is optional, but when provided it must match an existing Location.
           <div className="mt-2">
-            <a href={BULK_UPLOAD_MINIATURE_TEMPLATE_URL} download target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 underline hover:text-blue-800">
+            <a href={BULK_UPLOAD_MINIATURE_TEMPLATE_URL} download target="_blank" rel="noopener noreferrer" className="font-medium text-[var(--arcane-gold-700)] underline hover:text-[var(--arcane-gold-600)]">
               Download Bulk Upload Miniatures Template
             </a>
           </div>
@@ -490,7 +490,7 @@ export default function BulkMiniatureUploadDialog({
 
         {parseError ? <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{parseError}</div> : null}
 
-        <div className="flex flex-wrap items-center gap-4 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-700">
+        <div className="flex flex-wrap items-center gap-4 rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] p-3 text-sm text-[var(--arcane-ink-900)]">
           <span>Total rows: {rows.length}</span>
           <span>Ready: {readyRows.length}</span>
           <span>Invalid: {invalidRows.length}</span>
@@ -498,7 +498,7 @@ export default function BulkMiniatureUploadDialog({
           <span>Removed: {removedCount}</span>
         </div>
 
-        <div className="max-h-[50vh] overflow-auto rounded-lg border border-gray-200">
+        <div className="max-h-[50vh] overflow-auto rounded-lg border border-[var(--arcane-border-light)]">
           <Table className="min-w-[1200px]">
             <TableHeader>
               <TableRow>
@@ -516,7 +516,7 @@ export default function BulkMiniatureUploadDialog({
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-gray-500">
+                  <TableCell colSpan={9} className="py-10 text-center text-[var(--arcane-ink-soft)]">
                     Upload a file to preview and validate rows.
                   </TableCell>
                 </TableRow>
@@ -599,13 +599,13 @@ export default function BulkMiniatureUploadDialog({
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleAddBlankRow} disabled={bulkAddMutation.isLoading}>
+            <Button type="button" className="bg-[var(--arcane-gold-500)] hover:bg-[var(--arcane-gold-300)]" onClick={handleAddBlankRow} disabled={bulkAddMutation.isLoading}>
               Add New Row
             </Button>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={() => onOpenChange(false)} disabled={bulkAddMutation.isLoading}>
+            <Button type="button" className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white" onClick={() => onOpenChange(false)} disabled={bulkAddMutation.isLoading}>
               Close
             </Button>
             <Button type="button" className="bg-green-600 hover:bg-green-700" onClick={handleAddMiniatures} disabled={bulkAddMutation.isLoading || readyRows.length === 0}>

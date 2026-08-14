@@ -1,166 +1,313 @@
-import { Link } from 'react-router';
-import { BookOpen, Dice5, Mountain, Receipt, Package, ClipboardList, Users, ArrowRight } from 'lucide-react';
+import { Link, Navigate, useSearchParams } from 'react-router';
+import { useAppMode } from '../context/AppModeContext';
 
-const FEATURES = [
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  access_denied: "Your account isn't set up yet. Ask an administrator to add you.",
+  login_failed: 'Sign-in failed. Please try again.',
+};
+
+const FEATURE_BLOCKS = [
   {
-    icon: Package,
-    title: 'Catalog Everything',
-    description:
-      'Items, miniatures, terrain, and expansions — organized by publisher, collection, and category, with full-text search across your entire library.',
+    title: 'Capture every title',
+    description: 'Store books, boxes, and expansions with rich metadata that stays easy to filter later.',
+    image: '/marketing/item-master.png',
+    imageAlt: 'The Item Master screen listing Starfinder rulebooks with publisher, collection, category, and product ID columns',
+    span: 'lg:col-span-7',
   },
   {
-    icon: ClipboardList,
-    title: 'Track Every Order',
-    description:
-      'Link purchases to the items they contain, keep tabs on stores and spend, and always know what’s still on order.',
+    title: 'Follow each order',
+    description: 'Track store, invoice, and line items from checkout through arrival, with no spreadsheet cleanup.',
+    image: '/marketing/order-master.png',
+    imageAlt: 'The Order Master screen listing purchase orders with store, status, item count, and total amount',
+    span: 'lg:col-span-5',
   },
   {
-    icon: Users,
-    title: 'Built for Your Table',
-    description:
-      'Invite your group with Google sign-in and give each person the right level of access — browse, edit, or administer.',
+    title: 'Share with your group',
+    description: 'Grant read, update, or admin permissions so everyone can use the same trusted catalog.',
+    image: '/marketing/users-setup.png',
+    imageAlt: 'The Users setup screen granting an update-level access mode to a new email address',
+    span: 'lg:col-span-4',
+  },
+  {
+    title: 'Search on demand',
+    description: 'Global search surfaces records fast, even when your collection crosses thousands of entries.',
+    image: '/marketing/global-search.png',
+    imageAlt: 'The global search results panel showing 23 matches for "dragon" across inventory items',
+    span: 'lg:col-span-8',
   },
 ];
 
-const SHOWCASE = [
-  { icon: BookOpen, label: 'Items', description: 'Rulebooks, expansions & digital editions' },
-  { icon: Dice5, label: 'Miniatures', description: 'Painted, primed, and everything in between' },
-  { icon: Mountain, label: 'Terrain', description: 'Every set piece, mapped and counted' },
-  { icon: Receipt, label: 'Orders', description: 'Purchase history across every store' },
+const WORKFLOW_ITEMS = [
+  {
+    title: 'Add Records',
+    description: 'Create entries for items, miniatures, and terrain with consistent fields from day one.',
+  },
+  {
+    title: 'Link Purchases',
+    description: 'Connect order details to collection rows to see what arrived and what is still pending.',
+  },
+  {
+    title: 'Review Coverage',
+    description: 'Use dashboard totals and breakdowns to spot missing runs, duplicate buys, and gaps.',
+  },
 ];
 
 export default function MarketingPage() {
+  const { isLoading, isAuthenticated, name, logout } = useAppMode();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const authError = searchParams.get('authError');
+  const authErrorMessage = authError ? AUTH_ERROR_MESSAGES[authError] ?? 'Sign-in failed. Please try again.' : null;
+
+  const clearAuthError = () => {
+    if (authError) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('authError');
+      setSearchParams(next, { replace: true });
+    }
+  };
+
+  if (!isLoading && isAuthenticated) {
+    return <Navigate to="/home" replace />;
+  }
+
   return (
-    <div className="min-h-screen bg-ink-950 text-neutral-200">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-ink-950/90 backdrop-blur">
+    <div className="theme-dark min-h-[100dvh] bg-[var(--arcane-ink-950)] text-[var(--arcane-ivory)]">
+      <header className="sticky top-0 z-40 border-b border-[#3d2e1fcc] bg-[#120f13e6] backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <img src="/favicon.png" alt="" className="h-9 w-9 rounded-sm object-contain" />
-            <span className="font-display text-lg font-bold tracking-wide text-neutral-100">
+            <img src="/favicon.png" alt="Arcane Repository mark" className="h-9 w-9 rounded-md object-contain ring-1 ring-[#9c6a3299]" />
+            <span className="text-lg font-semibold tracking-[0.02em] text-[var(--arcane-ivory)]">
               Arcane Repository
             </span>
           </div>
-          <nav className="flex items-center gap-6 text-sm font-bold uppercase tracking-wide">
-            <a href="#features" className="text-gold-300 transition hover:text-gold-500">
+
+          <nav className="hidden items-center gap-6 text-sm font-medium text-[var(--arcane-sand)] lg:flex">
+            <a href="#features" className="transition hover:text-[var(--arcane-ivory)]">
               Features
             </a>
+            <a href="#workflow" className="transition hover:text-[var(--arcane-ivory)]">
+              Workflow
+            </a>
+            {!isLoading && isAuthenticated ? (
+              <div className="flex items-center gap-3">
+                <Link
+                  to="/home"
+                  className="transition hover:text-[var(--arcane-ivory)]"
+                >
+                  Open App
+                </Link>
+                <span className="text-sm font-normal text-[#b9ae9d]/80">
+                  Signed in as <span className="font-semibold text-[var(--arcane-ivory)]">{name}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => logout()}
+                  className="rounded-xl border border-[var(--arcane-line)] bg-[var(--arcane-ink-800)] px-4 py-2 text-sm font-semibold text-[var(--arcane-ivory)] transition hover:border-[var(--arcane-gold-500)] hover:text-[var(--arcane-gold-300)]"
+                >
+                  Log Out
+                </button>
+              </div>
+            ) : (
+              <a
+                href="/api/auth/login"
+                className="rounded-xl border border-[var(--arcane-gold-500)] bg-[#b886481a] px-4 py-2 text-sm font-semibold text-[var(--arcane-ivory)] transition hover:bg-[var(--arcane-gold-500)] hover:text-[var(--arcane-ink-950)]"
+              >
+                Sign In
+              </a>
+            )}
+          </nav>
+
+          {!isLoading && isAuthenticated ? (
             <Link
               to="/home"
-              className="border border-gold-500 bg-transparent px-4 py-2 text-gold-300 transition hover:bg-gold-500 hover:text-ink-950"
+              className="rounded-xl border border-[var(--arcane-gold-500)] bg-[var(--arcane-gold-500)] px-4 py-2 text-sm font-semibold text-[var(--arcane-ink-950)] transition hover:bg-[var(--arcane-gold-300)] lg:hidden"
             >
-              Sign In
+              Open App
             </Link>
-          </nav>
+          ) : null}
         </div>
       </header>
 
       <main>
-        <section className="relative overflow-hidden border-b border-white/10">
+        {authErrorMessage ? (
+          <section className="border-b border-red-900/60 bg-red-950/50">
+            <div className="mx-auto flex w-full max-w-[1400px] items-start justify-between gap-4 px-6 py-4 text-sm text-red-200">
+              <span>{authErrorMessage}</span>
+              <button
+                type="button"
+                onClick={clearAuthError}
+                className="shrink-0 rounded border border-red-800/80 px-2 py-1 text-red-100 transition hover:border-red-500 hover:text-white"
+              >
+                Dismiss
+              </button>
+            </div>
+          </section>
+        ) : null}
+
+        <section className="relative overflow-hidden border-b border-[#3d2e1fcc] bg-[var(--arcane-ink-900)]">
           <div
             className="pointer-events-none absolute inset-0"
             style={{
               background:
-                'radial-gradient(circle at 20% 20%, rgba(159,127,89,0.18), transparent 45%), radial-gradient(circle at 80% 0%, rgba(159,127,89,0.12), transparent 40%)',
+                'radial-gradient(circle at 18% 18%, rgba(184,134,72,0.2), transparent 40%), radial-gradient(circle at 82% 8%, rgba(184,134,72,0.12), transparent 34%)',
             }}
             aria-hidden="true"
           />
-          <div className="relative mx-auto flex w-full max-w-[1400px] flex-col items-start gap-6 px-6 py-24 sm:py-32">
-            <span className="font-bold uppercase tracking-[0.3em] text-gold-500">
-              Your Collection, Cataloged
-            </span>
-            <h1 className="font-display max-w-3xl text-4xl font-black uppercase leading-tight text-neutral-50 sm:text-5xl lg:text-6xl">
-              Catalog Your Arcana.
-              <br />
-              Master Your Library.
-            </h1>
-            <p className="max-w-xl text-lg text-neutral-400">
-              Track every rulebook, miniature, and terrain piece across your collection —
-              organized, searchable, and ready for your next session.
-            </p>
-            <div className="flex flex-wrap items-center gap-4 pt-4">
-              <Link
-                to="/home"
-                className="inline-flex items-center gap-2 border border-gold-500 bg-gold-500 px-6 py-4 text-sm font-bold uppercase tracking-wide text-ink-950 transition hover:bg-gold-600"
-              >
-                Enter the Repository
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+          <div className="relative mx-auto grid w-full max-w-[1400px] gap-10 px-6 py-16 lg:grid-cols-12 lg:items-center lg:py-20">
+            <div className="lg:col-span-6">
+              <h1 className="max-w-xl text-4xl font-semibold leading-[1.02] text-[var(--arcane-ivory-bright)] sm:text-5xl lg:text-6xl">
+                One place for
+                <br />
+                every piece you play.
+              </h1>
+              <p className="mt-5 max-w-xl text-lg leading-relaxed text-[var(--arcane-sand)]">
+                Track books, miniatures, terrain, and orders in one searchable hub for every campaign you run.
+              </p>
+              <div className="mt-8 flex flex-wrap items-center gap-4">
+                {!isLoading && isAuthenticated ? (
+                  <Link
+                    to="/home"
+                    className="inline-flex items-center justify-center rounded-xl border border-[var(--arcane-gold-500)] bg-[var(--arcane-gold-500)] px-6 py-3.5 text-sm font-semibold text-[var(--arcane-ink-950)] transition hover:bg-[var(--arcane-gold-300)]"
+                  >
+                    Open App
+                  </Link>
+                ) : (
+                  <a
+                    href="/api/auth/login"
+                    className="inline-flex items-center justify-center rounded-xl border border-[var(--arcane-gold-500)] bg-[var(--arcane-gold-500)] px-6 py-3.5 text-sm font-semibold text-[var(--arcane-ink-950)] transition hover:bg-[var(--arcane-gold-300)]"
+                  >
+                    Sign In
+                  </a>
+                )}
+                <a
+                  href="#features"
+                  className="inline-flex items-center justify-center rounded-xl border border-[var(--arcane-line)] bg-[var(--arcane-ink-800)] px-6 py-3.5 text-sm font-semibold text-[var(--arcane-ivory)] transition hover:border-[var(--arcane-gold-500)] hover:text-[var(--arcane-gold-300)]"
+                >
+                  Explore Features
+                </a>
+              </div>
+            </div>
+
+            <div className="lg:col-span-6">
+              <figure className="overflow-hidden rounded-2xl border border-[#4c3926] bg-[var(--arcane-ink-950)]">
+                <img
+                  src="/marketing/dashboard.png"
+                  alt="The Coverage Metrics dashboard showing publisher, collection, and category totals across the repository"
+                  className="h-[300px] w-full object-cover object-top sm:h-[360px] lg:h-[460px]"
+                  loading="eager"
+                />
+              </figure>
+            </div>
+          </div>
+        </section>
+
+        <section className="border-b border-[var(--arcane-ink-700)] bg-[var(--arcane-ink-950)] h-3" aria-hidden="true" />
+
+        <section id="features" className="border-b border-[var(--arcane-ink-700)] bg-[var(--arcane-ink-800)]">
+          <div className="mx-auto w-full max-w-[1400px] px-6 py-20">
+            <h2 className="max-w-2xl text-3xl font-semibold text-[var(--arcane-ivory-bright)] sm:text-4xl">
+              Collection management that stays clear as your catalog grows.
+            </h2>
+            <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-12">
+              {FEATURE_BLOCKS.map((feature) => (
+                <article
+                  key={feature.title}
+                  className={`${feature.span} overflow-hidden rounded-2xl border border-[var(--arcane-line)] bg-[var(--arcane-ink-950)]`}
+                >
+                  <img
+                    src={feature.image}
+                    alt={feature.imageAlt}
+                    className="h-48 w-full object-cover object-top sm:h-56"
+                    loading="lazy"
+                  />
+                  <div className="p-6">
+                    <h3 className="text-xl font-semibold text-[var(--arcane-ivory-bright)]">{feature.title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-[var(--arcane-sand)]">{feature.description}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="workflow" className="border-b border-[var(--arcane-ink-700)] bg-[var(--arcane-ink-900)]">
+          <div className="mx-auto w-full max-w-[1400px] px-6 py-20">
+            <div className="grid gap-10 lg:grid-cols-12 lg:items-start">
+              <div className="lg:col-span-5">
+                <h2 className="text-3xl font-semibold text-[var(--arcane-ivory-bright)] sm:text-4xl">
+                  A workflow built for campaign prep.
+                </h2>
+                <p className="mt-3 max-w-md text-base leading-relaxed text-[var(--arcane-sand)]">
+                  Start with fast entry, add purchases as they happen, then review totals before each game night.
+                </p>
+                <figure className="mt-6 overflow-hidden rounded-2xl border border-[var(--arcane-line)]">
+                  <img
+                    src="/marketing/miniatures.png"
+                    alt="The Miniature Master screen listing painted miniature records with size, rarity, quantity, and location"
+                    className="h-60 w-full object-cover object-top"
+                    loading="lazy"
+                  />
+                </figure>
+              </div>
+
+              <div className="lg:col-span-7">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {WORKFLOW_ITEMS.map((item) => (
+                    <article key={item.title} className="rounded-2xl border border-[var(--arcane-line)] bg-[var(--arcane-ink-800)] p-6">
+                      <h3 className="text-lg font-semibold text-[var(--arcane-ivory-bright)]">{item.title}</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-[var(--arcane-sand)]">{item.description}</p>
+                    </article>
+                  ))}
+                  <article className="rounded-2xl border border-[var(--arcane-gold-600)] bg-[#b8864817] p-6 sm:col-span-2">
+                    <h3 className="text-lg font-semibold text-[var(--arcane-ivory-bright)]">Keep every list in sync</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-[var(--arcane-sand)]">
+                      With one source of truth, your table stops losing track of what is owned, painted, or still on order.
+                    </p>
+                  </article>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-[var(--arcane-ink-800)]">
+          <div className="mx-auto grid w-full max-w-[1400px] gap-8 px-6 py-16 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div>
+              <h2 className="text-2xl font-semibold text-[var(--arcane-ivory-bright)] sm:text-3xl">
+                Ready to catalog your next haul?
+              </h2>
+              <p className="mt-2 max-w-xl text-[var(--arcane-sand)]">
+                Sign in with Google and start organizing your library in minutes.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {!isLoading && isAuthenticated ? (
+                <Link
+                  to="/home"
+                  className="inline-flex items-center justify-center rounded-xl border border-[var(--arcane-gold-500)] bg-[var(--arcane-gold-500)] px-6 py-3.5 text-sm font-semibold text-[var(--arcane-ink-950)] transition hover:bg-[var(--arcane-gold-300)]"
+                >
+                  Open App
+                </Link>
+              ) : null}
               <a
-                href="#features"
-                className="border border-white/20 bg-ink-900 px-6 py-4 text-sm font-bold uppercase tracking-wide text-neutral-200 transition hover:border-gold-500 hover:text-gold-300"
+                href="/api/auth/login"
+                className="inline-flex items-center justify-center rounded-xl border border-[var(--arcane-line)] bg-[var(--arcane-ink-900)] px-6 py-3.5 text-sm font-semibold text-[var(--arcane-ivory)] transition hover:border-[var(--arcane-gold-500)] hover:text-[var(--arcane-gold-300)]"
               >
-                See What&rsquo;s Inside
+                Sign In
               </a>
             </div>
           </div>
         </section>
-
-        <section id="features" className="border-b border-white/10 bg-ink-900">
-          <div className="mx-auto w-full max-w-[1400px] px-6 py-20">
-            <h2 className="font-display max-w-2xl text-3xl font-bold uppercase text-neutral-50 sm:text-4xl">
-              Push Your Collection, Without the Spreadsheet
-            </h2>
-            <div className="mt-12 grid gap-8 md:grid-cols-3">
-              {FEATURES.map(({ icon: Icon, title, description }) => (
-                <div key={title} className="border border-white/10 bg-ink-950 p-8">
-                  <Icon className="h-8 w-8 text-gold-500" />
-                  <h3 className="font-display mt-5 text-xl font-bold text-neutral-50">{title}</h3>
-                  <p className="mt-3 text-sm leading-relaxed text-neutral-400">{description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="border-b border-white/10">
-          <div className="mx-auto w-full max-w-[1400px] px-6 py-20">
-            <h2 className="font-display text-3xl font-bold uppercase text-neutral-50 sm:text-4xl">
-              Everything, In One Place
-            </h2>
-            <p className="mt-3 max-w-2xl text-neutral-400">
-              From core rulebooks to the terrain on your table — every part of your collection
-              lives in one searchable repository.
-            </p>
-            <div className="mt-12 grid gap-px overflow-hidden border border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-4">
-              {SHOWCASE.map(({ icon: Icon, label, description }) => (
-                <div key={label} className="bg-ink-950 p-8 transition hover:bg-ink-900">
-                  <Icon className="h-7 w-7 text-gold-300" />
-                  <h3 className="font-display mt-4 text-lg font-bold text-neutral-50">{label}</h3>
-                  <p className="mt-2 text-sm text-neutral-400">{description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="bg-ink-900">
-          <div className="mx-auto flex w-full max-w-[1400px] flex-col items-start gap-6 px-6 py-20 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="font-display text-2xl font-bold uppercase text-neutral-50 sm:text-3xl">
-                Ready to Open the Vault?
-              </h2>
-              <p className="mt-2 max-w-lg text-neutral-400">
-                Sign in with Google to view or manage your collection.
-              </p>
-            </div>
-            <Link
-              to="/home"
-              className="inline-flex shrink-0 items-center gap-2 border border-gold-500 bg-gold-500 px-6 py-4 text-sm font-bold uppercase tracking-wide text-ink-950 transition hover:bg-gold-600"
-            >
-              Enter the Repository
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </section>
       </main>
 
-      <footer className="border-t border-white/10 bg-ink-950">
-        <div className="mx-auto flex w-full max-w-[1400px] flex-col items-center gap-4 px-6 py-10 text-sm text-neutral-500 sm:flex-row sm:justify-between">
+      <footer className="border-t border-[var(--arcane-ink-700)] bg-[var(--arcane-ink-950)]">
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col items-center gap-4 px-6 py-10 text-sm text-[var(--arcane-sand)] sm:flex-row sm:justify-between">
           <div className="flex items-center gap-2">
-            <img src="/favicon.png" alt="" className="h-6 w-6 rounded-sm object-contain opacity-80" />
-            <span className="font-display font-bold text-neutral-300">Arcane Repository</span>
+            <img src="/favicon.png" alt="Arcane Repository mark" className="h-6 w-6 rounded-sm object-contain opacity-80" />
+            <span className="font-semibold text-[var(--arcane-ivory)]">Arcane Repository</span>
           </div>
-          <span>A grimoire of your own making.</span>
+          <span>Catalog your tabletop world with clarity.</span>
         </div>
       </footer>
     </div>

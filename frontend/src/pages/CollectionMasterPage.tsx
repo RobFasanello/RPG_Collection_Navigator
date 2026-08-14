@@ -58,7 +58,7 @@ function SidebarListSkeleton() {
   return (
     <div className="space-y-2 p-2" aria-label="Loading collections list">
       {Array.from({ length: 6 }).map((_, index) => (
-        <div key={index} className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+        <div key={index} className="rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-4 py-3">
           <Skeleton className="h-4 w-2/3" />
           <Skeleton className="mt-2 h-3 w-1/2" />
           <div className="mt-2 flex justify-end">
@@ -565,13 +565,13 @@ export default function CollectionMasterPage() {
   return (
     <AdminLayout title="Collections" subtitle="Manage collections and their linked RPG systems in one place.">
       <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="space-y-4 border-b border-slate-200 p-4">
+        <aside className="rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] shadow-sm">
+          <div className="space-y-4 border-b border-[var(--arcane-border-light)] p-4">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">Collections</h2>
-              <p className="text-sm text-slate-500">Select a collection to edit details and linked RPG systems.</p>
+              <h2 className="text-lg font-semibold text-[var(--arcane-ink-900)]">Collections</h2>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Select a collection to edit details and linked RPG systems.</p>
             </div>
-            <Button onClick={handleAddCollection} className="w-full bg-green-600 hover:bg-green-700">
+            <Button onClick={handleAddCollection} className="w-full">
               Add Collection
             </Button>
             <Input
@@ -590,7 +590,7 @@ export default function CollectionMasterPage() {
             ) : collectionsError ? (
               <div className="p-4 text-sm text-red-600">Error loading collections.</div>
             ) : filteredCollections.length === 0 ? (
-              <div className="p-4 text-sm text-slate-500">No collections found.</div>
+              <div className="p-4 text-sm text-[var(--arcane-ink-soft)]">No collections found.</div>
             ) : (
               <div className="space-y-1">
                 {filteredCollections.map((collection) => {
@@ -605,16 +605,16 @@ export default function CollectionMasterPage() {
                       onClick={() => handleSelectCollection(Number(collection.CollectionID))}
                       className={`w-full rounded-lg border px-4 py-3 text-left transition ${
                         isSelected
-                          ? 'border-sky-200 bg-sky-50 shadow-sm'
-                          : 'border-transparent bg-white hover:border-slate-200 hover:bg-slate-50'
+                          ? 'border-[#b8864866] bg-[#b886481a] shadow-sm'
+                          : 'border-transparent bg-[var(--arcane-paper-raised)] hover:border-[var(--arcane-border-light)] hover:bg-[var(--arcane-paper)]'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold text-slate-900">{collection.CollectionName}</div>
-                          <div className="truncate text-xs text-slate-500">{collectionTypeNameById[Number(collection.CollectionTypeID)] ?? collection.CollectionTypeName ?? 'Unknown type'}</div>
+                          <div className="truncate text-sm font-semibold text-[var(--arcane-ink-900)]">{collection.CollectionName}</div>
+                          <div className="truncate text-xs text-[var(--arcane-ink-soft)]">{collectionTypeNameById[Number(collection.CollectionTypeID)] ?? collection.CollectionTypeName ?? 'Unknown type'}</div>
                         </div>
-                        <div className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-slate-500">
+                        <div className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-[var(--arcane-ink-soft)]">
                           <span>{rpgCount} RPG systems</span>
                           <span>{itemCount} items</span>
                         </div>
@@ -627,14 +627,14 @@ export default function CollectionMasterPage() {
           </div>
         </aside>
 
-        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 px-5 py-4">
+        <section className="rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] shadow-sm">
+          <div className="border-b border-[var(--arcane-border-light)] px-5 py-4">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">
+                <h2 className="text-2xl font-bold text-[var(--arcane-ink-900)]">
                   {mode === 'new' ? 'Add Collection' : selectedCollection?.CollectionName || 'Select a collection'}
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-[var(--arcane-ink-soft)]">
                   {mode === 'new'
                     ? 'Create a collection, then link RPG systems from the second tab.'
                     : 'Edit collection details or manage linked RPG systems from the tabs below.'}
@@ -646,8 +646,8 @@ export default function CollectionMasterPage() {
                   <Button
                     type="button"
                     className={activeTab === 'details'
-                      ? 'border border-sky-600 !bg-sky-600 !text-white hover:!bg-sky-700'
-                      : 'border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50'}
+                      ? 'border border-[var(--arcane-gold-500)] !bg-[var(--arcane-gold-500)] !text-[var(--arcane-ink-950)] hover:!bg-[var(--arcane-gold-300)]'
+                      : 'border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]'}
                     onClick={() => setActiveTab('details')}
                   >
                     Details
@@ -655,8 +655,8 @@ export default function CollectionMasterPage() {
                   <Button
                     type="button"
                     className={activeTab === 'rpg-systems'
-                      ? 'border border-sky-600 !bg-sky-600 !text-white hover:!bg-sky-700'
-                      : 'border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50'}
+                      ? 'border border-[var(--arcane-gold-500)] !bg-[var(--arcane-gold-500)] !text-[var(--arcane-ink-950)] hover:!bg-[var(--arcane-gold-300)]'
+                      : 'border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]'}
                     onClick={() => setActiveTab('rpg-systems')}
                   >
                     RPG Systems
@@ -677,7 +677,7 @@ export default function CollectionMasterPage() {
                   <form className="space-y-4" onSubmit={handleSaveDetails}>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <label className="block space-y-2 sm:col-span-2">
-                        <span className="text-sm font-medium text-slate-700">Collection Name</span>
+                        <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Collection Name</span>
                         <Input
                           ref={nameInputRef}
                           type="text"
@@ -689,7 +689,7 @@ export default function CollectionMasterPage() {
                       </label>
 
                       <label className="block space-y-2 sm:col-span-2">
-                        <span className="text-sm font-medium text-slate-700">Collection Type</span>
+                        <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Collection Type</span>
                         <ComboSelect
                           options={collectionTypeOptions}
                           value={formValues.CollectionTypeID}
@@ -700,7 +700,7 @@ export default function CollectionMasterPage() {
                       </label>
 
                       <div className="sm:col-span-2">
-                        <span className="mb-2 block text-sm font-medium text-slate-700">Image File</span>
+                        <span className="mb-2 block text-sm font-medium text-[var(--arcane-ink-900)]">Image File</span>
                         <Input
                           type="file"
                           accept=".webp,.jpg,.jpeg,image/webp,image/jpeg"
@@ -713,11 +713,11 @@ export default function CollectionMasterPage() {
                           }}
                         />
                         {selectedImageFile ? (
-                          <p className="mt-1 text-sm text-slate-600">Selected: {selectedImageFile.name}</p>
+                          <p className="mt-1 text-sm text-[var(--arcane-ink-soft)]">Selected: {selectedImageFile.name}</p>
                         ) : formValues.ImageFileName ? (
-                          <p className="mt-1 text-sm text-slate-600">
+                          <p className="mt-1 text-sm text-[var(--arcane-ink-soft)]">
                             Current:{' '}
-                            <a href={getCollectionImageUrl(formValues.ImageFileName)} target="_blank" rel="noreferrer" className="text-blue-600 underline hover:text-blue-700">
+                            <a href={getCollectionImageUrl(formValues.ImageFileName)} target="_blank" rel="noreferrer" className="text-[var(--arcane-gold-700)] underline hover:text-[var(--arcane-gold-600)]">
                               {formValues.ImageFileName}
                             </a>
                           </p>
@@ -728,7 +728,7 @@ export default function CollectionMasterPage() {
                     <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                       <div>
                         {mode === 'existing' && selectedCollectionId !== null ? (
-                          <Button type="button" onClick={handleDeleteCollection} disabled={isSaving} className="bg-red-600 hover:bg-red-700">
+                          <Button type="button" onClick={handleDeleteCollection} disabled={isSaving} className="!bg-[var(--arcane-danger)] hover:!bg-[var(--arcane-danger-hover)] !text-white">
                             Delete Collection
                           </Button>
                         ) : null}
@@ -737,7 +737,7 @@ export default function CollectionMasterPage() {
                       <div className="flex gap-2">
                         <Button
                           type="button"
-                          className="bg-slate-600 hover:bg-slate-700"
+                          className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
                           onClick={() => {
                             if (mode === 'new') {
                               setMode('existing');
@@ -755,7 +755,6 @@ export default function CollectionMasterPage() {
                         </Button>
                         <Button
                           type="submit"
-                          className="bg-green-600 hover:bg-green-700"
                           disabled={isSaving || (mode === 'existing' && JSON.stringify(formValues) === JSON.stringify(initialFormValues) && !selectedImageFile)}
                         >
                           {isSaving ? 'Saving...' : mode === 'new' ? 'Add Collection' : 'Save Collection'}
@@ -766,15 +765,15 @@ export default function CollectionMasterPage() {
                 ) : (
                   <div className="space-y-4">
                     {selectedCollectionId === null || mode === 'new' ? (
-                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">
+                      <div className="rounded-xl border border-dashed border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-5 text-sm text-[var(--arcane-ink-soft)]">
                         Save this collection first to manage linked RPG systems.
                       </div>
                     ) : (
                       <>
-                        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-4">
                           <div className="min-w-0 flex-1">
-                            <div className="text-sm font-semibold text-slate-900">Add linked RPG system</div>
-                            <div className="text-xs text-slate-500">Choose an RPG system and link it immediately to this collection.</div>
+                            <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">Add linked RPG system</div>
+                            <div className="text-xs text-[var(--arcane-ink-soft)]">Choose an RPG system and link it immediately to this collection.</div>
                           </div>
                           <div className="min-w-[240px] flex-1">
                             <ComboSelect
@@ -787,24 +786,24 @@ export default function CollectionMasterPage() {
                               openOnFocus={false}
                             />
                           </div>
-                          <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleAddRpgSystemLink} disabled={isLinkSaving}>
+                          <Button type="button" className="bg-[var(--arcane-gold-500)] hover:bg-[var(--arcane-gold-300)]" onClick={handleAddRpgSystemLink} disabled={isLinkSaving}>
                             Add
                           </Button>
                         </div>
 
-                        <div className="rounded-xl border border-slate-200">
-                          <div className="border-b border-slate-200 bg-white px-4 py-3">
-                            <div className="text-sm font-semibold text-slate-900">Linked RPG Systems</div>
-                            <div className="text-xs text-slate-500">{selectedCollectionRpgCount} linked RPG system{selectedCollectionRpgCount === 1 ? '' : 's'}</div>
+                        <div className="rounded-xl border border-[var(--arcane-border-light)]">
+                          <div className="border-b border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-4 py-3">
+                            <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">Linked RPG Systems</div>
+                            <div className="text-xs text-[var(--arcane-ink-soft)]">{selectedCollectionRpgCount} linked RPG system{selectedCollectionRpgCount === 1 ? '' : 's'}</div>
                           </div>
-                          <div className="divide-y divide-slate-200">
+                          <div className="divide-y divide-[var(--arcane-border-light)]">
                             {selectedCollectionLinks.length === 0 ? (
-                              <div className="px-4 py-5 text-sm text-slate-500">No RPG systems linked yet.</div>
+                              <div className="px-4 py-5 text-sm text-[var(--arcane-ink-soft)]">No RPG systems linked yet.</div>
                             ) : (
                               selectedCollectionLinks.map((record) => (
                                 <div key={record.CollectionRPGSystemID ?? `${record.CollectionID}-${record.RPGSystemID}`} className="flex items-center justify-between gap-4 px-4 py-3">
-                                  <div className="text-sm font-medium text-slate-900">{rpgSystemNameById[Number(record.RPGSystemID)] ?? record.RPGSystemID}</div>
-                                  <Button type="button" className="border border-red-300 !bg-white !text-red-700 hover:!bg-red-50" onClick={() => handleRemoveRpgSystemLink(record)} disabled={isLinkSaving}>
+                                  <div className="text-sm font-medium text-[var(--arcane-ink-900)]">{rpgSystemNameById[Number(record.RPGSystemID)] ?? record.RPGSystemID}</div>
+                                  <Button type="button" className="border border-red-300 !bg-[var(--arcane-paper-raised)] !text-red-700 hover:!bg-red-50" onClick={() => handleRemoveRpgSystemLink(record)} disabled={isLinkSaving}>
                                     Remove
                                   </Button>
                                 </div>
@@ -818,10 +817,10 @@ export default function CollectionMasterPage() {
                 )}
               </div>
 
-              <aside className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <aside className="space-y-4 rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-4">
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">Collection Summary</div>
-                  <div className="mt-2 space-y-1 text-sm text-slate-600">
+                  <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">Collection Summary</div>
+                  <div className="mt-2 space-y-1 text-sm text-[var(--arcane-ink-soft)]">
                     <div>Items: {selectedCollectionItemCount.toLocaleString()}</div>
                     <div>RPG Systems: {selectedCollectionRpgCount.toLocaleString()}</div>
                     <div>Type: {selectedCollection ? collectionTypeNameById[Number(selectedCollection.CollectionTypeID)] ?? String(selectedCollection.CollectionTypeID ?? '-') : '-'}</div>
@@ -830,40 +829,44 @@ export default function CollectionMasterPage() {
 
                 {selectedCollection && mode === 'existing' ? (
                   <>
-                    <div className="rounded-lg bg-white p-3 shadow-sm">
-                      <div className="text-sm font-semibold text-slate-900">Quick Links</div>
+                    <div className="rounded-lg bg-[var(--arcane-paper-raised)] p-3 shadow-sm">
+                      <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">Quick Links</div>
                       <div className="mt-2 space-y-2 text-sm">
                         <Link
                           to={buildCollectionInventoryLink(String(selectedCollection.CollectionName || ''), false)}
-                          className="block text-blue-600 underline hover:text-blue-700"
+                          className="block text-[var(--arcane-gold-700)] underline hover:text-[var(--arcane-gold-600)]"
                         >
                           View items for this collection
                         </Link>
                         <Link
                           to={buildCollectionInventoryLink(String(selectedCollection.CollectionName || ''), true)}
-                          className="block text-blue-600 underline hover:text-blue-700"
+                          className="block text-[var(--arcane-gold-700)] underline hover:text-[var(--arcane-gold-600)]"
                         >
                           View owned items for this collection
                         </Link>
                       </div>
                     </div>
 
-                    <div className="rounded-lg bg-white p-3 shadow-sm">
-                      <div className="text-sm font-semibold text-slate-900">Image Preview</div>
-                      <div className="mt-2">
+                    <div className="rounded-lg bg-[var(--arcane-paper-raised)] p-3 shadow-sm">
+                      <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">Image Preview</div>
+                      <div className="mt-2 flex min-h-[160px] items-center justify-center overflow-hidden rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-2">
                         {formValues.ImageFileName ? (
-                          <a href={getCollectionImageUrl(formValues.ImageFileName)} target="_blank" rel="noreferrer" className="text-blue-600 underline hover:text-blue-700">
-                            {formValues.ImageFileName}
+                          <a href={getCollectionImageUrl(formValues.ImageFileName)} target="_blank" rel="noreferrer" className="block">
+                            <img
+                              src={getCollectionImageUrl(formValues.ImageFileName)}
+                              alt={`${selectedCollection?.CollectionName ?? 'Collection'} preview`}
+                              className="max-h-40 w-auto max-w-[220px] rounded-md border border-[var(--arcane-border-light)] object-contain bg-white"
+                            />
                           </a>
                         ) : (
-                          <div className="text-sm text-slate-500">No image uploaded.</div>
+                          <div className="text-sm text-[var(--arcane-ink-soft)]">No image uploaded.</div>
                         )}
                       </div>
-                      <div className="mt-2 text-xs text-slate-500">Upload date: {formatImageUploadDate(selectedCollection.ImageUploadDate)}</div>
+                      <div className="mt-2 text-xs text-[var(--arcane-ink-soft)]">Upload date: {formatImageUploadDate(selectedCollection.ImageUploadDate)}</div>
                     </div>
                   </>
                 ) : (
-                  <div className="rounded-lg bg-white p-3 text-sm text-slate-500 shadow-sm">Select a collection to see summary information.</div>
+                  <div className="rounded-lg bg-[var(--arcane-paper-raised)] p-3 text-sm text-[var(--arcane-ink-soft)] shadow-sm">Select a collection to see summary information.</div>
                 )}
               </aside>
             </div>
@@ -898,7 +901,7 @@ export default function CollectionMasterPage() {
         <div className="space-y-4">
           <p className="text-sm text-red-700">{deleteError}</p>
           <div className="flex justify-end">
-            <Button onClick={() => setDeleteError('')} className="bg-red-600 hover:bg-red-700">
+            <Button onClick={() => setDeleteError('')} className="!bg-[var(--arcane-danger)] hover:!bg-[var(--arcane-danger-hover)] !text-white">
               OK
             </Button>
           </div>

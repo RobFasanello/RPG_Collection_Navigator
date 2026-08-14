@@ -51,7 +51,7 @@ function SidebarListSkeleton() {
   return (
     <div className="space-y-2 p-2" aria-label="Loading locations list">
       {Array.from({ length: 6 }).map((_, index) => (
-        <div key={index} className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+        <div key={index} className="rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-4 py-3">
           <Skeleton className="h-4 w-2/3" />
           <Skeleton className="mt-2 h-3 w-1/2" />
         </div>
@@ -178,8 +178,8 @@ export default function LocationMasterPage() {
     }
 
     const nextValues = {
-      LocationName: String(location.LocationName ?? ''),
-      LocationTypeID: String(location.LocationTypeID ?? ''),
+      LocationName: String(location.LocationName ?? '').trim(),
+      LocationTypeID: String(location.LocationTypeID ?? '').trim(),
     };
 
     setFormValues(nextValues);
@@ -236,7 +236,8 @@ export default function LocationMasterPage() {
     const refreshedLocations = Array.isArray(refreshed) ? refreshed : [];
 
     if (preferredName) {
-      const matched = refreshedLocations.find((location: LocationRecord) => String(location.LocationName ?? '').trim().toLowerCase() === preferredName.trim().toLowerCase());
+      const normalizedPreferredName = preferredName.trim();
+      const matched = refreshedLocations.find((location: LocationRecord) => String(location.LocationName ?? '').trim().toLowerCase() === normalizedPreferredName.toLowerCase());
       if (matched?.LocationID != null) {
         setMode('existing');
         setSelectedLocationId(Number(matched.LocationID));
@@ -361,13 +362,13 @@ export default function LocationMasterPage() {
   return (
     <AdminLayout title="Locations" subtitle="Manage locations in a master-detail layout with the location type selector built in.">
       <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="space-y-4 border-b border-slate-200 p-4">
+        <aside className="rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] shadow-sm">
+          <div className="space-y-4 border-b border-[var(--arcane-border-light)] p-4">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">Locations</h2>
-              <p className="text-sm text-slate-500">Select a location to edit its details.</p>
+              <h2 className="text-lg font-semibold text-[var(--arcane-ink-900)]">Locations</h2>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Select a location to edit its details.</p>
             </div>
-            <Button onClick={handleAddLocation} className="w-full bg-green-600 hover:bg-green-700">
+            <Button onClick={handleAddLocation} className="w-full">
               Add Location
             </Button>
             <Input
@@ -386,7 +387,7 @@ export default function LocationMasterPage() {
             ) : locationsError ? (
               <div className="p-4 text-sm text-red-600">Error loading locations.</div>
             ) : filteredLocations.length === 0 ? (
-              <div className="p-4 text-sm text-slate-500">No locations found.</div>
+              <div className="p-4 text-sm text-[var(--arcane-ink-soft)]">No locations found.</div>
             ) : (
               <div className="space-y-1">
                 {filteredLocations.map((location) => {
@@ -400,16 +401,16 @@ export default function LocationMasterPage() {
                       onClick={() => handleSelectLocation(Number(location.LocationID))}
                       className={`w-full rounded-lg border px-4 py-3 text-left transition ${
                         isSelected
-                          ? 'border-sky-200 bg-sky-50 shadow-sm'
-                          : 'border-transparent bg-white hover:border-slate-200 hover:bg-slate-50'
+                          ? 'border-[#b8864866] bg-[#b886481a] shadow-sm'
+                          : 'border-transparent bg-[var(--arcane-paper-raised)] hover:border-[var(--arcane-border-light)] hover:bg-[var(--arcane-paper)]'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold text-slate-900">{location.LocationName}</div>
-                          <div className="truncate text-xs text-slate-500">{locationTypeNameById[Number(location.LocationTypeID)] ?? location.LocationTypeID ?? 'Unknown type'}</div>
+                          <div className="truncate text-sm font-semibold text-[var(--arcane-ink-900)]">{location.LocationName}</div>
+                          <div className="truncate text-xs text-[var(--arcane-ink-soft)]">{locationTypeNameById[Number(location.LocationTypeID)] ?? location.LocationTypeID ?? 'Unknown type'}</div>
                         </div>
-                        <div className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-slate-500">
+                        <div className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-[var(--arcane-ink-soft)]">
                           <span>{itemCount} items</span>
                         </div>
                       </div>
@@ -421,12 +422,12 @@ export default function LocationMasterPage() {
           </div>
         </aside>
 
-        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 px-5 py-4">
+        <section className="rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] shadow-sm">
+          <div className="border-b border-[var(--arcane-border-light)] px-5 py-4">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">{mode === 'new' ? 'Add Location' : selectedLocation?.LocationName || 'Select a location'}</h2>
-                <p className="text-sm text-slate-500">
+                <h2 className="text-2xl font-bold text-[var(--arcane-ink-900)]">{mode === 'new' ? 'Add Location' : String(selectedLocation?.LocationName ?? '').trim() || 'Select a location'}</h2>
+                <p className="text-sm text-[var(--arcane-ink-soft)]">
                   {mode === 'new'
                     ? 'Create a location and choose its type from the form.'
                     : 'Edit the location name and type from the form below.'}
@@ -443,7 +444,7 @@ export default function LocationMasterPage() {
               <div className="min-w-0">
                 <form className="space-y-4" onSubmit={handleSaveDetails}>
                   <label className="block space-y-2">
-                    <span className="text-sm font-medium text-slate-700">Location Name</span>
+                    <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Location Name</span>
                     <Input
                       ref={nameInputRef}
                       type="text"
@@ -455,7 +456,7 @@ export default function LocationMasterPage() {
                   </label>
 
                   <label className="block space-y-2">
-                    <span className="text-sm font-medium text-slate-700">Location Type</span>
+                    <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Location Type</span>
                     <ComboSelect
                       options={locationTypeOptions}
                       value={formValues.LocationTypeID}
@@ -468,7 +469,7 @@ export default function LocationMasterPage() {
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                     <div>
                       {mode === 'existing' && selectedLocationId !== null ? (
-                        <Button type="button" onClick={handleDeleteLocation} disabled={isSaving} className="bg-red-600 hover:bg-red-700">
+                        <Button type="button" onClick={handleDeleteLocation} disabled={isSaving} className="!bg-[var(--arcane-danger)] hover:!bg-[var(--arcane-danger-hover)] !text-white">
                           Delete Location
                         </Button>
                       ) : null}
@@ -477,7 +478,7 @@ export default function LocationMasterPage() {
                     <div className="flex gap-2">
                       <Button
                         type="button"
-                        className="bg-slate-600 hover:bg-slate-700"
+                        className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
                         onClick={() => {
                           if (mode === 'new') {
                             setMode('existing');
@@ -495,7 +496,6 @@ export default function LocationMasterPage() {
                       </Button>
                       <Button
                         type="submit"
-                        className="bg-green-600 hover:bg-green-700"
                         disabled={isSaving || (mode === 'existing' && JSON.stringify(formValues) === JSON.stringify(initialFormValues))}
                       >
                         {isSaving ? 'Saving...' : mode === 'new' ? 'Add Location' : 'Save Location'}
@@ -505,35 +505,35 @@ export default function LocationMasterPage() {
                 </form>
               </div>
 
-              <aside className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <aside className="space-y-4 rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-4">
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">Location Summary</div>
-                  <div className="mt-2 space-y-1 text-sm text-slate-600">
+                  <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">Location Summary</div>
+                  <div className="mt-2 space-y-1 text-sm text-[var(--arcane-ink-soft)]">
                     <div>Items: {selectedLocationItemCount.toLocaleString()}</div>
                     <div>Type: {selectedLocation ? locationTypeNameById[Number(selectedLocation.LocationTypeID)] ?? String(selectedLocation.LocationTypeID ?? '-') : '-'}</div>
                   </div>
                 </div>
 
                 {selectedLocation ? (
-                  <div className="rounded-lg bg-white p-3 shadow-sm">
-                    <div className="text-sm font-semibold text-slate-900">Quick Links</div>
+                  <div className="rounded-lg bg-[var(--arcane-paper-raised)] p-3 shadow-sm">
+                    <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">Quick Links</div>
                     <div className="mt-2 space-y-2 text-sm">
                       <Link
                         to={buildLocationEntityLink('/admin/miniatures', String(selectedLocation.LocationName || ''))}
-                        className="block text-blue-600 underline hover:text-blue-700"
+                        className="block text-[var(--arcane-gold-700)] underline hover:text-[var(--arcane-gold-600)]"
                       >
                         View miniatures at this location
                       </Link>
                       <Link
                         to={buildLocationEntityLink('/admin/terrain', String(selectedLocation.LocationName || ''))}
-                        className="block text-blue-600 underline hover:text-blue-700"
+                        className="block text-[var(--arcane-gold-700)] underline hover:text-[var(--arcane-gold-600)]"
                       >
                         View terrain at this location
                       </Link>
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-lg bg-white p-3 text-sm text-slate-500 shadow-sm">Select a location to see summary information.</div>
+                  <div className="rounded-lg bg-[var(--arcane-paper-raised)] p-3 text-sm text-[var(--arcane-ink-soft)] shadow-sm">Select a location to see summary information.</div>
                 )}
               </aside>
             </div>
@@ -555,7 +555,7 @@ export default function LocationMasterPage() {
         <div className="space-y-4">
           <p className="text-sm text-red-700">{deleteError}</p>
           <div className="flex justify-end">
-            <Button onClick={() => setDeleteError('')} className="bg-red-600 hover:bg-red-700">
+            <Button onClick={() => setDeleteError('')} className="!bg-[var(--arcane-danger)] hover:!bg-[var(--arcane-danger-hover)] !text-white">
               OK
             </Button>
           </div>

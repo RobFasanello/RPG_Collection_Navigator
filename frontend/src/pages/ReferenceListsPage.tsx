@@ -137,35 +137,38 @@ export default function ReferenceListsPage() {
 
   return (
     <AdminLayout title="Reference Lists" subtitle="Manage all lookup tables in one place.">
-      <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 p-4">
-            <h2 className="text-lg font-semibold text-slate-900">Reference Tables</h2>
-            <p className="text-sm text-slate-500">Choose the table you want to manage.</p>
+      <div className="mx-auto max-w-[1600px] space-y-6">
+        <div className="rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-[var(--arcane-border-light)] px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-[var(--arcane-ink-900)]">Reference Tables</h2>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Choose the table you want to manage.</p>
+            </div>
           </div>
-          <div className="space-y-1 p-2">
+
+          <div className="flex flex-wrap gap-2 p-3">
             {REFERENCE_LISTS.map((item) => {
               const isActive = item.key === activeConfig.key;
               return (
                 <button
                   key={item.key}
                   type="button"
+                  aria-pressed={isActive}
                   onClick={() => navigate({ pathname: '/home/setup/reference-lists', search: `?table=${encodeURIComponent(item.key)}` })}
-                  className={`w-full rounded-lg border px-4 py-3 text-left transition ${
+                  className={`rounded-lg border px-4 py-2.5 text-left text-sm font-medium transition ${
                     isActive
-                      ? 'border-sky-200 bg-sky-50 shadow-sm'
-                      : 'border-transparent bg-white hover:border-slate-200 hover:bg-slate-50'
+                      ? 'border-[#b8864866] bg-[#b886481a] text-[var(--arcane-ink-900)] shadow-sm'
+                      : 'border-transparent bg-[var(--arcane-paper)] text-[var(--arcane-ink-soft)] hover:border-[var(--arcane-border-light)] hover:text-[var(--arcane-ink-900)]'
                   }`}
                 >
-                  <div className="text-sm font-semibold text-slate-900">{item.label}</div>
-                  <div className="text-xs text-slate-500">{item.description}</div>
+                  {item.label}
                 </button>
               );
             })}
           </div>
-        </aside>
+        </div>
 
-        <section className="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
+        <section className="min-w-0 rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] shadow-sm">
           <ReferenceMasterDetailPage
             key={activeConfig.key}
             title={activeConfig.label}

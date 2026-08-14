@@ -51,22 +51,22 @@ export default function SelectionScopeMenu({
         aria-label={ariaLabel}
         tabIndex={tabIndex}
         disabled={disabled}
-        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+        className="h-4 w-4 rounded border-[var(--arcane-border-light)] accent-[var(--arcane-gold-500)] focus:ring-[var(--arcane-gold-600)]"
       />
 
       {isOpen && !disabled ? (
-        <div className="absolute left-0 top-full z-20 mt-2 min-w-[140px] rounded-md border border-gray-200 bg-white p-1 shadow-lg">
+        <div className="absolute left-0 top-full z-20 mt-2 min-w-[140px] rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] p-1 shadow-lg">
           <button
             type="button"
             onClick={() => handleSelect(onSelectPage)}
-            className="flex w-full items-center rounded px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+            className="flex w-full items-center rounded px-3 py-2 text-left text-sm text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-paper)]"
           >
             Select Page
           </button>
           <button
             type="button"
             onClick={() => handleSelect(onSelectAll)}
-            className="flex w-full items-center rounded px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+            className="flex w-full items-center rounded px-3 py-2 text-left text-sm text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-paper)]"
           >
             Select All
           </button>

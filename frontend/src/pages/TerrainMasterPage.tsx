@@ -723,7 +723,7 @@ export default function TerrainMasterPage() {
 
   const SortIndicator = ({ column }: { column: SortColumn }) => {
     if (sortBy !== column) {
-      return <span className="ml-1 text-gray-300">↕</span>;
+      return <span className="ml-1 text-[var(--arcane-ink-soft)]">↕</span>;
     }
 
     return <span className="ml-1">{sortOrder === 'ASC' ? '↑' : '↓'}</span>;
@@ -1298,7 +1298,7 @@ export default function TerrainMasterPage() {
         <span className="inline-flex items-center gap-2">
           <span>Terrain Master</span>
           <span
-            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-400 hover:text-gray-600"
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[var(--arcane-ink-soft)] hover:text-[var(--arcane-ink-900)]"
             title="Use this screen to view, add, remove and modify terrain records in your collection."
             aria-label="Terrain Master page information"
           >
@@ -1308,18 +1308,17 @@ export default function TerrainMasterPage() {
       }
       subtitle={null}
     >
-      <div className="max-w-[1600px] mx-auto space-y-6">
-        <section className="bg-white shadow rounded-lg p-6">
+      <div className="max-w-[1920px] mx-auto space-y-6 px-0 2xl:px-2">
+        <section className="bg-[var(--arcane-paper-raised)] shadow rounded-lg p-6">
           <div className="space-y-4">
             {selectedTerrainIds.length > 0 ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#b886484d] bg-[#b886481a] px-4 py-3">
                 <div className="flex items-center gap-3 text-sm">
-                  <span className="font-semibold text-blue-900">{selectedTerrainIds.length} selected</span>
+                  <span className="font-semibold text-[var(--arcane-gold-700)]">{selectedTerrainIds.length} selected</span>
                   <button
                     type="button"
-                    className="text-blue-700 hover:text-blue-900 underline underline-offset-2"
+                    className="text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-700)] underline underline-offset-2"
                     onClick={() => setSelectedTerrainIds([])}
-                    tabIndex={2}
                   >
                     Clear
                   </button>
@@ -1327,21 +1326,19 @@ export default function TerrainMasterPage() {
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <Button
                     type="button"
-                    className="border border-gray-300 !bg-white !text-gray-800 hover:!bg-gray-50"
+                    className="border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]"
                     onClick={openBulkUpdateDialog}
                     disabled={!canWrite}
                     title={canWrite ? undefined : 'Switch to Update mode to edit terrain'}
-                    tabIndex={3}
                   >
                     Bulk Update
                   </Button>
                   <Button
                     type="button"
-                    className="border border-red-300 !bg-white !text-red-700 hover:!bg-red-50"
+                    className="border border-red-300 !bg-[var(--arcane-paper-raised)] !text-red-700 hover:!bg-red-50"
                     onClick={openBulkDeleteDialog}
                     disabled={!canWrite}
                     title={canWrite ? undefined : 'Switch to Update mode to delete terrain'}
-                    tabIndex={4}
                   >
                     Delete
                   </Button>
@@ -1359,7 +1356,6 @@ export default function TerrainMasterPage() {
                     placeholder="Search by terrain name..."
                     className="w-full max-w-md"
                     autoFocus
-                    tabIndex={1}
                   />
                   <div className="min-w-0 flex-1">
                     <FilterChipBar fields={filterChipFields} onClearAll={clearAllChipFilters} />
@@ -1368,30 +1364,27 @@ export default function TerrainMasterPage() {
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                   <Button
                     type="button"
-                    className="border border-gray-300 !bg-white !text-gray-700 hover:!bg-gray-50"
+                    className="border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]"
                     onClick={() => setIsBulkUploadOpen(true)}
                     disabled={!canWrite}
                     title={canWrite ? undefined : 'Switch to Update mode to bulk upload'}
-                    tabIndex={5}
                   >
                     Bulk Upload
                   </Button>
                   <Button
                     type="button"
-                    className="border border-gray-300 !bg-white !text-gray-700 hover:!bg-gray-50"
+                    className="border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]"
                     onClick={handleDownloadCsv}
                     disabled={isDownloading}
-                    tabIndex={6}
                   >
                     Download
                   </Button>
                   <Button
                     type="button"
-                    className="!bg-blue-600 !text-white hover:!bg-blue-700"
+                    className="!bg-[var(--arcane-gold-500)] !text-[var(--arcane-ink-950)] hover:!bg-[var(--arcane-gold-300)]"
                     onClick={openAddModal}
                     disabled={!canWrite}
                     title={canWrite ? undefined : 'Switch to Update mode to add terrain'}
-                    tabIndex={7}
                   >
                     Add Terrain
                   </Button>
@@ -1405,8 +1398,8 @@ export default function TerrainMasterPage() {
           </div>
         </section>
 
-        <section className="bg-white shadow rounded-lg p-6">
-          {isLoading && <p className="text-gray-500">Loading terrain records...</p>}
+        <section className="bg-[var(--arcane-paper-raised)] shadow rounded-lg p-6">
+          {isLoading && <p className="text-[var(--arcane-ink-soft)]">Loading terrain records...</p>}
           {error && <p className="text-red-600">Error loading terrain records.</p>}
 
           {!isLoading && !error ? (
@@ -1420,56 +1413,47 @@ export default function TerrainMasterPage() {
                           checked={areAllCurrentPageRowsSelected}
                           disabled={currentPageRows.length === 0}
                           aria-label="Select terrain rows"
-                          tabIndex={15}
                           onSelectPage={selectCurrentPageRows}
                           onSelectAll={selectAllFilteredRows}
                         />
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-blue-600" tabIndex={16}>
+                        <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Collection Name <SortIndicator column="CollectionName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-blue-600" tabIndex={17}>
+                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Sub Category <SortIndicator column="SubTypeName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-blue-600" tabIndex={18}>
+                        <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Item <SortIndicator column="ItemName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('TerrainName')} className="flex items-center hover:text-blue-600" tabIndex={19}>
+                        <button onClick={() => handleSort('TerrainName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Terrain Name <SortIndicator column="TerrainName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('TerrainCode')} className="flex items-center hover:text-blue-600" tabIndex={20}>
+                        <button onClick={() => handleSort('TerrainCode')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Terrain Code <SortIndicator column="TerrainCode" />
                         </button>
                       </TableHead>
                       <TableHead className="text-right">
-                        <button
-                          onClick={() => handleSort('TerrainQuantity')}
-                          className="flex items-center justify-end w-full hover:text-blue-600"
-                          tabIndex={21}
-                        >
+                        <button onClick={() => handleSort('TerrainQuantity')} className="flex items-center justify-end w-full hover:text-[var(--arcane-gold-700)]">
                           Terrain Quantity <SortIndicator column="TerrainQuantity" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('LocationName')} className="flex items-center hover:text-blue-600" tabIndex={22}>
+                        <button onClick={() => handleSort('LocationName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Location <SortIndicator column="LocationName" />
                         </button>
                       </TableHead>
                       <TableHead className="w-px whitespace-nowrap px-2 text-center">
-                        <button
-                          onClick={() => handleSort('HasPurchaseOrder')}
-                          className="flex items-center justify-center w-full hover:text-blue-600"
-                          tabIndex={23}
-                        >
+                        <button onClick={() => handleSort('HasPurchaseOrder')} className="flex items-center justify-center w-full hover:text-[var(--arcane-gold-700)]">
                           Is Owned <SortIndicator column="HasPurchaseOrder" />
                         </button>
                       </TableHead>
@@ -1477,11 +1461,18 @@ export default function TerrainMasterPage() {
                   </TableHeader>
                   <TableBody>
                     {currentPageRows.length ? (
-                      currentPageRows.map((terrain, rowIndex) => (
+                      currentPageRows.map((terrain) => (
                         <TableRow
                           key={terrain.TerrainID}
-                          className="cursor-pointer hover:bg-blue-50"
+                          className="cursor-pointer hover:bg-[#b886481a]"
                           onClick={() => openEditModal(terrain)}
+                          tabIndex={0}
+                          onKeyDown={(event) => {
+                            if ((event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget) {
+                              event.preventDefault();
+                              openEditModal(terrain);
+                            }
+                          }}
                         >
                           <TableCell className="w-px whitespace-nowrap px-2 text-center">
                             <input
@@ -1490,7 +1481,6 @@ export default function TerrainMasterPage() {
                               onClick={(event) => event.stopPropagation()}
                               onChange={() => toggleTerrainSelection(terrain.TerrainID)}
                               aria-label={`Select ${terrain.TerrainName}`}
-                              tabIndex={23 + rowIndex}
                             />
                           </TableCell>
                           <TableCell>{terrain.CollectionName}</TableCell>
@@ -1504,7 +1494,7 @@ export default function TerrainMasterPage() {
                             {hasPurchaseOrderByItemId[Number(terrain.ResolvedItemID)] ? (
                               <button
                                 type="button"
-                                className="inline-flex items-center justify-center text-blue-600 hover:text-blue-700"
+                                className="inline-flex items-center justify-center text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-700)]"
                                 onClick={(event) => handleOpenRelatedOrders(terrain, event)}
                                 title="Open related purchase orders"
                                 aria-label={`Open related purchase orders for ${terrain.ItemName || terrain.TerrainName}`}
@@ -1517,7 +1507,7 @@ export default function TerrainMasterPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-10 text-gray-500">
+                        <TableCell colSpan={9} className="text-center py-10 text-[var(--arcane-ink-soft)]">
                           No matching terrain records found.
                         </TableCell>
                       </TableRow>
@@ -1553,7 +1543,7 @@ export default function TerrainMasterPage() {
         <form className="space-y-4" onSubmit={handleAddSubmit}>
           {addError ? <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{addError}</div> : null}
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-gray-700">Terrain Name</span>
+            <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Terrain Name</span>
             <Input
               ref={addTerrainNameInputRef}
               autoFocus
@@ -1563,7 +1553,7 @@ export default function TerrainMasterPage() {
             />
           </label>
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-gray-700">Terrain Code</span>
+            <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Terrain Code</span>
             <Input
               value={addValues.TerrainCode}
               onChange={(event) => setAddValues((current) => ({ ...current, TerrainCode: event.target.value }))}
@@ -1571,7 +1561,7 @@ export default function TerrainMasterPage() {
             />
           </label>
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-gray-700">Terrain Quantity</span>
+            <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Terrain Quantity</span>
             <Input
               type="number"
               min="0"
@@ -1581,7 +1571,7 @@ export default function TerrainMasterPage() {
             />
           </label>
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-gray-700">Item</span>
+            <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Item</span>
             <ComboSelect
               options={itemOptions}
               value={addValues.ItemID}
@@ -1600,7 +1590,7 @@ export default function TerrainMasterPage() {
             />
           </label>
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-gray-700">Location (Optional)</span>
+            <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Location (Optional)</span>
             <ComboSelect
               options={locationOptions}
               value={addValues.LocationID}
@@ -1610,7 +1600,7 @@ export default function TerrainMasterPage() {
             />
           </label>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={closeAddModal}>
+            <Button type="button" className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white" onClick={closeAddModal}>
               Cancel
             </Button>
             <Button type="submit" className="bg-green-600 hover:bg-green-700" disabled={addMutation.isLoading}>
@@ -1640,11 +1630,11 @@ export default function TerrainMasterPage() {
       >
         <form className="space-y-4" onSubmit={handleEditSubmit}>
           <div className="flex items-start justify-between gap-3">
-            <p className="text-sm text-gray-500">Update terrain values and save changes.</p>
+            <p className="text-sm text-[var(--arcane-ink-soft)]">Update terrain values and save changes.</p>
             <div className="flex items-center gap-2">
               <Button
                 type="button"
-                className="h-9 !bg-gray-200 !text-gray-800 hover:!bg-gray-300"
+                className="h-9 !bg-[#e2d5bd99] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
                 onClick={() => handleNavigateEditTerrain('previous')}
                 disabled={!canNavigateToPreviousEditTerrain || editMutation.isLoading || editDeleteMutation.isLoading}
                 aria-label="Previous terrain"
@@ -1654,7 +1644,7 @@ export default function TerrainMasterPage() {
               </Button>
               <Button
                 type="button"
-                className="h-9 !bg-gray-200 !text-gray-800 hover:!bg-gray-300"
+                className="h-9 !bg-[#e2d5bd99] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
                 onClick={() => handleNavigateEditTerrain('next')}
                 disabled={!canNavigateToNextEditTerrain || editMutation.isLoading || editDeleteMutation.isLoading}
                 aria-label="Next terrain"
@@ -1666,7 +1656,7 @@ export default function TerrainMasterPage() {
           </div>
           {editError ? <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{editError}</div> : null}
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-gray-700">Terrain Name</span>
+            <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Terrain Name</span>
             <Input
               ref={editTerrainNameInputRef}
               autoFocus
@@ -1676,7 +1666,7 @@ export default function TerrainMasterPage() {
             />
           </label>
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-gray-700">Terrain Code</span>
+            <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Terrain Code</span>
             <Input
               value={editValues.TerrainCode}
               onChange={(event) => setEditValues((current) => ({ ...current, TerrainCode: event.target.value }))}
@@ -1684,7 +1674,7 @@ export default function TerrainMasterPage() {
             />
           </label>
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-gray-700">Terrain Quantity</span>
+            <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Terrain Quantity</span>
             <Input
               type="number"
               min="0"
@@ -1694,7 +1684,7 @@ export default function TerrainMasterPage() {
             />
           </label>
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-gray-700">Item</span>
+            <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Item</span>
             <ComboSelect
               options={itemOptions}
               value={editValues.ItemID}
@@ -1713,7 +1703,7 @@ export default function TerrainMasterPage() {
             />
           </label>
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-gray-700">Location (Optional)</span>
+            <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Location (Optional)</span>
             <ComboSelect
               options={locationOptions}
               value={editValues.LocationID}
@@ -1735,7 +1725,7 @@ export default function TerrainMasterPage() {
             </Button>
             <Button
               type="button"
-              className="bg-slate-600 hover:bg-slate-700"
+              className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
               onClick={requestCloseEditModal}
               disabled={editMutation.isLoading || editDeleteMutation.isLoading}
             >
@@ -1761,9 +1751,9 @@ export default function TerrainMasterPage() {
 
           {bulkStep === 'edit' ? (
             <>
-              <p className="text-sm text-gray-600">Bulk updates apply to {selectedTerrainIds.length} selected terrain records.</p>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Bulk updates apply to {selectedTerrainIds.length} selected terrain records.</p>
               <label className="block space-y-2">
-                <span className="text-sm font-medium text-gray-700">Terrain Code</span>
+                <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Terrain Code</span>
                 <Input
                   autoFocus
                   value={bulkValues.TerrainCode}
@@ -1772,7 +1762,7 @@ export default function TerrainMasterPage() {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-medium text-gray-700">Terrain Quantity</span>
+                <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Terrain Quantity</span>
                 <Input
                   type="number"
                   min="0"
@@ -1782,7 +1772,7 @@ export default function TerrainMasterPage() {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-medium text-gray-700">Location</span>
+                <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Location</span>
                 <ComboSelect
                   options={locationOptions}
                   value={bulkValues.LocationID}
@@ -1792,7 +1782,7 @@ export default function TerrainMasterPage() {
                 />
               </label>
               <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" className="bg-gray-200 text-gray-800 hover:bg-gray-300" onClick={closeBulkUpdateDialog}>
+                <Button type="button" className="bg-[#e2d5bd99] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]" onClick={closeBulkUpdateDialog}>
                   Cancel
                 </Button>
                 <Button type="submit" className="bg-amber-600 hover:bg-amber-700" disabled={bulkUpdateMutation.isLoading}>
@@ -1804,26 +1794,26 @@ export default function TerrainMasterPage() {
             </>
           ) : (
             <>
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+              <div className="rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-4 text-sm text-[var(--arcane-ink-900)]">
                 You are about to update {selectedTerrainIds.length} terrain record{selectedTerrainIds.length === 1 ? '' : 's'}.
                 Confirm only after checking the summary below.
               </div>
 
-              <div className="rounded-lg border border-gray-200">
-                <div className="border-b border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700">Update Summary</div>
-                <div className="space-y-2 px-4 py-3 text-sm text-gray-700">
+              <div className="rounded-lg border border-[var(--arcane-border-light)]">
+                <div className="border-b border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-4 py-3 text-sm font-semibold text-[var(--arcane-ink-900)]">Update Summary</div>
+                <div className="space-y-2 px-4 py-3 text-sm text-[var(--arcane-ink-900)]">
                   {Object.entries(bulkValues)
                     .filter(([, value]) => value)
                     .map(([field, value]) => (
                       <div key={field} className="flex items-center justify-between gap-4">
-                        <span className="font-medium text-gray-600">
+                        <span className="font-medium text-[var(--arcane-ink-soft)]">
                           {field === 'TerrainCode' ? 'Terrain Code' : field === 'TerrainQuantity' ? 'Terrain Quantity' : 'Location'}
                         </span>
                         <span className="text-right">{getBulkFieldLabel(field as 'TerrainCode' | 'TerrainQuantity' | 'LocationID', value)}</span>
                       </div>
                     ))}
                   {!Object.values(bulkValues).some((value) => value) ? (
-                    <div className="text-gray-500">No fields selected for update.</div>
+                    <div className="text-[var(--arcane-ink-soft)]">No fields selected for update.</div>
                   ) : null}
                 </div>
               </div>
@@ -1831,7 +1821,7 @@ export default function TerrainMasterPage() {
               <div className="flex justify-end gap-2 pt-2">
                 <Button
                   type="button"
-                  className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                  className="bg-[#e2d5bd99] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]"
                   onClick={() => setBulkStep('edit')}
                   disabled={bulkUpdateMutation.isLoading}
                 >
@@ -1867,7 +1857,7 @@ export default function TerrainMasterPage() {
           <>
             <Button
               type="button"
-              className="bg-gray-600 hover:bg-gray-700"
+              className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
               onClick={closeBulkDeleteDialog}
               disabled={bulkDeleteMutation.isLoading}
             >
@@ -1892,7 +1882,7 @@ export default function TerrainMasterPage() {
           ) : null}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Type DELETE to confirm</label>
+            <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Type DELETE to confirm</label>
             <Input
               value={bulkDeleteConfirmText}
               onChange={(event) => {
@@ -1927,14 +1917,14 @@ export default function TerrainMasterPage() {
         }}
       >
         <div className="space-y-4">
-          {relatedOrdersLoading ? <p className="text-gray-500">Loading related purchase orders...</p> : null}
+          {relatedOrdersLoading ? <p className="text-[var(--arcane-ink-soft)]">Loading related purchase orders...</p> : null}
 
           {!relatedOrdersLoading && relatedOrdersError ? (
             <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">{relatedOrdersError}</div>
           ) : null}
 
           {!relatedOrdersLoading && !relatedOrdersError && !relatedOrders.length ? (
-            <p className="text-gray-500">No purchase orders found for this item.</p>
+            <p className="text-[var(--arcane-ink-soft)]">No purchase orders found for this item.</p>
           ) : null}
 
           {!relatedOrdersLoading && !relatedOrdersError && relatedOrders.length ? (
@@ -1961,7 +1951,7 @@ export default function TerrainMasterPage() {
                       <TableCell className="text-right">
                         <Button
                           ref={index === 0 ? firstRelatedOrderOpenButtonRef : undefined}
-                          className="bg-blue-600 hover:bg-blue-700"
+                          className="bg-[var(--arcane-gold-500)] hover:bg-[var(--arcane-gold-300)]"
                           onClick={() => handleOpenLinkedOrder(order)}
                         >
                           Open
@@ -1977,7 +1967,7 @@ export default function TerrainMasterPage() {
           <div className="flex justify-end">
             <Button
               ref={relatedOrdersCloseButtonRef}
-              className="bg-gray-600 hover:bg-gray-700"
+              className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
               onClick={handleCloseRelatedOrdersModal}
             >
               Close

@@ -41,10 +41,10 @@ NavigationMenuItem.displayName = NavigationMenuPrimitive.Item.displayName;
 const navigationMenuTriggerStyle = (active?: boolean) =>
   cx(
     'inline-flex h-10 items-center gap-1 rounded-md px-3 py-2 text-sm font-semibold transition-colors',
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 disabled:pointer-events-none disabled:opacity-50',
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--arcane-gold-600)] disabled:pointer-events-none disabled:opacity-50',
     active
-      ? 'text-sky-700'
-      : 'text-slate-700 hover:text-sky-700 data-[state=open]:text-sky-700'
+      ? 'bg-[var(--arcane-gold-500)] text-[var(--arcane-ink-950)]'
+      : 'text-[var(--arcane-ivory)] hover:text-[var(--arcane-gold-300)] data-[state=open]:text-[var(--arcane-gold-300)]'
   );
 
 const NavigationMenuTrigger = React.forwardRef<
@@ -72,7 +72,7 @@ const NavigationMenuContent = React.forwardRef<
   <NavigationMenuPrimitive.Content
     ref={ref}
     className={cx(
-      'absolute left-0 top-full z-40 mt-2 w-max rounded-lg border border-slate-200 bg-white shadow-lg',
+      'absolute left-0 top-full z-40 mt-2 w-max rounded-lg border border-[var(--arcane-gold-500)] bg-[var(--arcane-ink-900)] text-[var(--arcane-ivory)] shadow-lg',
       'data-[motion^=from-]:animate-fade-in data-[motion^=to-]:animate-fade-out',
       'data-[motion=from-end]:animate-enter-from-right data-[motion=from-start]:animate-enter-from-left',
       'data-[motion=to-end]:animate-exit-to-right data-[motion=to-start]:animate-exit-to-left',

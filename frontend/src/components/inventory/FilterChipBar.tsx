@@ -185,7 +185,7 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
           const toLabel = field.to ? formatDateLabel(field.to) : null;
           const label =
             fromLabel && toLabel
-              ? `${field.label}: ${fromLabel} \u2013 ${toLabel}`
+              ? `${field.label}: ${fromLabel} – ${toLabel}`
               : fromLabel
                 ? `${field.label}: From ${fromLabel}`
                 : `${field.label}: Until ${toLabel}`;
@@ -227,7 +227,7 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
             value={pickerSearch}
             onChange={(event) => setPickerSearch(event.target.value)}
             placeholder="Search..."
-            className="w-full rounded border border-gray-300 px-2 py-1 pr-7 text-sm focus:border-blue-500 focus:outline-none"
+            className="w-full rounded border border-[var(--arcane-border-light)] px-2 py-1 pr-7 text-sm focus:border-[var(--arcane-gold-500)] focus:outline-none"
           />
           {pickerSearch ? (
             <button
@@ -235,7 +235,7 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => setPickerSearch('')}
               aria-label="Clear filter search"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center rounded text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center rounded text-[var(--arcane-ink-soft)] transition hover:bg-[#e2d5bd99] hover:text-[var(--arcane-ink-900)]"
             >
               x
             </button>
@@ -243,13 +243,13 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
         </div>
         <ul className="max-h-48 overflow-y-auto">
           {available.length === 0 ? (
-            <li className="px-2 py-1 text-sm text-gray-400">No matching options</li>
+            <li className="px-2 py-1 text-sm text-[var(--arcane-ink-soft)]">No matching options</li>
           ) : (
             available.map((option) => (
               <li key={option.value}>
                 <button
                   type="button"
-                  className="w-full rounded px-2 py-1 text-left text-sm hover:bg-blue-50"
+                  className="w-full rounded px-2 py-1 text-left text-sm hover:bg-[#b886481a]"
                   onClick={() => onPick(option.value)}
                 >
                   {option.label}
@@ -270,7 +270,9 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
       <button
         type="button"
         className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-          current === true ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          current === true
+            ? 'bg-[var(--arcane-gold-500)] text-[var(--arcane-ink-950)]'
+            : 'bg-[var(--arcane-paper)] text-[var(--arcane-ink-900)] hover:bg-[#e2d5bd99]'
         }`}
         onClick={() => onPick(current === true ? undefined : true)}
       >
@@ -279,7 +281,9 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
       <button
         type="button"
         className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-          current === false ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          current === false
+            ? 'bg-[var(--arcane-gold-500)] text-[var(--arcane-ink-950)]'
+            : 'bg-[var(--arcane-paper)] text-[var(--arcane-ink-900)] hover:bg-[#e2d5bd99]'
         }`}
         onClick={() => onPick(current === false ? undefined : false)}
       >
@@ -320,11 +324,11 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
                 }
               }}
               placeholder={activeField.label}
-              className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded border border-[var(--arcane-border-light)] px-2 py-1 text-sm focus:border-[var(--arcane-gold-500)] focus:outline-none"
             />
             <button
               type="button"
-              className="w-full rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+              className="w-full rounded-md bg-[var(--arcane-gold-500)] px-3 py-1.5 text-sm font-medium text-[var(--arcane-ink-950)] hover:bg-[var(--arcane-gold-300)]"
               onClick={() => {
                 activeField.onApply(draftText.trim());
                 setIsOpen(false);
@@ -338,27 +342,27 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
       case 'dateRange':
         return (
           <div className="w-64 space-y-2">
-            <label className="block text-xs font-medium text-gray-500">
+            <label className="block text-xs font-medium text-[var(--arcane-ink-soft)]">
               From
               <input
                 type="date"
                 value={draftFrom}
                 onChange={(event) => setDraftFrom(event.target.value)}
-                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                className="mt-1 w-full rounded border border-[var(--arcane-border-light)] px-2 py-1 text-sm focus:border-[var(--arcane-gold-500)] focus:outline-none"
               />
             </label>
-            <label className="block text-xs font-medium text-gray-500">
+            <label className="block text-xs font-medium text-[var(--arcane-ink-soft)]">
               To
               <input
                 type="date"
                 value={draftTo}
                 onChange={(event) => setDraftTo(event.target.value)}
-                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                className="mt-1 w-full rounded border border-[var(--arcane-border-light)] px-2 py-1 text-sm focus:border-[var(--arcane-gold-500)] focus:outline-none"
               />
             </label>
             <button
               type="button"
-              className="w-full rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+              className="w-full rounded-md bg-[var(--arcane-gold-500)] px-3 py-1.5 text-sm font-medium text-[var(--arcane-ink-950)] hover:bg-[var(--arcane-gold-300)]"
               onClick={() => {
                 activeField.onApply(draftFrom, draftTo);
                 setIsOpen(false);
@@ -384,16 +388,16 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
       {chips.map((chip) => (
         <span
           key={chip.key}
-          className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-800 border border-blue-200"
+          className="inline-flex items-center gap-1.5 rounded-full bg-[#b886481a] px-3 py-1 text-sm text-[var(--arcane-gold-700)] border border-[#b886484d]"
         >
           {chip.label}
           <button
             type="button"
             onClick={chip.onRemove}
             aria-label={`Remove filter ${chip.label}`}
-            className="text-blue-500 hover:text-blue-800"
+            className="text-[var(--arcane-gold-600)] hover:text-[var(--arcane-gold-700)]"
           >
-            {'\u00d7'}
+            {'×'}
           </button>
         </span>
       ))}
@@ -401,7 +405,7 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
       <div className="relative">
         <button
           type="button"
-          className="rounded-full border border-gray-300 px-3 py-1 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          className="rounded-full border border-[var(--arcane-border-light)] px-3 py-1 text-sm font-medium text-[var(--arcane-ink-soft)] hover:bg-[var(--arcane-paper)]"
           onClick={() => {
             if (isOpen) {
               closeAndCommitDrafts();
@@ -415,14 +419,14 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
         </button>
 
         {isOpen ? (
-          <div className="absolute left-0 top-full z-20 mt-2 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
+          <div className="absolute left-0 top-full z-20 mt-2 rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] p-3 shadow-lg">
             {activeField === null ? (
               <ul className="w-48">
                 {fields.map((field) => (
                   <li key={field.key}>
                     <button
                       type="button"
-                      className="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-blue-50"
+                      className="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-[#b886481a]"
                       onClick={() => openField(field)}
                     >
                       {field.label}
@@ -434,13 +438,13 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
               <div>
                 <button
                   type="button"
-                  className="mb-2 text-xs font-medium text-gray-500 hover:text-gray-700"
+                  className="mb-2 text-xs font-medium text-[var(--arcane-ink-soft)] hover:text-[var(--arcane-ink-900)]"
                   onClick={() => {
                     setActiveFieldKey(null);
                     setPickerSearch('');
                   }}
                 >
-                  {'\u2190 Back'}
+                  {'← Back'}
                 </button>
                 {renderFieldEditor()}
               </div>
@@ -450,7 +454,7 @@ const FilterChipBar: React.FC<Props> = ({ fields, onClearAll }) => {
       </div>
 
       {chips.length > 0 ? (
-        <button type="button" onClick={onClearAll} className="text-sm text-gray-500 underline hover:text-gray-700">
+        <button type="button" onClick={onClearAll} className="text-sm text-[var(--arcane-ink-soft)] underline hover:text-[var(--arcane-ink-900)]">
           Clear all
         </button>
       ) : null}

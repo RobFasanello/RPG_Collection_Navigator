@@ -968,7 +968,7 @@ export default function OrderMasterPage() {
 
   const SortIndicator = ({ column }: { column: string }) => {
     if (sortBy !== column) {
-      return <span className="ml-1 text-gray-300">↕</span>;
+      return <span className="ml-1 text-[var(--arcane-ink-soft)]">↕</span>;
     }
     return <span className="ml-1">{sortOrder === 'ASC' ? '↑' : '↓'}</span>;
   };
@@ -1355,7 +1355,7 @@ export default function OrderMasterPage() {
         <span className="inline-flex items-center gap-2">
           <span>Order Master</span>
           <span
-            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-400 hover:text-gray-600"
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[var(--arcane-ink-soft)] hover:text-[var(--arcane-ink-900)]"
             title="Use this screen to view, add, remove and modify the purchase orders associated with your collection."
             aria-label="Order Master page information"
           >
@@ -1365,16 +1365,16 @@ export default function OrderMasterPage() {
       }
       subtitle={null}
     >
-      <div className="max-w-7xl mx-auto space-y-6">
-        <section className="bg-white shadow rounded-lg p-6">
+      <div className="max-w-[1920px] mx-auto space-y-6 px-0 2xl:px-2">
+        <section className="bg-[var(--arcane-paper-raised)] shadow rounded-lg p-6">
           <div className="space-y-4">
             {selectedOrderIds.length > 0 ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#b886484d] bg-[#b886481a] px-4 py-3">
                 <div className="flex items-center gap-3 text-sm">
-                  <span className="font-semibold text-blue-900">{selectedOrderIds.length} selected</span>
+                  <span className="font-semibold text-[var(--arcane-gold-700)]">{selectedOrderIds.length} selected</span>
                   <button
                     type="button"
-                    className="text-blue-700 hover:text-blue-900 underline underline-offset-2"
+                    className="text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-700)] underline underline-offset-2"
                     onClick={() => setSelectedOrderIds([])}
                     tabIndex={2}
                   >
@@ -1384,7 +1384,7 @@ export default function OrderMasterPage() {
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <Button
                     type="button"
-                    className="border border-gray-300 !bg-white !text-gray-800 hover:!bg-gray-50"
+                    className="border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]"
                     onClick={openBulkUpdateDialog}
                     disabled={!canWrite}
                     title={canWrite ? undefined : 'Switch to Update mode to edit orders'}
@@ -1394,7 +1394,7 @@ export default function OrderMasterPage() {
                   </Button>
                   <Button
                     type="button"
-                    className="border border-red-300 !bg-white !text-red-700 hover:!bg-red-50"
+                    className="border border-red-300 !bg-[var(--arcane-paper-raised)] !text-red-700 hover:!bg-red-50"
                     onClick={openBulkDeleteDialog}
                     disabled={!canWrite}
                     title={canWrite ? undefined : 'Switch to Update mode to delete orders'}
@@ -1425,7 +1425,7 @@ export default function OrderMasterPage() {
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                   <Button
                     type="button"
-                    className="border border-gray-300 !bg-white !text-gray-700 hover:!bg-gray-50"
+                    className="border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]"
                     onClick={handleDownloadCsv}
                     disabled={isDownloading}
                     tabIndex={5}
@@ -1434,7 +1434,7 @@ export default function OrderMasterPage() {
                   </Button>
                   <Button
                     type="button"
-                    className="!bg-blue-600 !text-white hover:!bg-blue-700"
+                    className="!bg-[var(--arcane-gold-500)] !text-[var(--arcane-ink-950)] hover:!bg-[var(--arcane-gold-300)]"
                     onClick={openAddOrder}
                     disabled={!canWrite}
                     title={canWrite ? undefined : 'Switch to Update mode to add orders'}
@@ -1451,8 +1451,8 @@ export default function OrderMasterPage() {
           </div>
         </section>
 
-        <section className="bg-white shadow rounded-lg p-6">
-          {isLoading && <p className="text-gray-500">Loading purchase orders...</p>}
+        <section className="bg-[var(--arcane-paper-raised)] shadow rounded-lg p-6">
+          {isLoading && <p className="text-[var(--arcane-ink-soft)]">Loading purchase orders...</p>}
           {error && <p className="text-red-600">Error loading purchase orders.</p>}
 
           {!isLoading && !error && (
@@ -1473,32 +1473,32 @@ export default function OrderMasterPage() {
                         />
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('PurchaseDate')} className="flex items-center hover:text-blue-600" tabIndex={11}>
+                        <button onClick={() => handleSort('PurchaseDate')} className="flex items-center hover:text-[var(--arcane-gold-700)]" tabIndex={11}>
                           Purchase Date <SortIndicator column="PurchaseDate" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('InvoiceNumber')} className="flex items-center hover:text-blue-600" tabIndex={12}>
+                        <button onClick={() => handleSort('InvoiceNumber')} className="flex items-center hover:text-[var(--arcane-gold-700)]" tabIndex={12}>
                           Invoice Number <SortIndicator column="InvoiceNumber" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('StoreName')} className="flex items-center hover:text-blue-600" tabIndex={13}>
+                        <button onClick={() => handleSort('StoreName')} className="flex items-center hover:text-[var(--arcane-gold-700)]" tabIndex={13}>
                           Store Name <SortIndicator column="StoreName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('StatusName')} className="flex items-center hover:text-blue-600" tabIndex={14}>
+                        <button onClick={() => handleSort('StatusName')} className="flex items-center hover:text-[var(--arcane-gold-700)]" tabIndex={14}>
                           Order Status <SortIndicator column="StatusName" />
                         </button>
                       </TableHead>
                       <TableHead className="text-right">
-                        <button onClick={() => handleSort('ItemCount')} className="flex items-center justify-end hover:text-blue-600 w-full" tabIndex={15}>
+                        <button onClick={() => handleSort('ItemCount')} className="flex items-center justify-end hover:text-[var(--arcane-gold-700)] w-full" tabIndex={15}>
                           Item Count <SortIndicator column="ItemCount" />
                         </button>
                       </TableHead>
                       <TableHead className="text-right">
-                        <button onClick={() => handleSort('TotalAmount')} className="flex items-center justify-end hover:text-blue-600 w-full" tabIndex={16}>
+                        <button onClick={() => handleSort('TotalAmount')} className="flex items-center justify-end hover:text-[var(--arcane-gold-700)] w-full" tabIndex={16}>
                           Total Amount <SortIndicator column="TotalAmount" />
                         </button>
                       </TableHead>
@@ -1509,7 +1509,7 @@ export default function OrderMasterPage() {
                       data.data.map((order: PurchaseOrder) => (
                         <TableRow
                           key={order.PurchaseOrderID}
-                          className={`hover:bg-gray-50 cursor-pointer ${selectedOrderIds.includes(order.PurchaseOrderID) ? 'bg-blue-50' : ''}`}
+                          className={`hover:bg-[var(--arcane-paper)] cursor-pointer ${selectedOrderIds.includes(order.PurchaseOrderID) ? 'bg-[#b886481a]' : ''}`}
                           onClick={() => handleOrderRowClick(order)}
                         >
                           <TableCell>
@@ -1531,7 +1531,7 @@ export default function OrderMasterPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-10 text-gray-500">
+                        <TableCell colSpan={6} className="text-center py-10 text-[var(--arcane-ink-soft)]">
                           No matching orders found.
                         </TableCell>
                       </TableRow>
@@ -1541,7 +1541,7 @@ export default function OrderMasterPage() {
               </div>
 
               <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-[var(--arcane-ink-soft)]">
                   Showing {data?.data?.length ?? 0} of {data?.total ?? 0} results
                   {data?.page && data?.totalPages ? ` — Page ${data.page} of ${data.totalPages}` : ''}
                 </p>
@@ -1600,7 +1600,7 @@ export default function OrderMasterPage() {
         description={`You are about to permanently delete ${selectedOrderIds.length} selected purchase orders and their associated detail rows. This action cannot be undone.`}
         footer={(
           <>
-            <Button type="button" className="bg-gray-600 hover:bg-gray-700" onClick={closeBulkDeleteDialog} disabled={bulkDeleteMutation.isPending}>
+            <Button type="button" className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white" onClick={closeBulkDeleteDialog} disabled={bulkDeleteMutation.isPending}>
               Cancel
             </Button>
             {bulkDeleteConfirmText.trim() === 'DELETE' ? (
@@ -1624,7 +1624,7 @@ export default function OrderMasterPage() {
           ) : null}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">
               Type DELETE to confirm
             </label>
             <Input
@@ -1670,7 +1670,7 @@ export default function OrderMasterPage() {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Number</label>
+                  <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Invoice Number</label>
                   <Input
                     value={bulkValues.InvoiceNumber}
                     onChange={(event) => handleBulkFieldChange('InvoiceNumber', event.target.value)}
@@ -1681,7 +1681,7 @@ export default function OrderMasterPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Store</label>
+                  <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Store</label>
                   <ComboSelect
                     options={storesData.map((store: any) => ({ value: String(store.StoreID), label: store.StoreName }))}
                     value={bulkValues.StoreID}
@@ -1691,7 +1691,7 @@ export default function OrderMasterPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Order Status</label>
+                  <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Order Status</label>
                   <ComboSelect
                     options={statusesData.map((status: any) => ({ value: String(status.StatusID), label: status.StatusName }))}
                     value={bulkValues.StatusID}
@@ -1701,7 +1701,7 @@ export default function OrderMasterPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Date</label>
+                  <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Purchase Date</label>
                   <Input
                     type="date"
                     value={bulkValues.PurchaseDate}
@@ -1714,7 +1714,7 @@ export default function OrderMasterPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
                 <Button
                   type="button"
-                  className="bg-gray-600 hover:bg-gray-700"
+                  className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
                   onClick={closeBulkUpdateDialog}
                   disabled={bulkUpdateMutation.isPending}
                 >
@@ -1732,21 +1732,21 @@ export default function OrderMasterPage() {
             </>
           ) : (
             <>
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+              <div className="rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-4 text-sm text-[var(--arcane-ink-900)]">
                 You are about to update {selectedOrderIds.length} purchase order{selectedOrderIds.length === 1 ? '' : 's'}.
                 Confirm only after checking the summary below.
               </div>
 
-              <div className="rounded-lg border border-gray-200">
-                <div className="border-b border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700">
+              <div className="rounded-lg border border-[var(--arcane-border-light)]">
+                <div className="border-b border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-4 py-3 text-sm font-semibold text-[var(--arcane-ink-900)]">
                   Update Summary
                 </div>
-                <div className="space-y-2 px-4 py-3 text-sm text-gray-700">
+                <div className="space-y-2 px-4 py-3 text-sm text-[var(--arcane-ink-900)]">
                   {Object.entries(bulkValues)
                     .filter(([, value]) => value)
                     .map(([field, value]) => (
                       <div key={field} className="flex items-center justify-between gap-4">
-                        <span className="font-medium text-gray-600">
+                        <span className="font-medium text-[var(--arcane-ink-soft)]">
                           {field === 'InvoiceNumber'
                             ? 'Invoice Number'
                             : field === 'StoreID'
@@ -1759,7 +1759,7 @@ export default function OrderMasterPage() {
                       </div>
                     ))}
                   {!Object.values(bulkValues).some((value) => value) ? (
-                    <div className="text-gray-500">No fields selected for update.</div>
+                    <div className="text-[var(--arcane-ink-soft)]">No fields selected for update.</div>
                   ) : null}
                 </div>
               </div>
@@ -1767,7 +1767,7 @@ export default function OrderMasterPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
                 <Button
                   type="button"
-                  className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                  className="bg-[#e2d5bd99] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]"
                   onClick={() => setBulkStep('edit')}
                   disabled={bulkUpdateMutation.isPending}
                 >
@@ -1811,7 +1811,7 @@ export default function OrderMasterPage() {
             <div className="flex items-center justify-end gap-2">
               <Button
                 type="button"
-                className="h-9 !bg-gray-200 !text-gray-800 hover:!bg-gray-300"
+                className="h-9 !bg-[#e2d5bd99] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
                 onClick={() => handleNavigateOrder('previous')}
                 disabled={!canNavigateToPreviousOrder || updateMutation.isPending || deleteOrderMutation.isPending}
                 aria-label="Previous order"
@@ -1821,7 +1821,7 @@ export default function OrderMasterPage() {
               </Button>
               <Button
                 type="button"
-                className="h-9 !bg-gray-200 !text-gray-800 hover:!bg-gray-300"
+                className="h-9 !bg-[#e2d5bd99] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
                 onClick={() => handleNavigateOrder('next')}
                 disabled={!canNavigateToNextOrder || updateMutation.isPending || deleteOrderMutation.isPending}
                 aria-label="Next order"
@@ -1847,7 +1847,7 @@ export default function OrderMasterPage() {
             <div className="grid gap-4 pb-4 border-b grid-cols-1 md:grid-cols-4">
               {/* Invoice Number */}
               <div>
-                <p className="text-sm text-gray-600">Invoice Number</p>
+                <p className="text-sm text-[var(--arcane-ink-soft)]">Invoice Number</p>
                 <Input
                   ref={editOrderInvoiceInputRef}
                   type="text"
@@ -1867,7 +1867,7 @@ export default function OrderMasterPage() {
 
               {/* Store */}
               <div>
-                <p className="text-sm text-gray-600">Store</p>
+                <p className="text-sm text-[var(--arcane-ink-soft)]">Store</p>
                 <ComboSelect
                   options={storesData.map((store: any) => ({ value: store.StoreName, label: store.StoreName }))}
                   value={editedOrder?.StoreName || ''}
@@ -1879,7 +1879,7 @@ export default function OrderMasterPage() {
 
               {/* Purchase Date */}
               <div>
-                <p className="text-sm text-gray-600">Purchase Date</p>
+                <p className="text-sm text-[var(--arcane-ink-soft)]">Purchase Date</p>
                 <Input
                   type="date"
                   value={
@@ -1900,7 +1900,7 @@ export default function OrderMasterPage() {
 
               {/* Order Status */}
               <div>
-                <p className="text-sm text-gray-600">Order Status</p>
+                <p className="text-sm text-[var(--arcane-ink-soft)]">Order Status</p>
                 <ComboSelect
                   options={statusesData.map((status: any) => ({ value: status.StatusName, label: status.StatusName }))}
                   value={editedOrder?.StatusName || ''}
@@ -1921,7 +1921,7 @@ export default function OrderMasterPage() {
                 <>
                   <Button
                     type="button"
-                    className="bg-gray-600 hover:bg-gray-700"
+                    className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
                     onClick={() => setIsConfirmDeleteOpen(false)}
                     disabled={deleteOrderMutation.isPending}
                   >
@@ -1953,7 +1953,7 @@ export default function OrderMasterPage() {
                 </Button>
               </div>
               {inventoryLoading ? (
-                <p className="text-gray-500">Loading inventory items...</p>
+                <p className="text-[var(--arcane-ink-soft)]">Loading inventory items...</p>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
@@ -2020,7 +2020,7 @@ export default function OrderMasterPage() {
                                 {addDetailMutation.isPending ? 'Saving...' : 'Save'}
                               </Button>
                               <Button
-                                className="bg-gray-600 hover:bg-gray-700"
+                                className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
                                 onClick={cancelNewDetailRow}
                                 disabled={addDetailMutation.isPending}
                               >
@@ -2086,7 +2086,7 @@ export default function OrderMasterPage() {
                                         {updateDetailMutation.isPending ? 'Saving...' : 'Save'}
                                       </Button>
                                       <Button
-                                        className="bg-gray-600 hover:bg-gray-700"
+                                        className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
                                         onClick={cancelEditDetail}
                                         disabled={updateDetailMutation.isPending}
                                       >
@@ -2107,7 +2107,7 @@ export default function OrderMasterPage() {
                                       <button
                                         type="button"
                                         onClick={() => startEditDetail(item)}
-                                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#b886484d] text-[var(--arcane-gold-700)] hover:bg-[#b886481a] disabled:opacity-50"
                                         title={canWrite ? 'Edit row' : 'Switch to Update mode to edit rows'}
                                         disabled={!canWrite || !!editingDetailId || updateDetailMutation.isPending || addDetailMutation.isPending}
                                       >
@@ -2128,7 +2128,7 @@ export default function OrderMasterPage() {
                               )}
                             </TableRow>
                           ))}
-                          <TableRow className="bg-gray-50 font-semibold">
+                          <TableRow className="bg-[var(--arcane-paper)] font-semibold">
                             <TableCell colSpan={4} className="text-right">Total:</TableCell>
                             <TableCell className="text-right">
                               {formatCurrency(
@@ -2140,7 +2140,7 @@ export default function OrderMasterPage() {
                         </>
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-10 text-gray-500">
+                          <TableCell colSpan={6} className="text-center py-10 text-[var(--arcane-ink-soft)]">
                             No inventory items found for this order.
                           </TableCell>
                         </TableRow>
@@ -2166,7 +2166,7 @@ export default function OrderMasterPage() {
               </Button>
               <Button
                 type="button"
-                className="bg-slate-600 hover:bg-slate-700"
+                className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
                 onClick={requestCloseModal}
                 disabled={deleteOrderMutation.isPending || updateMutation.isPending}
               >
@@ -2212,7 +2212,7 @@ export default function OrderMasterPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pb-4 border-b">
             <label className="space-y-2">
-              <span className="text-sm text-gray-600">Invoice Number</span>
+              <span className="text-sm text-[var(--arcane-ink-soft)]">Invoice Number</span>
               <Input
                 type="text"
                 value={addOrderValues.InvoiceNumber}
@@ -2225,7 +2225,7 @@ export default function OrderMasterPage() {
             </label>
 
             <label className="space-y-2">
-              <span className="block text-sm font-medium text-gray-700 mb-1">Store</span>
+              <span className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Store</span>
               <ComboSelect
                 options={storesData.map((store: any) => ({ value: String(store.StoreID), label: store.StoreName }))}
                 value={addOrderValues.StoreID}
@@ -2236,7 +2236,7 @@ export default function OrderMasterPage() {
             </label>
 
             <label className="space-y-2">
-              <span className="block text-sm font-medium text-gray-700 mb-1">Order Status</span>
+              <span className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Order Status</span>
               <ComboSelect
                 options={statusesData.map((status: any) => ({ value: String(status.StatusID), label: status.StatusName }))}
                 value={addOrderValues.StatusID}
@@ -2247,7 +2247,7 @@ export default function OrderMasterPage() {
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm text-gray-600">Purchase Date</span>
+              <span className="text-sm text-[var(--arcane-ink-soft)]">Purchase Date</span>
               <Input
                 type="date"
                 value={addOrderValues.PurchaseDate}
@@ -2328,7 +2328,7 @@ export default function OrderMasterPage() {
                       </TableRow>
                     );
                   })}
-                  <TableRow className="bg-gray-50 font-semibold">
+                  <TableRow className="bg-[var(--arcane-paper)] font-semibold">
                     <TableCell colSpan={4} className="text-right">Total:</TableCell>
                     <TableCell className="text-right">
                       {formatCurrency(
@@ -2347,7 +2347,7 @@ export default function OrderMasterPage() {
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button className="bg-gray-600 hover:bg-gray-700" onClick={closeAddOrderModal} disabled={addOrderMutation.isPending}>
+            <Button className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white" onClick={closeAddOrderModal} disabled={addOrderMutation.isPending}>
               Cancel
             </Button>
             <Button

@@ -147,11 +147,11 @@ const ComboMultiSelect: React.FC<Props> = ({
         onClick={() => setOpen((v) => !v)}
         onKeyDown={handleButtonKeyDown}
         tabIndex={tabIndex}
-        className={`${className === 'w-full' ? 'flex w-full' : 'inline-flex min-w-[10rem] max-w-full'} text-left border rounded-md p-2 items-center justify-between`}
+        className={`${className === 'w-full' ? 'flex w-full' : 'inline-flex min-w-[10rem] max-w-full'} text-left border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] rounded-md p-2 items-center justify-between focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)]`}
       >
         <div className="truncate">
           {selectedLabels.length === 0 ? (
-            <span className="text-gray-500">{placeholder}</span>
+            <span className="text-[var(--arcane-ink-soft)]">{placeholder}</span>
           ) : selectedLabels.length > 2 ? (
             <span>{selectedLabels.length} selected</span>
           ) : (
@@ -164,12 +164,12 @@ const ComboMultiSelect: React.FC<Props> = ({
       </button>
 
       {open && (
-        <div className="mt-1 z-50 bg-white border rounded-md shadow-lg w-full left-0 absolute max-h-64 overflow-auto">
+        <div className="mt-1 z-50 bg-[var(--arcane-paper-raised)] border border-[var(--arcane-border-light)] rounded-md shadow-lg w-full left-0 absolute max-h-64 overflow-auto">
           <div className="p-2">
             <div className="relative mb-2">
               <input
                 ref={searchInputRef}
-                className="w-full border rounded-md p-2 pr-8"
+                className="w-full border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] rounded-md p-2 pr-8 focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)]"
                 placeholder="Search..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -181,7 +181,7 @@ const ComboMultiSelect: React.FC<Props> = ({
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => setSearch('')}
                   aria-label="Clear option search"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center rounded text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center rounded text-[var(--arcane-ink-soft)] transition hover:bg-[#e2d5bd99] hover:text-[var(--arcane-ink-900)]"
                 >
                   x
                 </button>
@@ -194,12 +194,12 @@ const ComboMultiSelect: React.FC<Props> = ({
             </label>
 
             <div className="space-y-1">
-              {filtered.length === 0 && <div className="text-sm text-gray-500 p-2">No options</div>}
+              {filtered.length === 0 && <div className="text-sm text-[var(--arcane-ink-soft)] p-2">No options</div>}
               {filtered.map((opt, index) => (
                 <label
                   key={opt.value}
                   onMouseEnter={() => setActiveIndex(index)}
-                  className={`flex items-center gap-2 p-2 cursor-pointer ${activeIndex === index ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                  className={`flex items-center gap-2 p-2 cursor-pointer ${activeIndex === index ? 'bg-[#b886481a]' : 'hover:bg-[var(--arcane-paper)]'}`}
                 >
                   <input
                     type="checkbox"

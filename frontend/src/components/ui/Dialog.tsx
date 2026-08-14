@@ -69,10 +69,10 @@ export const Dialog: React.FC<DialogProps> = ({
           onPointerDownOutside={preventDismissForComboSelectPortal}
           onFocusOutside={preventDismissForComboSelectPortal}
           onOpenAutoFocus={onOpenAutoFocus}
-          className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-lg p-6 max-h-[90vh] overflow-y-auto z-50 w-[92vw] max-w-4xl ${contentClassName || ''}`}
+          className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-[var(--arcane-paper-raised)] rounded-lg shadow-lg p-6 max-h-[90vh] overflow-y-auto z-50 w-[92vw] max-w-4xl ${contentClassName || ''}`}
         >
           <div className="flex items-center justify-between mb-4">
-            <RadixDialog.Title className="text-xl font-semibold text-gray-900">
+            <RadixDialog.Title className="text-xl font-semibold text-[var(--arcane-ink-900)]">
               {title}
             </RadixDialog.Title>
             {showCloseButton ? (
@@ -80,7 +80,8 @@ export const Dialog: React.FC<DialogProps> = ({
                 <button
                   type="button"
                   tabIndex={closeButtonTabIndex}
-                  className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                  aria-label="Close dialog"
+                  className="text-[var(--arcane-ink-soft)] hover:text-[var(--arcane-ink-900)] text-2xl leading-none"
                 >
                   ×
                 </button>

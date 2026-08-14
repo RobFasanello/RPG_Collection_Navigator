@@ -46,7 +46,7 @@ function SidebarListSkeleton() {
   return (
     <div className="space-y-2 p-2" aria-label="Loading categories list">
       {Array.from({ length: 6 }).map((_, index) => (
-        <div key={index} className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+        <div key={index} className="rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-4 py-3">
           <Skeleton className="h-4 w-2/3" />
           <div className="mt-2 flex justify-end">
             <Skeleton className="h-3 w-20" />
@@ -438,13 +438,13 @@ export default function CategoryMasterPage() {
   return (
     <AdminLayout title="Categories" subtitle="Manage categories and their linked sub categories in one place.">
       <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="space-y-4 border-b border-slate-200 p-4">
+        <aside className="rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] shadow-sm">
+          <div className="space-y-4 border-b border-[var(--arcane-border-light)] p-4">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">Categories</h2>
-              <p className="text-sm text-slate-500">Select a category to edit details and linked sub categories.</p>
+              <h2 className="text-lg font-semibold text-[var(--arcane-ink-900)]">Categories</h2>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Select a category to edit details and linked sub categories.</p>
             </div>
-            <Button onClick={handleAddCategory} className="w-full bg-green-600 hover:bg-green-700">
+            <Button onClick={handleAddCategory} className="w-full">
               Add Category
             </Button>
             <Input
@@ -463,7 +463,7 @@ export default function CategoryMasterPage() {
             ) : categoriesError ? (
               <div className="p-4 text-sm text-red-600">Error loading categories.</div>
             ) : filteredCategories.length === 0 ? (
-              <div className="p-4 text-sm text-slate-500">No categories found.</div>
+              <div className="p-4 text-sm text-[var(--arcane-ink-soft)]">No categories found.</div>
             ) : (
               <div className="space-y-1">
                 {filteredCategories.map((category) => {
@@ -478,15 +478,15 @@ export default function CategoryMasterPage() {
                       onClick={() => handleSelectCategory(Number(category.CategoryID))}
                       className={`w-full rounded-lg border px-4 py-3 text-left transition ${
                         isSelected
-                          ? 'border-sky-200 bg-sky-50 shadow-sm'
-                          : 'border-transparent bg-white hover:border-slate-200 hover:bg-slate-50'
+                          ? 'border-[#b8864866] bg-[#b886481a] shadow-sm'
+                          : 'border-transparent bg-[var(--arcane-paper-raised)] hover:border-[var(--arcane-border-light)] hover:bg-[var(--arcane-paper)]'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold text-slate-900">{category.CategoryName}</div>
+                          <div className="truncate text-sm font-semibold text-[var(--arcane-ink-900)]">{category.CategoryName}</div>
                         </div>
-                        <div className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-slate-500">
+                        <div className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-[var(--arcane-ink-soft)]">
                           <span>{linkCount} sub cats</span>
                           <span>{itemCount} items</span>
                         </div>
@@ -499,12 +499,12 @@ export default function CategoryMasterPage() {
           </div>
         </aside>
 
-        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 px-5 py-4">
+        <section className="rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] shadow-sm">
+          <div className="border-b border-[var(--arcane-border-light)] px-5 py-4">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">{mode === 'new' ? 'Add Category' : selectedCategory?.CategoryName || 'Select a category'}</h2>
-                <p className="text-sm text-slate-500">
+                <h2 className="text-2xl font-bold text-[var(--arcane-ink-900)]">{mode === 'new' ? 'Add Category' : selectedCategory?.CategoryName || 'Select a category'}</h2>
+                <p className="text-sm text-[var(--arcane-ink-soft)]">
                   {mode === 'new'
                     ? 'Create a category, then link sub categories from the second tab.'
                     : 'Edit category details or manage linked sub categories from the tabs below.'}
@@ -516,8 +516,8 @@ export default function CategoryMasterPage() {
                   <Button
                     type="button"
                     className={activeTab === 'details'
-                      ? 'border border-sky-600 !bg-sky-600 !text-white hover:!bg-sky-700'
-                      : 'border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50'}
+                      ? 'border border-[var(--arcane-gold-500)] !bg-[var(--arcane-gold-500)] !text-[var(--arcane-ink-950)] hover:!bg-[var(--arcane-gold-300)]'
+                      : 'border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]'}
                     onClick={() => setActiveTab('details')}
                   >
                     Details
@@ -525,8 +525,8 @@ export default function CategoryMasterPage() {
                   <Button
                     type="button"
                     className={activeTab === 'sub-categories'
-                      ? 'border border-sky-600 !bg-sky-600 !text-white hover:!bg-sky-700'
-                      : 'border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50'}
+                      ? 'border border-[var(--arcane-gold-500)] !bg-[var(--arcane-gold-500)] !text-[var(--arcane-ink-950)] hover:!bg-[var(--arcane-gold-300)]'
+                      : 'border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]'}
                     onClick={() => setActiveTab('sub-categories')}
                   >
                     Sub Categories
@@ -546,7 +546,7 @@ export default function CategoryMasterPage() {
                 {activeTab === 'details' ? (
                   <form className="space-y-4" onSubmit={handleSaveDetails}>
                     <label className="block space-y-2">
-                      <span className="text-sm font-medium text-slate-700">Category Name</span>
+                      <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Category Name</span>
                       <Input
                         ref={nameInputRef}
                         type="text"
@@ -560,7 +560,7 @@ export default function CategoryMasterPage() {
                     <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                       <div>
                         {mode === 'existing' && selectedCategoryId !== null ? (
-                          <Button type="button" onClick={handleDeleteCategory} disabled={isSaving} className="bg-red-600 hover:bg-red-700">
+                          <Button type="button" onClick={handleDeleteCategory} disabled={isSaving} className="!bg-[var(--arcane-danger)] hover:!bg-[var(--arcane-danger-hover)] !text-white">
                             Delete Category
                           </Button>
                         ) : null}
@@ -569,7 +569,7 @@ export default function CategoryMasterPage() {
                       <div className="flex gap-2">
                         <Button
                           type="button"
-                          className="bg-slate-600 hover:bg-slate-700"
+                          className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
                           onClick={() => {
                             if (mode === 'new') {
                               setMode('existing');
@@ -587,7 +587,6 @@ export default function CategoryMasterPage() {
                         </Button>
                         <Button
                           type="submit"
-                          className="bg-green-600 hover:bg-green-700"
                           disabled={isSaving || (mode === 'existing' && JSON.stringify(formValues) === JSON.stringify(initialFormValues))}
                         >
                           {isSaving ? 'Saving...' : mode === 'new' ? 'Add Category' : 'Save Category'}
@@ -598,15 +597,15 @@ export default function CategoryMasterPage() {
                 ) : (
                   <div className="space-y-4">
                     {selectedCategoryId === null || mode === 'new' ? (
-                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">
+                      <div className="rounded-xl border border-dashed border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-5 text-sm text-[var(--arcane-ink-soft)]">
                         Save this category first to manage linked sub categories.
                       </div>
                     ) : (
                       <>
-                        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-4">
                           <div className="min-w-0 flex-1">
-                            <div className="text-sm font-semibold text-slate-900">Add linked sub category</div>
-                            <div className="text-xs text-slate-500">Choose a sub category and link it immediately to this category.</div>
+                            <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">Add linked sub category</div>
+                            <div className="text-xs text-[var(--arcane-ink-soft)]">Choose a sub category and link it immediately to this category.</div>
                           </div>
                           <div className="min-w-[240px] flex-1">
                             <ComboSelect
@@ -619,24 +618,24 @@ export default function CategoryMasterPage() {
                               openOnFocus={false}
                             />
                           </div>
-                          <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleAddSubTypeLink} disabled={isLinkSaving}>
+                          <Button type="button" className="bg-[var(--arcane-gold-500)] hover:bg-[var(--arcane-gold-300)]" onClick={handleAddSubTypeLink} disabled={isLinkSaving}>
                             Add
                           </Button>
                         </div>
 
-                        <div className="rounded-xl border border-slate-200">
-                          <div className="border-b border-slate-200 bg-white px-4 py-3">
-                            <div className="text-sm font-semibold text-slate-900">Linked Sub Categories</div>
-                            <div className="text-xs text-slate-500">{selectedCategoryLinkCount} linked sub category{selectedCategoryLinkCount === 1 ? '' : 'ies'}</div>
+                        <div className="rounded-xl border border-[var(--arcane-border-light)]">
+                          <div className="border-b border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-4 py-3">
+                            <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">Linked Sub Categories</div>
+                            <div className="text-xs text-[var(--arcane-ink-soft)]">{selectedCategoryLinkCount} linked sub category{selectedCategoryLinkCount === 1 ? '' : 'ies'}</div>
                           </div>
-                          <div className="divide-y divide-slate-200">
+                          <div className="divide-y divide-[var(--arcane-border-light)]">
                             {selectedCategoryLinks.length === 0 ? (
-                              <div className="px-4 py-5 text-sm text-slate-500">No sub categories linked yet.</div>
+                              <div className="px-4 py-5 text-sm text-[var(--arcane-ink-soft)]">No sub categories linked yet.</div>
                             ) : (
                               selectedCategoryLinks.map((record) => (
                                 <div key={record.CategorySubTypeID ?? `${record.CategoryID}-${record.SubTypeID}`} className="flex items-center justify-between gap-4 px-4 py-3">
-                                  <div className="text-sm font-medium text-slate-900">{subTypeNameById[Number(record.SubTypeID)] ?? record.SubTypeID}</div>
-                                  <Button type="button" className="border border-red-300 !bg-white !text-red-700 hover:!bg-red-50" onClick={() => handleRemoveSubTypeLink(record)} disabled={isLinkSaving}>
+                                  <div className="text-sm font-medium text-[var(--arcane-ink-900)]">{subTypeNameById[Number(record.SubTypeID)] ?? record.SubTypeID}</div>
+                                  <Button type="button" className="border border-red-300 !bg-[var(--arcane-paper-raised)] !text-red-700 hover:!bg-red-50" onClick={() => handleRemoveSubTypeLink(record)} disabled={isLinkSaving}>
                                     Remove
                                   </Button>
                                 </div>
@@ -650,35 +649,35 @@ export default function CategoryMasterPage() {
                 )}
               </div>
 
-              <aside className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <aside className="space-y-4 rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-4">
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">Category Summary</div>
-                  <div className="mt-2 space-y-1 text-sm text-slate-600">
+                  <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">Category Summary</div>
+                  <div className="mt-2 space-y-1 text-sm text-[var(--arcane-ink-soft)]">
                     <div>Items: {selectedCategoryItemCount.toLocaleString()}</div>
                     <div>Sub Categories: {selectedCategoryLinkCount.toLocaleString()}</div>
                   </div>
                 </div>
 
                 {selectedCategory && mode === 'existing' ? (
-                  <div className="rounded-lg bg-white p-3 shadow-sm">
-                    <div className="text-sm font-semibold text-slate-900">Quick Links</div>
+                  <div className="rounded-lg bg-[var(--arcane-paper-raised)] p-3 shadow-sm">
+                    <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">Quick Links</div>
                     <div className="mt-2 space-y-2 text-sm">
                       <Link
                         to={buildCategoryInventoryLink(String(selectedCategory.CategoryName || ''), false)}
-                        className="block text-blue-600 underline hover:text-blue-700"
+                        className="block text-[var(--arcane-gold-700)] underline hover:text-[var(--arcane-gold-600)]"
                       >
                         View items for this category
                       </Link>
                       <Link
                         to={buildCategoryInventoryLink(String(selectedCategory.CategoryName || ''), true)}
-                        className="block text-blue-600 underline hover:text-blue-700"
+                        className="block text-[var(--arcane-gold-700)] underline hover:text-[var(--arcane-gold-600)]"
                       >
                         View owned items for this category
                       </Link>
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-lg bg-white p-3 text-sm text-slate-500 shadow-sm">Select a category to see summary information.</div>
+                  <div className="rounded-lg bg-[var(--arcane-paper-raised)] p-3 text-sm text-[var(--arcane-ink-soft)] shadow-sm">Select a category to see summary information.</div>
                 )}
               </aside>
             </div>
@@ -700,7 +699,7 @@ export default function CategoryMasterPage() {
         <div className="space-y-4">
           <p className="text-sm text-red-700">{deleteError}</p>
           <div className="flex justify-end">
-            <Button onClick={() => setDeleteError('')} className="bg-red-600 hover:bg-red-700">
+            <Button onClick={() => setDeleteError('')} className="!bg-[var(--arcane-danger)] hover:!bg-[var(--arcane-danger-hover)] !text-white">
               OK
             </Button>
           </div>

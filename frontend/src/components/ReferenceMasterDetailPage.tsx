@@ -326,14 +326,14 @@ export default function ReferenceMasterDetailPage({
 
   return (
     <AdminLayout title={title} subtitle={subtitle}>
-      <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="space-y-4 border-b border-slate-200 p-4">
+      <div className="mx-auto grid max-w-[1500px] gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <aside className="rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] shadow-sm">
+          <div className="space-y-4 border-b border-[var(--arcane-border-light)] p-4">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-              <p className="text-sm text-slate-500">Select a record to edit it.</p>
+              <h2 className="text-lg font-semibold text-[var(--arcane-ink-900)]">{title}</h2>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Select a record to edit it.</p>
             </div>
-            <Button onClick={handleAdd} className="w-full bg-green-600 hover:bg-green-700">
+            <Button onClick={handleAdd} className="w-full">
               {newButtonLabel}
             </Button>
             <Input
@@ -348,11 +348,11 @@ export default function ReferenceMasterDetailPage({
 
           <div className="max-h-[calc(100vh-260px)] overflow-y-auto p-2">
             {isLoading ? (
-              <div className="p-4 text-sm text-slate-500">Loading...</div>
+              <div className="p-4 text-sm text-[var(--arcane-ink-soft)]">Loading...</div>
             ) : error ? (
               <div className="p-4 text-sm text-red-600">Error loading records.</div>
             ) : filteredRecords.length === 0 ? (
-              <div className="p-4 text-sm text-slate-500">No records found.</div>
+              <div className="p-4 text-sm text-[var(--arcane-ink-soft)]">No records found.</div>
             ) : (
               <div className="space-y-1">
                 {filteredRecords.map((record) => {
@@ -365,14 +365,14 @@ export default function ReferenceMasterDetailPage({
                       onClick={() => handleSelect(Number(record[idColumn]))}
                       className={`w-full rounded-lg border px-4 py-3 text-left transition ${
                         isSelected
-                          ? 'border-sky-200 bg-sky-50 shadow-sm'
-                          : 'border-transparent bg-white hover:border-slate-200 hover:bg-slate-50'
+                          ? 'border-[#b8864866] bg-[#b886481a] shadow-sm'
+                          : 'border-transparent bg-[var(--arcane-paper-raised)] hover:border-[var(--arcane-border-light)] hover:bg-[var(--arcane-paper)]'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold text-slate-900">{String(record[nameColumn] ?? '').trim()}</div>
-                          {listItemSummary ? <div className="text-xs text-slate-500">{listItemSummary(record)}</div> : null}
+                          <div className="truncate text-sm font-semibold text-[var(--arcane-ink-900)]">{String(record[nameColumn] ?? '').trim()}</div>
+                          {listItemSummary ? <div className="text-xs text-[var(--arcane-ink-soft)]">{listItemSummary(record)}</div> : null}
                         </div>
                       </div>
                     </button>
@@ -383,14 +383,14 @@ export default function ReferenceMasterDetailPage({
           </div>
         </aside>
 
-        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 px-5 py-4">
+        <section className="min-w-0 rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] shadow-sm xl:min-w-[720px]">
+          <div className="border-b border-[var(--arcane-border-light)] px-5 py-4">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">
+                <h2 className="text-2xl font-bold text-[var(--arcane-ink-900)]">
                   {mode === 'new' ? newTitle : editTitle}
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-[var(--arcane-ink-soft)]">
                   {mode === 'new'
                     ? `Create a new ${title.toLowerCase()}.`
                     : selectedRecord
@@ -453,10 +453,10 @@ export default function ReferenceMasterDetailPage({
 
                       return (
                         <label key={field.key} className={isTextarea ? 'block space-y-2 sm:col-span-2' : 'block space-y-2 sm:col-span-2'}>
-                          <span className="text-sm font-medium text-slate-700">{field.label}</span>
+                          <span className="text-sm font-medium text-[var(--arcane-ink-900)]">{field.label}</span>
                           {isTextarea ? (
                             <textarea
-                              className="min-h-24 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                              className="min-h-24 w-full rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-3 py-2 text-sm text-[var(--arcane-ink-900)] shadow-sm outline-none transition placeholder:text-[var(--arcane-ink-soft)] focus:border-[var(--arcane-gold-500)] focus:ring-2 focus:ring-[var(--arcane-gold-600)]"
                               value={formValues[field.key]}
                               onChange={(event) => setFormValues((prev) => ({ ...prev, [field.key]: event.target.value }))}
                               placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}`}
@@ -480,17 +480,17 @@ export default function ReferenceMasterDetailPage({
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                     <div>
                       {mode === 'existing' && selectedId !== null ? (
-                        <Button type="button" onClick={handleDelete} disabled={isSaving} className="bg-red-600 hover:bg-red-700">
+                        <Button type="button" onClick={handleDelete} disabled={isSaving} className="!bg-[var(--arcane-danger)] hover:!bg-[var(--arcane-danger-hover)] !text-white">
                           Delete
                         </Button>
                       ) : null}
                     </div>
 
                     <div className="flex gap-2">
-                      <Button type="button" className="bg-slate-600 hover:bg-slate-700" onClick={closeToExisting}>
+                      <Button type="button" className="!bg-[var(--arcane-ink-700)] !text-white hover:!bg-[var(--arcane-ink-800)]" onClick={closeToExisting}>
                         Cancel
                       </Button>
-                      <Button type="submit" className="bg-green-600 hover:bg-green-700" disabled={isSaving || (mode === 'new' ? !hasFormInput : !hasChanges)}>
+                      <Button type="submit" disabled={isSaving || (mode === 'new' ? !hasFormInput : !hasChanges)}>
                         {isSaving ? 'Saving...' : mode === 'new' ? newButtonLabel : `Save ${title}`}
                       </Button>
                     </div>
@@ -498,21 +498,21 @@ export default function ReferenceMasterDetailPage({
                 </form>
               </div>
 
-              <aside className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <aside className="space-y-4 rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-4">
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">{title} Summary</div>
-                  <div className="mt-2 space-y-1 text-sm text-slate-600">
+                  <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">{title} Summary</div>
+                  <div className="mt-2 space-y-1 text-sm text-[var(--arcane-ink-soft)]">
                     <div>Records: {records.length.toLocaleString()}</div>
                     <div>Selected: {selectedRecord ? String(selectedRecord[nameColumn] ?? '').trim() : '-'}</div>
                   </div>
                 </div>
 
                 {quickLinks.length > 0 ? (
-                  <div className="rounded-lg bg-white p-3 shadow-sm">
-                    <div className="text-sm font-semibold text-slate-900">Quick Links</div>
+                  <div className="rounded-lg bg-[var(--arcane-paper-raised)] p-3 shadow-sm">
+                    <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">Quick Links</div>
                     <div className="mt-2 space-y-2 text-sm">
                       {quickLinks.map((link) => (
-                        <Link key={`${link.label}-${link.to}`} to={link.to} className="block text-blue-600 underline hover:text-blue-700">
+                        <Link key={`${link.label}-${link.to}`} to={link.to} className="block text-[var(--arcane-gold-700)] underline hover:text-[var(--arcane-gold-600)]">
                           {link.label}
                         </Link>
                       ))}
@@ -539,7 +539,7 @@ export default function ReferenceMasterDetailPage({
         <div className="space-y-4">
           <p className="text-sm text-red-700">{deleteError}</p>
           <div className="flex justify-end">
-            <Button onClick={() => setDeleteError('')} className="bg-red-600 hover:bg-red-700">
+            <Button onClick={() => setDeleteError('')} className="!bg-[var(--arcane-danger)] hover:!bg-[var(--arcane-danger-hover)] !text-white">
               OK
             </Button>
           </div>

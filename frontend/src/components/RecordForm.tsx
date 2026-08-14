@@ -199,7 +199,7 @@ export default function RecordForm({
           </div>
         )}
 
-        {fetching && <p className="text-gray-500">Loading record...</p>}
+        {fetching && <p className="text-[var(--arcane-ink-soft)]">Loading record...</p>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {schemaState?.map((col: any) => {
@@ -242,7 +242,7 @@ export default function RecordForm({
                   type="button"
                   onClick={onDelete}
                   disabled={deleteDisabled || loading || fetching}
-                  className="bg-red-600 hover:bg-red-700"
+                  className="!bg-[var(--arcane-danger)] hover:!bg-[var(--arcane-danger-hover)] !text-white"
                 >
                   {deleteLabel}
                 </Button>
@@ -252,11 +252,11 @@ export default function RecordForm({
               <Button
                 type="button"
                 onClick={onClose}
-                className="bg-gray-600 hover:bg-gray-700 text-white"
+                className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading || fetching || (!isEditing && !hasFormInput) || (isEditing && !hasChanges)} className="bg-green-600 hover:bg-green-700 text-white">
+              <Button type="submit" disabled={loading || fetching || (!isEditing && !hasFormInput) || (isEditing && !hasChanges)}>
                 {loading ? 'Saving...' : isEditing ? editButtonLabel : addButtonLabel}
               </Button>
             </div>

@@ -110,19 +110,19 @@ export default function HomeShell() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col">
-      <header className="sticky top-0 z-50 border-b border-slate-300 bg-white shadow-sm">
-        <div className="mx-auto w-full max-w-[1800px] px-4 py-3 sm:px-6 lg:px-8">
+    <div className="theme-light min-h-[100dvh] bg-[var(--arcane-paper)] text-[var(--arcane-ink-900)] flex flex-col">
+      <header className="sticky top-0 z-50 border-b border-[#d6b07c66] bg-[#17151af2] shadow-[0_10px_30px_rgba(18,15,19,0.2)] backdrop-blur-md">
+        <div className="mx-auto w-full max-w-[1920px] px-4 py-3 sm:px-6 lg:px-8 2xl:px-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3 shrink-0">
               <img
                 src="/favicon.png"
                 alt="Arcane Library"
-                className="h-12 w-12 rounded-md bg-white object-contain"
+                className="h-12 w-12 rounded-md bg-[var(--arcane-ivory)] object-contain ring-1 ring-[#b8864899]"
               />
               <div>
-                <h1 className="text-xl font-bold text-slate-900">Arcane Repository</h1>
-                <p className="text-xs text-slate-500">A grimoire of your own making</p>
+                <h1 className="text-xl font-bold text-[var(--arcane-ivory)]">Arcane Repository</h1>
+                <p className="text-xs text-[var(--arcane-gold-300)]">A grimoire of your own making</p>
               </div>
             </div>
 
@@ -131,17 +131,14 @@ export default function HomeShell() {
                 <NavigationMenuList>
                   <NavigationMenuItem>
                     <NavigationMenuLink asChild active={location.pathname === '/home'}>
-                      <Link to="/home" className={navigationMenuTriggerStyle(location.pathname === '/home')} tabIndex={1000}>
-                        Home
+                      <Link to="/home" className={navigationMenuTriggerStyle(location.pathname === '/home')}>
+                        Dashboard
                       </Link>
                     </NavigationMenuLink>
                   </NavigationMenuItem>
 
                   <NavigationMenuItem>
-                    <NavigationMenuTrigger
-                      active={MANAGE_NAV_ITEMS.some((item) => isTopMenuItemActive(item.path))}
-                      tabIndex={1001}
-                    >
+                    <NavigationMenuTrigger active={MANAGE_NAV_ITEMS.some((item) => isTopMenuItemActive(item.path))}>
                       Manage
                     </NavigationMenuTrigger>
                     <NavigationMenuContent>
@@ -156,13 +153,13 @@ export default function HomeShell() {
                                   to={item.path}
                                   className={`block rounded-md px-3 py-2 transition ${
                                     active
-                                      ? 'bg-sky-600 text-white'
-                                      : 'text-slate-700 hover:bg-sky-50 hover:text-sky-700'
+                                      ? 'bg-[var(--arcane-gold-500)] text-[var(--arcane-ink-950)]'
+                                      : 'text-[var(--arcane-ivory)] hover:bg-[var(--arcane-ink-700)] hover:text-[var(--arcane-gold-300)]'
                                   }`}
                                 >
                                   <div className="space-y-0.5">
                                     <div className="text-sm font-semibold leading-5">{item.label}</div>
-                                    <div className={`text-xs leading-4 ${active ? 'text-sky-50' : 'text-slate-500'}`}>
+                                    <div className={`text-xs leading-4 ${active ? 'text-[#120f13cc]' : 'text-[var(--arcane-sand)]'}`}>
                                       {item.description}
                                     </div>
                                   </div>
@@ -177,7 +174,7 @@ export default function HomeShell() {
 
                   {isAdmin && (
                     <NavigationMenuItem>
-                      <NavigationMenuTrigger active={isTopMenuItemActive('/home/setup')} tabIndex={1002}>
+                      <NavigationMenuTrigger active={isTopMenuItemActive('/home/setup')}>
                         Setup
                       </NavigationMenuTrigger>
                       <NavigationMenuContent>
@@ -192,13 +189,13 @@ export default function HomeShell() {
                                     to={item.path}
                                     className={`block rounded-md px-3 py-2 transition ${
                                       active
-                                        ? 'bg-sky-600 text-white'
-                                        : 'text-slate-700 hover:bg-sky-50 hover:text-sky-700'
+                                        ? 'bg-[var(--arcane-gold-500)] text-[var(--arcane-ink-950)]'
+                                        : 'text-[var(--arcane-ivory)] hover:bg-[var(--arcane-ink-700)] hover:text-[var(--arcane-gold-300)]'
                                     }`}
                                   >
                                     <div className="space-y-0.5">
                                       <div className="text-sm font-semibold leading-5">{item.label}</div>
-                                      <div className={`text-xs leading-4 ${active ? 'text-sky-50' : 'text-slate-500'}`}>
+                                      <div className={`text-xs leading-4 ${active ? 'text-[#120f13cc]' : 'text-[var(--arcane-sand)]'}`}>
                                         {item.description}
                                       </div>
                                     </div>
@@ -214,15 +211,15 @@ export default function HomeShell() {
                 </NavigationMenuList>
               </NavigationMenu>
 
-              <div className="flex items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              <div className="flex items-center gap-2 rounded-lg border border-[var(--arcane-line)] bg-[var(--arcane-ink-800)] px-3 py-2 text-sm text-[var(--arcane-ivory)] shadow-inner shadow-[#120f1333]">
                 <span>
-                  Signed in as <span className="font-medium text-slate-900">{name}</span>
-                  <span className="text-slate-500"> · {MODE_LABELS[mode]}</span>
+                  Signed in as <span className="font-medium text-[var(--arcane-ivory-bright)]">{name}</span>
+                  <span className="text-[var(--arcane-sand)]"> · {MODE_LABELS[mode]}</span>
                 </span>
                 <button
                   type="button"
                   onClick={() => logout()}
-                  className="text-sky-700 underline underline-offset-2 hover:text-sky-900"
+                  className="text-[var(--arcane-ivory)] underline underline-offset-2 hover:text-[var(--arcane-gold-300)]"
                 >
                   Log out
                 </button>
@@ -230,23 +227,23 @@ export default function HomeShell() {
 
               <form
                 onSubmit={handleSearchSubmit}
-                className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-200 transition"
+                className="flex items-center gap-1.5 rounded-lg border border-[var(--arcane-line)] bg-[var(--arcane-ink-800)] px-3 py-2 transition focus-within:border-[var(--arcane-gold-500)] focus-within:ring-2 focus-within:ring-[#b8864840]"
               >
-                <Search className="h-4 w-4 shrink-0 text-slate-400" />
+                <Search className="h-4 w-4 shrink-0 text-[var(--arcane-gold-300)]" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search…"
                   aria-label="Global search"
-                  className="w-32 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 sm:w-40"
+                  className="w-32 bg-transparent text-sm text-[var(--arcane-ivory)] outline-none placeholder:text-[#b9ae9d]/70 sm:w-40"
                 />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
                     aria-label="Clear global search"
-                    className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
+                    className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--arcane-gold-300)] transition hover:bg-[var(--arcane-ink-700)] hover:text-[var(--arcane-ivory)]"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -263,20 +260,20 @@ export default function HomeShell() {
         onClose={() => setSearchModalOpen(false)}
       />
 
-      <main className="mx-auto w-full max-w-[1800px] flex-1 px-4 py-6 pb-20 sm:px-6 lg:px-8">
-        <div className="rounded-xl border border-slate-300 bg-white shadow-sm">
+      <main className="mx-auto w-full max-w-[1920px] flex-1 px-4 py-6 pb-20 sm:px-6 lg:px-8 2xl:px-10">
+        <div className="rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] shadow-sm">
           <Outlet />
         </div>
       </main>
 
-      <footer className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-300 bg-white shadow-[0_-2px_8px_rgba(15,23,42,0.08)]">
-        <div className="mx-auto grid w-full max-w-[1800px] gap-2 px-4 py-3 text-sm text-slate-700 sm:grid-cols-2 sm:px-6 lg:px-8">
+      <footer className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] shadow-[0_-2px_8px_rgba(15,23,42,0.08)]">
+        <div className="mx-auto grid w-full max-w-[1920px] gap-2 px-4 py-3 text-sm text-[var(--arcane-ink-soft)] sm:grid-cols-2 sm:px-6 lg:px-8 2xl:px-10">
           <div>
-            <span className="font-semibold text-slate-800">Backend Build: </span>
+            <span className="font-semibold text-[var(--arcane-ink-900)]">Backend Build: </span>
             <span>{backendBuildLabel}</span>
           </div>
           <div>
-            <span className="font-semibold text-slate-800">Frontend Build: </span>
+            <span className="font-semibold text-[var(--arcane-ink-900)]">Frontend Build: </span>
             <span>{frontendBuildLabel}</span>
           </div>
         </div>

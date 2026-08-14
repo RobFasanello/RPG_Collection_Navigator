@@ -8,7 +8,7 @@ const Table = ({ className, ...props }: React.TableHTMLAttributes<HTMLTableEleme
 Table.displayName = "Table"
 
 const TableHeader = ({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) => (
-  <thead className={`border-b bg-gray-50 ${className}`} {...props} />
+  <thead className={`border-b bg-[var(--arcane-paper)] ${className}`} {...props} />
 )
 TableHeader.displayName = "TableHeader"
 
@@ -18,12 +18,12 @@ const TableBody = ({ className, ...props }: React.HTMLAttributes<HTMLTableSectio
 TableBody.displayName = "TableBody"
 
 const TableRow = ({ className, ...props }: React.HTMLAttributes<HTMLTableRowElement>) => (
-  <tr className={`border-b hover:bg-gray-100 transition ${className}`} {...props} />
+  <tr className={`border-b hover:bg-[#e2d5bd66] transition ${className}`} {...props} />
 )
 TableRow.displayName = "TableRow"
 
 const TableHead = ({ className, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) => (
-  <th className={`h-12 px-4 text-left align-middle font-semibold text-gray-700 ${className}`} {...props} />
+  <th className={`h-12 px-4 text-left align-middle font-semibold text-[var(--arcane-ink-900)] ${className}`} {...props} />
 )
 TableHead.displayName = "TableHead"
 

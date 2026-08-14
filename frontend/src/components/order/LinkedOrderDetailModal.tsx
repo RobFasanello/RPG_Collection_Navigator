@@ -285,31 +285,31 @@ export default function LinkedOrderDetailModal({
 
           <div className="grid gap-4 pb-4 border-b grid-cols-2 md:grid-cols-5">
             <div>
-              <p className="text-sm text-gray-600">Invoice Number</p>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Invoice Number</p>
               <p className="font-semibold">{order.InvoiceNumber}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Store</p>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Store</p>
               <p className="font-semibold">{order.StoreName}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Purchase Date</p>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Purchase Date</p>
               <p className="font-semibold">{formatPurchaseDate(order.PurchaseDate)}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Status</p>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Status</p>
               <p className="font-semibold">{order.StatusName || '-'}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Total Amount</p>
-              <p className="font-semibold text-blue-600">{formatCurrency(order.TotalAmount)}</p>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Total Amount</p>
+              <p className="font-semibold text-[var(--arcane-gold-700)]">{formatCurrency(order.TotalAmount)}</p>
             </div>
           </div>
 
           <div>
             <h3 className="text-lg font-semibold mb-4">Purchase Order Details</h3>
             {purchaseOrderDetailsLoading ? (
-              <p className="text-gray-500">Loading purchase order details...</p>
+              <p className="text-[var(--arcane-ink-soft)]">Loading purchase order details...</p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -368,14 +368,14 @@ export default function LinkedOrderDetailModal({
                                   {isEditing ? (
                                     <>
                                       <Button
-                                        className="bg-blue-600 hover:bg-blue-700"
+                                        className="bg-[var(--arcane-gold-500)] hover:bg-[var(--arcane-gold-300)]"
                                         onClick={() => handleSaveDetail(detail.PurchaseOrderDetailID)}
                                         disabled={updateDetailMutation.isPending}
                                       >
                                         {updateDetailMutation.isPending ? 'Saving...' : 'Save'}
                                       </Button>
                                       <Button
-                                        className="bg-gray-600 hover:bg-gray-700"
+                                        className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
                                         onClick={() => handleCancelDetailEdit(detail)}
                                         disabled={updateDetailMutation.isPending}
                                       >
@@ -385,7 +385,7 @@ export default function LinkedOrderDetailModal({
                                   ) : (
                                     <button
                                       onClick={() => handleStartDetailEdit(detail)}
-                                      className="inline-flex items-center justify-center text-blue-600 hover:text-blue-700"
+                                      className="inline-flex items-center justify-center text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)]"
                                       title="Edit purchase order detail"
                                       type="button"
                                     >
@@ -397,7 +397,7 @@ export default function LinkedOrderDetailModal({
                             </TableRow>
                           );
                         })}
-                        <TableRow className="bg-gray-50 font-semibold">
+                        <TableRow className="bg-[var(--arcane-paper)] font-semibold">
                           <TableCell colSpan={4} className="text-right">Total:</TableCell>
                           <TableCell className="text-right">
                             {formatCurrency(
@@ -414,7 +414,7 @@ export default function LinkedOrderDetailModal({
                       </>
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-10 text-gray-500">
+                        <TableCell colSpan={6} className="text-center py-10 text-[var(--arcane-ink-soft)]">
                           No purchase order details found for this order.
                         </TableCell>
                       </TableRow>

@@ -333,7 +333,7 @@ export default function InventoryLookupPage() {
       return date || '';
     }
 
-    return `${String(parts.month).padStart(2, '0')}/${String(parts.day).padStart(2, '0')}/${parts.year}`;
+    return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
   };
 
   const normalizeReleaseDateForSave = (date: string) => {
@@ -1202,7 +1202,7 @@ export default function InventoryLookupPage() {
 
   const SortIndicator = ({ column }: { column: string }) => {
     if (sortBy !== column) {
-      return <span className="ml-1 text-gray-300">↕</span>;
+      return <span className="ml-1 text-[var(--arcane-ink-soft)]">↕</span>;
     }
     return <span className="ml-1">{sortOrder === 'ASC' ? '↑' : '↓'}</span>;
   };
@@ -2128,7 +2128,7 @@ export default function InventoryLookupPage() {
         <span className="inline-flex items-center gap-2">
           <span>Item Master</span>
           <span
-            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-400 hover:text-gray-600"
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[var(--arcane-ink-soft)] hover:text-[var(--arcane-ink-900)]"
             title="Use this screen to view, add, remove and modify the items in your collection."
             aria-label="Item Master page information"
           >
@@ -2138,18 +2138,17 @@ export default function InventoryLookupPage() {
       }
       subtitle={null}
     >
-      <div className="max-w-[1600px] mx-auto space-y-6">
-        <section className="bg-white shadow rounded-lg p-6">
+      <div className="max-w-[1920px] mx-auto space-y-6 px-0 2xl:px-2">
+        <section className="bg-[var(--arcane-paper-raised)] shadow rounded-lg p-6">
           <div className="space-y-4">
             {selectedItemIds.length > 0 ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#b886484d] bg-[#b886481a] px-4 py-3">
                 <div className="flex items-center gap-3 text-sm">
-                  <span className="font-semibold text-blue-900">{selectedItemIds.length} selected</span>
+                  <span className="font-semibold text-[var(--arcane-gold-700)]">{selectedItemIds.length} selected</span>
                   <button
                     type="button"
-                    className="text-blue-700 hover:text-blue-900 underline underline-offset-2"
+                    className="text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-700)] underline underline-offset-2"
                     onClick={() => setSelectedItemIds([])}
-                    tabIndex={14}
                   >
                     Clear
                   </button>
@@ -2158,32 +2157,29 @@ export default function InventoryLookupPage() {
                   {selectedCurrentPageItems.length > 0 ? (
                     <Button
                       type="button"
-                      className="border border-gray-300 !bg-white !text-gray-800 hover:!bg-gray-50"
+                      className="border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]"
                       onClick={openCreateOrderModal}
                       disabled={!canWrite}
                       title={canWrite ? undefined : 'Switch to Update mode to create orders'}
-                      tabIndex={15}
                     >
                       Create Order
                     </Button>
                   ) : null}
                   <Button
                     type="button"
-                    className="border border-gray-300 !bg-white !text-gray-800 hover:!bg-gray-50"
+                    className="border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]"
                     onClick={openBulkUpdateDialog}
                     disabled={!canWrite}
                     title={canWrite ? undefined : 'Switch to Update mode to edit items'}
-                    tabIndex={16}
                   >
                     Bulk Update
                   </Button>
                   <Button
                     type="button"
-                    className="border border-red-300 !bg-white !text-red-700 hover:!bg-red-50"
+                    className="border border-red-300 !bg-[var(--arcane-paper-raised)] !text-red-700 hover:!bg-red-50"
                     onClick={openBulkDeleteDialog}
                     disabled={!canWrite}
                     title={canWrite ? undefined : 'Switch to Update mode to delete items'}
-                    tabIndex={17}
                   >
                     Delete
                   </Button>
@@ -2201,7 +2197,6 @@ export default function InventoryLookupPage() {
                     placeholder="Search by item name or product ID..."
                     className="w-full max-w-md"
                     autoFocus
-                    tabIndex={1}
                   />
                   <div className="min-w-0 flex-1">
                     <FilterChipBar fields={filterChipFields} onClearAll={clearAllChipFilters} />
@@ -2210,33 +2205,30 @@ export default function InventoryLookupPage() {
                 <div className="flex shrink-0 items-center justify-end gap-2">
                   <Button
                     type="button"
-                    className="border border-gray-300 !bg-white !text-gray-700 hover:!bg-gray-50"
+                    className="border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]"
                     onClick={() => setIsBulkUploadOpen(true)}
                     disabled={!canWrite}
                     title={canWrite ? 'Bulk Upload' : 'Switch to Update mode to bulk upload'}
                     aria-label="Bulk Upload"
-                    tabIndex={18}
                   >
                     Bulk Upload
                   </Button>
                   <Button
                     type="button"
-                    className="border border-gray-300 !bg-white !text-gray-700 hover:!bg-gray-50"
+                    className="border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]"
                     onClick={handleDownloadCsv}
                     disabled={isDownloading}
                     title={isDownloading ? 'Downloading...' : 'Download CSV'}
                     aria-label={isDownloading ? 'Downloading CSV' : 'Download CSV'}
-                    tabIndex={19}
                   >
                     Download
                   </Button>
                   <Button
                     type="button"
-                    className="!bg-blue-600 !text-white hover:!bg-blue-700"
+                    className="!bg-[var(--arcane-gold-500)] !text-[var(--arcane-ink-950)] hover:!bg-[var(--arcane-gold-300)]"
                     onClick={openAddModal}
                     disabled={!canWrite}
                     title={canWrite ? undefined : 'Switch to Update mode to add items'}
-                    tabIndex={20}
                   >
                     Add Item
                   </Button>
@@ -2252,8 +2244,8 @@ export default function InventoryLookupPage() {
           </div>
         </section>
 
-        <section className="bg-white shadow rounded-lg p-6">
-          {isLoading && <p className="text-gray-500">Loading items...</p>}
+        <section className="bg-[var(--arcane-paper-raised)] shadow rounded-lg p-6">
+          {isLoading && <p className="text-[var(--arcane-ink-soft)]">Loading items...</p>}
           {error && <p className="text-red-600">Error loading inventory.</p>}
 
           {!isLoading && !error && (
@@ -2267,7 +2259,6 @@ export default function InventoryLookupPage() {
                           checked={areAllCurrentPageItemsSelected}
                           disabled={currentPageItems.length === 0}
                           aria-label="Select items"
-                          tabIndex={32}
                           onSelectPage={selectCurrentPageItems}
                           onSelectAll={() => {
                             void selectAllFilteredItems();
@@ -2275,57 +2266,57 @@ export default function InventoryLookupPage() {
                         />
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('PublisherName')} className="flex items-center hover:text-blue-600" tabIndex={21}>
+                        <button onClick={() => handleSort('PublisherName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Publisher <SortIndicator column="PublisherName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-blue-600" tabIndex={22}>
+                        <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Collection <SortIndicator column="CollectionName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-blue-600" tabIndex={23}>
+                        <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Item <SortIndicator column="ItemName" />
                         </button>
                       </TableHead>
                       <TableHead className="text-right">
-                        <button onClick={() => handleSort('SubItemCount')} className="flex items-center justify-end w-full hover:text-blue-600" tabIndex={24}>
+                        <button onClick={() => handleSort('SubItemCount')} className="flex items-center justify-end w-full hover:text-[var(--arcane-gold-700)]">
                           Sub Item Count <SortIndicator column="SubItemCount" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ItemVersion')} className="flex items-center hover:text-blue-600" tabIndex={25}>
+                        <button onClick={() => handleSort('ItemVersion')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Version <SortIndicator column="ItemVersion" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('CategoryName')} className="flex items-center hover:text-blue-600" tabIndex={26}>
+                        <button onClick={() => handleSort('CategoryName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Category <SortIndicator column="CategoryName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-blue-600" tabIndex={27}>
+                        <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Sub Category <SortIndicator column="SubTypeName" />
                         </button>
                       </TableHead>
                       <TableHead>
-                        <button onClick={() => handleSort('ProductID')} className="flex items-center hover:text-blue-600" tabIndex={28}>
+                        <button onClick={() => handleSort('ProductID')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Product ID <SortIndicator column="ProductID" />
                         </button>
                       </TableHead>
                       <TableHead className="text-center">
-                        <button onClick={() => handleSort('IsPhysical')} className="flex items-center justify-center w-full hover:text-blue-600" tabIndex={29}>
+                        <button onClick={() => handleSort('IsPhysical')} className="flex items-center justify-center w-full hover:text-[var(--arcane-gold-700)]">
                           Is Physical <SortIndicator column="IsPhysical" />
                         </button>
                       </TableHead>
                       <TableHead className="text-center">
-                        <button onClick={() => handleSort('IsDigital')} className="flex items-center justify-center w-full hover:text-blue-600" tabIndex={30}>
+                        <button onClick={() => handleSort('IsDigital')} className="flex items-center justify-center w-full hover:text-[var(--arcane-gold-700)]">
                           Is Digital <SortIndicator column="IsDigital" />
                         </button>
                       </TableHead>
                       <TableHead className="w-px whitespace-nowrap px-2 text-center">
-                        <button onClick={() => handleSort('HasPurchaseOrder')} className="flex items-center justify-center w-full hover:text-blue-600" tabIndex={31}>
+                        <button onClick={() => handleSort('HasPurchaseOrder')} className="flex items-center justify-center w-full hover:text-[var(--arcane-gold-700)]">
                           Is Owned <SortIndicator column="HasPurchaseOrder" />
                         </button>
                       </TableHead>
@@ -2333,18 +2324,16 @@ export default function InventoryLookupPage() {
                   </TableHeader>
                   <TableBody>
                               {Array.isArray(data?.data) && data.data.length ? (
-                      data.data.map((item: InventoryItem, rowIndex: number) => {
-                        const rowTabIndex = gridRowTabIndexStart + rowIndex * 4;
-
+                      data.data.map((item: InventoryItem) => {
                         return (
                           <TableRow
                             key={item.ItemID}
-                            className="cursor-pointer hover:bg-gray-50"
+                            className="cursor-pointer hover:bg-[var(--arcane-paper)]"
                             onClick={() => openEditModal(item)}
-                            tabIndex={rowTabIndex + 3}
+                              tabIndex={0}
                             aria-label={`Edit item ${item.ItemName}`}
                             onKeyDown={(event) => {
-                              if (event.key === 'Enter' && event.target === event.currentTarget) {
+                                if ((event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget) {
                                 event.preventDefault();
                                 openEditModal(item);
                               }
@@ -2356,7 +2345,6 @@ export default function InventoryLookupPage() {
                                 checked={selectedItemIdSet.has(item.ItemID)}
                                 onChange={() => toggleItemSelection(item.ItemID)}
                                 aria-label={`Select ${item.ItemName}`}
-                                tabIndex={rowTabIndex}
                               />
                             </TableCell>
                             <TableCell>{item.PublisherName}</TableCell>
@@ -2365,14 +2353,13 @@ export default function InventoryLookupPage() {
                               {item.ImageFileName ? (
                                 <a
                                   href={getItemImageUrl(item.ImageFileName)}
-                                  className="font-medium text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800"
+                                  className="font-medium text-[var(--arcane-gold-700)] underline decoration-[var(--arcane-gold-400)] underline-offset-2 hover:text-[var(--arcane-gold-600)]"
                                   onClick={(event) => {
                                     event.preventDefault();
                                     event.stopPropagation();
                                     setViewingImageItem(item);
                                   }}
                                   aria-label={`View image for ${item.ItemName}`}
-                                  tabIndex={rowTabIndex + 1}
                                 >
                                   {item.ItemName}
                                 </a>
@@ -2395,7 +2382,7 @@ export default function InventoryLookupPage() {
                                 checked={Boolean(item.IsPhysical)}
                                 disabled
                                 aria-label="Is Physical (read only)"
-                                className="cursor-not-allowed accent-gray-400"
+                                className="cursor-not-allowed accent-[var(--arcane-ink-soft)]"
                                 tabIndex={-1}
                               />
                             </TableCell>
@@ -2405,7 +2392,7 @@ export default function InventoryLookupPage() {
                                 checked={Boolean(item.IsDigital)}
                                 disabled
                                 aria-label="Is Digital (read only)"
-                                className="cursor-not-allowed accent-gray-400"
+                                className="cursor-not-allowed accent-[var(--arcane-ink-soft)]"
                                 tabIndex={-1}
                               />
                             </TableCell>
@@ -2415,11 +2402,10 @@ export default function InventoryLookupPage() {
                                 : fallbackHasPurchaseOrder[item.ItemID]) ? (
                                 <button
                                   type="button"
-                                  className="inline-flex items-center justify-center text-blue-600 hover:text-blue-700"
+                                  className="inline-flex items-center justify-center text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-700)]"
                                   onClick={(event) => handleOpenRelatedOrders(item, event)}
                                   title="Open related purchase orders"
                                   aria-label={`Open related purchase orders for ${item.ItemName}`}
-                                  tabIndex={rowTabIndex + 2}
                                 >
                                   <Link2 className="w-5 h-5" />
                                 </button>
@@ -2430,7 +2416,7 @@ export default function InventoryLookupPage() {
                       })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={12} className="text-center py-10 text-gray-500">
+                        <TableCell colSpan={12} className="text-center py-10 text-[var(--arcane-ink-soft)]">
                           No matching items found.
                         </TableCell>
                       </TableRow>
@@ -2440,7 +2426,7 @@ export default function InventoryLookupPage() {
               </div>
 
               <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-[var(--arcane-ink-soft)]">
                   Showing {data?.data?.length ?? 0} of {data?.total ?? 0} results
                   {data?.page && data?.totalPages ? ` — Page ${data.page} of ${data.totalPages}` : ''}
                 </p>
@@ -2500,15 +2486,15 @@ export default function InventoryLookupPage() {
           <div>
             <div className="mb-3 flex items-center justify-between gap-4">
               <div>
-                <div className="text-sm font-medium text-gray-700">Image</div>
-                <div className="mt-1 text-lg font-semibold text-gray-900">{viewingImageItem.ItemName}</div>
+                <div className="text-sm font-medium text-[var(--arcane-ink-900)]">Image</div>
+                <div className="mt-1 text-lg font-semibold text-[var(--arcane-ink-900)]">{viewingImageItem.ItemName}</div>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setViewingImageItem(currentPageItemsWithImages[currentImageItemIndex - 1])}
                   disabled={currentImageItemIndex <= 0}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--arcane-border-light)] text-[var(--arcane-ink-900)] hover:bg-[#e2d5bd66] disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label="Previous item with image"
                   title="Previous item with image"
                 >
@@ -2518,7 +2504,7 @@ export default function InventoryLookupPage() {
                   type="button"
                   onClick={() => setViewingImageItem(currentPageItemsWithImages[currentImageItemIndex + 1])}
                   disabled={currentImageItemIndex < 0 || currentImageItemIndex >= currentPageItemsWithImages.length - 1}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--arcane-border-light)] text-[var(--arcane-ink-900)] hover:bg-[#e2d5bd66] disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label="Next item with image"
                   title="Next item with image"
                 >
@@ -2527,7 +2513,7 @@ export default function InventoryLookupPage() {
               </div>
             </div>
 
-            <div className="flex min-h-[420px] items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50 p-4 md:min-h-[600px]">
+            <div className="flex min-h-[420px] items-center justify-center overflow-hidden rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-4 md:min-h-[600px]">
               <img
                 src={getItemImageUrl(viewingImageItem.ImageFileName)}
                 alt={viewingImageItem.ItemName}
@@ -2535,21 +2521,21 @@ export default function InventoryLookupPage() {
               />
             </div>
 
-            <div className="mt-3 space-y-1 text-sm text-gray-600">
+            <div className="mt-3 space-y-1 text-sm text-[var(--arcane-ink-soft)]">
               <div className="flex min-w-0 gap-2">
-                <span className="shrink-0 font-medium text-gray-700">Image URL:</span>
+                <span className="shrink-0 font-medium text-[var(--arcane-ink-900)]">Image URL:</span>
                 <a
                   href={getItemImageUrl(viewingImageItem.ImageFileName)}
                   target="_blank"
                   rel="noreferrer"
-                  className="min-w-0 truncate text-blue-600 underline hover:text-blue-800"
+                  className="min-w-0 truncate text-[var(--arcane-gold-700)] underline hover:text-[var(--arcane-gold-600)]"
                   title={getItemImageUrl(viewingImageItem.ImageFileName)}
                 >
                   {getItemImageUrl(viewingImageItem.ImageFileName)}
                 </a>
               </div>
               <div>
-                <span className="font-medium text-gray-700">Image Upload Date:</span>{' '}
+                <span className="font-medium text-[var(--arcane-ink-900)]">Image Upload Date:</span>{' '}
                 {formatImageUploadDate(viewingImageItem.ImageUploadDate)}
               </div>
             </div>
@@ -2589,7 +2575,7 @@ export default function InventoryLookupPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pb-4 border-b">
             <label className="space-y-2">
-              <span className="text-sm text-gray-600">Invoice Number</span>
+              <span className="text-sm text-[var(--arcane-ink-soft)]">Invoice Number</span>
               <Input
                 type="text"
                 value={createOrderValues.InvoiceNumber}
@@ -2602,7 +2588,7 @@ export default function InventoryLookupPage() {
             </label>
 
             <label className="space-y-2">
-              <span className="block text-sm font-medium text-gray-700 mb-1">Store</span>
+              <span className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Store</span>
               <ComboSelect
                 options={storesData.map((store: any) => ({ value: String(store.StoreID), label: store.StoreName }))}
                 value={createOrderValues.StoreID}
@@ -2613,7 +2599,7 @@ export default function InventoryLookupPage() {
             </label>
 
             <label className="space-y-2">
-              <span className="block text-sm font-medium text-gray-700 mb-1">Order Status</span>
+              <span className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Order Status</span>
               <ComboSelect
                 options={statusesData.map((status: any) => ({ value: String(status.StatusID), label: status.StatusName }))}
                 value={createOrderValues.StatusID}
@@ -2624,7 +2610,7 @@ export default function InventoryLookupPage() {
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm text-gray-600">Purchase Date</span>
+              <span className="text-sm text-[var(--arcane-ink-soft)]">Purchase Date</span>
               <Input
                 type="date"
                 value={createOrderValues.PurchaseDate}
@@ -2695,7 +2681,7 @@ export default function InventoryLookupPage() {
                         <TableCell className="text-right font-semibold">{formatCurrency(quantity * price)}</TableCell>
                         <TableCell className="text-right">
                           <Button
-                            className="bg-gray-600 hover:bg-gray-700"
+                            className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
                             onClick={() => handleCreateOrderRemoveDetailRow(detail.id)}
                             disabled={createOrderDetails.length <= 1}
                           >
@@ -2705,7 +2691,7 @@ export default function InventoryLookupPage() {
                       </TableRow>
                     );
                   })}
-                  <TableRow className="bg-gray-50 font-semibold">
+                  <TableRow className="bg-[var(--arcane-paper)] font-semibold">
                     <TableCell colSpan={4} className="text-right">Total:</TableCell>
                     <TableCell className="text-right">
                       {formatCurrency(
@@ -2724,7 +2710,7 @@ export default function InventoryLookupPage() {
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button className="bg-gray-600 hover:bg-gray-700" onClick={closeCreateOrderModal} disabled={createOrderMutation.isLoading}>
+            <Button className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white" onClick={closeCreateOrderModal} disabled={createOrderMutation.isLoading}>
               Cancel
             </Button>
             <Button
@@ -2740,16 +2726,16 @@ export default function InventoryLookupPage() {
 
       {editingItem ? (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div ref={editModalRef} tabIndex={-1} className="bg-white rounded-xl shadow-xl max-w-4xl w-full p-6">
+          <div ref={editModalRef} tabIndex={-1} className="bg-[var(--arcane-paper-raised)] rounded-xl shadow-xl max-w-4xl w-full p-6">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h2 className="text-xl font-semibold">Edit Item Detail</h2>
-                <p className="text-sm text-gray-500">Update item values and save changes.</p>
+                <p className="text-sm text-[var(--arcane-ink-soft)]">Update item values and save changes.</p>
               </div>
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
-                  className="h-9 !bg-gray-200 !text-gray-800 hover:!bg-gray-300"
+                  className="h-9 !bg-[#e2d5bd99] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
                   onClick={() => handleNavigateEditItem('previous')}
                   disabled={!canNavigateToPreviousEditItem || editMutation.isLoading || deleteMutation.isLoading}
                   aria-label="Previous item"
@@ -2759,7 +2745,7 @@ export default function InventoryLookupPage() {
                 </Button>
                 <Button
                   type="button"
-                  className="h-9 !bg-gray-200 !text-gray-800 hover:!bg-gray-300"
+                  className="h-9 !bg-[#e2d5bd99] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
                   onClick={() => handleNavigateEditItem('next')}
                   disabled={!canNavigateToNextEditItem || editMutation.isLoading || deleteMutation.isLoading}
                   aria-label="Next item"
@@ -2779,8 +2765,8 @@ export default function InventoryLookupPage() {
             <form onSubmit={handleEditSubmit} className="space-y-5">
               <div className="grid gap-6 md:grid-cols-[240px_minmax(0,1fr)]">
                 <div className="min-w-0">
-                  <div className="mb-1 text-sm font-medium text-gray-700">Image</div>
-                  <div className="aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                  <div className="mb-1 text-sm font-medium text-[var(--arcane-ink-900)]">Image</div>
+                  <div className="aspect-square overflow-hidden rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)]">
                     {selectedEditImageFile || editingItem.ImageFileName ? (
                       <img
                         src={selectedEditImageUrl || getItemImageUrl(editingItem.ImageFileName)}
@@ -2788,21 +2774,21 @@ export default function InventoryLookupPage() {
                         className="h-full w-full object-contain"
                       />
                     ) : (
-                      <div className="flex h-full items-center justify-center p-4 text-center text-sm text-gray-500">
+                      <div className="flex h-full items-center justify-center p-4 text-center text-sm text-[var(--arcane-ink-soft)]">
                         No image uploaded.
                       </div>
                     )}
                   </div>
                   {editingItem.ImageFileName ? (
                     <p
-                      className="mt-1 whitespace-nowrap text-xs text-gray-600"
+                      className="mt-1 whitespace-nowrap text-xs text-[var(--arcane-ink-soft)]"
                       title={`Current: ${getItemImageUrl(editingItem.ImageFileName)}`}
                     >
                       Current: {truncateMiddle(getItemImageUrl(editingItem.ImageFileName), 31)}
                     </p>
                   ) : null}
                   <div className="mt-4">
-                    <span className="mb-2 block text-sm font-medium text-gray-700">Image File</span>
+                    <span className="mb-2 block text-sm font-medium text-[var(--arcane-ink-900)]">Image File</span>
                     <Input
                       type="file"
                       accept=".webp,.jpg,.jpeg,image/webp,image/jpeg"
@@ -2815,14 +2801,14 @@ export default function InventoryLookupPage() {
                       }}
                     />
                     {selectedEditImageFile ? (
-                      <p className="mt-1 break-all text-sm text-gray-600">Selected: {selectedEditImageFile.name}</p>
+                      <p className="mt-1 break-all text-sm text-[var(--arcane-ink-soft)]">Selected: {selectedEditImageFile.name}</p>
                     ) : null}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Item</label>
+                  <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Item</label>
                   <Input
                     ref={editItemInputRef}
                     autoFocus
@@ -2832,7 +2818,7 @@ export default function InventoryLookupPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Version</label>
+                  <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Version</label>
                   <Input
                     value={editValues.ItemVersion}
                     onChange={(e) => handleEditChange('ItemVersion', e.target.value)}
@@ -2841,7 +2827,7 @@ export default function InventoryLookupPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Product ID</label>
+                  <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Product ID</label>
                   <Input
                     value={editValues.ProductID}
                     onChange={(e) => handleEditChange('ProductID', e.target.value)}
@@ -2849,15 +2835,16 @@ export default function InventoryLookupPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Release Date</label>
+                  <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Release Date</label>
                   <Input
+                    type="date"
                     value={editValues.ReleaseDate}
                     onChange={(e) => handleEditChange('ReleaseDate', e.target.value)}
                     placeholder="Release date"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Publisher</label>
+                  <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Publisher</label>
                   <ComboSelect
                     options={addPublisherSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                     value={editValues.PublisherID}
@@ -2867,7 +2854,7 @@ export default function InventoryLookupPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Collection</label>
+                  <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Collection</label>
                   <ComboSelect
                     options={editCollectionSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                     value={editValues.CollectionID}
@@ -2877,7 +2864,7 @@ export default function InventoryLookupPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Category</label>
                   <ComboSelect
                     options={categorySelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                     value={editValues.CategoryID}
@@ -2887,7 +2874,7 @@ export default function InventoryLookupPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Sub Category</label>
+                  <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Sub Category</label>
                   <ComboSelect
                     options={editSubTypeSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                     value={editValues.SubTypeID}
@@ -2896,7 +2883,7 @@ export default function InventoryLookupPage() {
                     className="w-full"
                   />
                 </div>
-                <label className="flex items-center gap-2 pt-2 text-sm font-medium text-gray-700">
+                <label className="flex items-center gap-2 pt-2 text-sm font-medium text-[var(--arcane-ink-900)]">
                   <input
                     type="checkbox"
                     checked={editValues.IsPhysical}
@@ -2904,7 +2891,7 @@ export default function InventoryLookupPage() {
                   />
                   Is Physical
                 </label>
-                <label className="flex items-center gap-2 pt-2 text-sm font-medium text-gray-700">
+                <label className="flex items-center gap-2 pt-2 text-sm font-medium text-[var(--arcane-ink-900)]">
                   <input
                     type="checkbox"
                     checked={editValues.IsDigital}
@@ -2927,7 +2914,7 @@ export default function InventoryLookupPage() {
                 </Button>
                 <Button
                   type="button"
-                  className="bg-slate-600 hover:bg-slate-700"
+                  className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
                   onClick={requestCloseEditModal}
                   disabled={editMutation.isLoading || deleteMutation.isLoading}
                 >
@@ -2980,7 +2967,7 @@ export default function InventoryLookupPage() {
           }}
         >
           <div className="mb-5">
-            <p className="text-sm text-gray-500">Create a new item record.</p>
+            <p className="text-sm text-[var(--arcane-ink-soft)]">Create a new item record.</p>
           </div>
 
           {addError ? (
@@ -2992,18 +2979,18 @@ export default function InventoryLookupPage() {
           <form onSubmit={handleAddSubmit} className="space-y-5">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Item</label>
+                <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Item</label>
                 <Input
                   ref={addItemInputRef}
                   value={addValues.ItemName}
                   onChange={(e) => handleAddChange('ItemName', e.target.value)}
                   placeholder="Item name"
-                  className="text-gray-900"
+                  className="text-[var(--arcane-ink-900)]"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Version</label>
+                <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Version</label>
                 <Input
                   value={addValues.ItemVersion}
                   onChange={(e) => handleAddChange('ItemVersion', e.target.value)}
@@ -3012,7 +2999,7 @@ export default function InventoryLookupPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Product ID</label>
+                <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Product ID</label>
                 <Input
                   value={addValues.ProductID}
                   onChange={(e) => handleAddChange('ProductID', e.target.value)}
@@ -3020,16 +3007,16 @@ export default function InventoryLookupPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Release Date</label>
+                <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Release Date</label>
                 <Input
                   type="date"
                   value={addValues.ReleaseDate}
                   onChange={(e) => handleAddChange('ReleaseDate', e.target.value)}
                   placeholder="Release date"
-                  className="text-gray-900"
+                  className="text-[var(--arcane-ink-900)]"
                 />
               </div>
-              <label className="flex items-center gap-2 pt-6 text-sm font-medium text-gray-700">
+              <label className="flex items-center gap-2 pt-6 text-sm font-medium text-[var(--arcane-ink-900)]">
                 <input
                   type="checkbox"
                   checked={addValues.IsPhysical}
@@ -3037,7 +3024,7 @@ export default function InventoryLookupPage() {
                 />
                 Is Physical
               </label>
-              <label className="flex items-center gap-2 pt-6 text-sm font-medium text-gray-700">
+              <label className="flex items-center gap-2 pt-6 text-sm font-medium text-[var(--arcane-ink-900)]">
                 <input
                   type="checkbox"
                   checked={addValues.IsDigital}
@@ -3046,7 +3033,7 @@ export default function InventoryLookupPage() {
                 Is Digital
               </label>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Publisher</label>
+                <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Publisher</label>
                 <ComboSelect
                   options={addPublisherSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                   value={addValues.PublisherID}
@@ -3056,7 +3043,7 @@ export default function InventoryLookupPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Collection</label>
+                <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Collection</label>
                 <ComboSelect
                   options={addCollectionSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                   value={addValues.CollectionID}
@@ -3066,7 +3053,7 @@ export default function InventoryLookupPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Category</label>
                 <ComboSelect
                   options={categorySelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                   value={addValues.CategoryID}
@@ -3076,7 +3063,7 @@ export default function InventoryLookupPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Category</label>
                 <ComboSelect
                   options={addSubTypeSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                   value={addValues.SubTypeID}
@@ -3090,7 +3077,7 @@ export default function InventoryLookupPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
               <Button
                 type="button"
-                className="bg-gray-600 hover:bg-gray-700"
+                className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
                 onClick={closeAddModal}
               >
                 Cancel
@@ -3133,7 +3120,7 @@ export default function InventoryLookupPage() {
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Publisher</label>
+                    <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Publisher</label>
                     <ComboSelect
                       options={publisherSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                       value={bulkValues.PublisherID}
@@ -3143,7 +3130,7 @@ export default function InventoryLookupPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Collection</label>
+                    <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Collection</label>
                     <ComboSelect
                       options={collectionSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                       value={bulkValues.CollectionID}
@@ -3153,7 +3140,7 @@ export default function InventoryLookupPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Category</label>
                     <ComboSelect
                       options={categorySelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                       value={bulkValues.CategoryID}
@@ -3163,7 +3150,7 @@ export default function InventoryLookupPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Sub Category</label>
+                    <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Sub Category</label>
                     <ComboSelect
                       options={subTypeSelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                       value={bulkValues.SubTypeID}
@@ -3173,7 +3160,7 @@ export default function InventoryLookupPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Version</label>
+                    <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Version</label>
                     <Input
                       value={bulkValues.ItemVersion}
                       onChange={(event) => handleBulkFieldChange('ItemVersion', event.target.value)}
@@ -3182,7 +3169,7 @@ export default function InventoryLookupPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Is Physical</label>
+                    <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Is Physical</label>
                     <ComboSelect
                       options={[
                         { value: 'true', label: 'Yes' },
@@ -3195,7 +3182,7 @@ export default function InventoryLookupPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Is Digital</label>
+                    <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Is Digital</label>
                     <ComboSelect
                       options={[
                         { value: 'true', label: 'Yes' },
@@ -3212,7 +3199,7 @@ export default function InventoryLookupPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
                   <Button
                     type="button"
-                    className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                    className="bg-[#e2d5bd99] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]"
                     onClick={closeBulkUpdateDialog}
                     disabled={bulkUpdateMutation.isLoading}
                   >
@@ -3230,21 +3217,21 @@ export default function InventoryLookupPage() {
               </>
             ) : (
               <>
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                <div className="rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-4 text-sm text-[var(--arcane-ink-900)]">
                   You are about to update {selectedItemIds.length} item{selectedItemIds.length === 1 ? '' : 's'}.
                   Confirm only after checking the summary below.
                 </div>
 
-                <div className="rounded-lg border border-gray-200">
-                  <div className="border-b border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700">
+                <div className="rounded-lg border border-[var(--arcane-border-light)]">
+                  <div className="border-b border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-4 py-3 text-sm font-semibold text-[var(--arcane-ink-900)]">
                     Update Summary
                   </div>
-                  <div className="space-y-2 px-4 py-3 text-sm text-gray-700">
+                  <div className="space-y-2 px-4 py-3 text-sm text-[var(--arcane-ink-900)]">
                     {Object.entries(bulkValues)
                       .filter(([, value]) => value)
                       .map(([field, value]) => (
                         <div key={field} className="flex items-center justify-between gap-4">
-                          <span className="font-medium text-gray-600">
+                          <span className="font-medium text-[var(--arcane-ink-soft)]">
                             {field === 'PublisherID'
                               ? 'Publisher'
                               : field === 'CollectionID'
@@ -3263,7 +3250,7 @@ export default function InventoryLookupPage() {
                         </div>
                       ))}
                     {!Object.values(bulkValues).some((value) => value) ? (
-                      <div className="text-gray-500">No fields selected for update.</div>
+                      <div className="text-[var(--arcane-ink-soft)]">No fields selected for update.</div>
                     ) : null}
                   </div>
                 </div>
@@ -3271,7 +3258,7 @@ export default function InventoryLookupPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
                   <Button
                     type="button"
-                    className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                    className="bg-[#e2d5bd99] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]"
                     onClick={() => setBulkStep('edit')}
                     disabled={bulkUpdateMutation.isLoading}
                   >
@@ -3309,7 +3296,7 @@ export default function InventoryLookupPage() {
             <>
               <Button
                 type="button"
-                className="bg-gray-600 hover:bg-gray-700"
+                className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
                 onClick={closeBulkDeleteDialog}
                 disabled={bulkDeleteMutation.isLoading}
               >
@@ -3336,7 +3323,7 @@ export default function InventoryLookupPage() {
             ) : null}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">
                 Type DELETE to confirm
               </label>
               <Input
@@ -3374,7 +3361,7 @@ export default function InventoryLookupPage() {
         }}
       >
         <div className="space-y-4">
-          {relatedOrdersLoading ? <p className="text-gray-500">Loading related purchase orders...</p> : null}
+          {relatedOrdersLoading ? <p className="text-[var(--arcane-ink-soft)]">Loading related purchase orders...</p> : null}
 
           {!relatedOrdersLoading && relatedOrdersError ? (
             <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
@@ -3383,7 +3370,7 @@ export default function InventoryLookupPage() {
           ) : null}
 
           {!relatedOrdersLoading && !relatedOrdersError && !relatedOrders.length ? (
-            <p className="text-gray-500">No purchase orders found for this item.</p>
+            <p className="text-[var(--arcane-ink-soft)]">No purchase orders found for this item.</p>
           ) : null}
 
           {!relatedOrdersLoading && !relatedOrdersError && relatedOrders.length ? (
@@ -3410,7 +3397,7 @@ export default function InventoryLookupPage() {
                       <TableCell className="text-right">
                         <Button
                           ref={index === 0 ? firstRelatedOrderOpenButtonRef : undefined}
-                          className="bg-blue-600 hover:bg-blue-700"
+                          className="bg-[var(--arcane-gold-500)] hover:bg-[var(--arcane-gold-300)]"
                           onClick={() => handleOpenLinkedOrder(order)}
                         >
                           Open
@@ -3424,7 +3411,7 @@ export default function InventoryLookupPage() {
           ) : null}
 
           <div className="flex justify-end">
-            <Button ref={relatedOrdersCloseButtonRef} className="bg-gray-600 hover:bg-gray-700" onClick={handleCloseRelatedOrdersModal}>
+            <Button ref={relatedOrdersCloseButtonRef} className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white" onClick={handleCloseRelatedOrdersModal}>
               Close
             </Button>
           </div>

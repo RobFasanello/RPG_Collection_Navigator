@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import AdminLayout from '../components/AdminLayout';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -404,13 +404,13 @@ function MetricCard({ label, value, loading, to }: { label: string; value: numbe
   return (
     <Link
       to={to}
-      className="block rounded-xl border border-gray-200 bg-gray-50 p-5 text-center transition hover:bg-gray-100 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      className="block rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-5 text-center transition hover:bg-[#e2d5bd66] hover:border-[var(--arcane-border-light)] focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)]"
     >
-      <p className="text-sm font-medium text-gray-600">{label}</p>
+      <p className="text-sm font-medium text-[var(--arcane-ink-soft)]">{label}</p>
       {loading ? (
         <Skeleton className="mx-auto mt-3 h-8 w-20" />
       ) : (
-        <p className="mt-2 text-3xl font-bold text-gray-900">{value.toLocaleString()}</p>
+        <p className="mt-2 text-3xl font-bold text-[var(--arcane-ink-900)]">{value.toLocaleString()}</p>
       )}
     </Link>
   );
@@ -564,7 +564,7 @@ function CollectionStatusLinks({ uncollectedTo, collectedTo }: { uncollectedTo: 
     <div className="absolute bottom-3 right-3 flex flex-col gap-2 sm:flex-row">
       <Link
         to={collectedTo}
-        className="rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 shadow-sm transition hover:bg-emerald-50 hover:text-emerald-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="rounded-md border border-emerald-300 bg-[var(--arcane-paper-raised)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 shadow-sm transition hover:bg-emerald-50 hover:text-emerald-900 focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)]"
         title="View collected items"
         aria-label="View collected items"
       >
@@ -572,7 +572,7 @@ function CollectionStatusLinks({ uncollectedTo, collectedTo }: { uncollectedTo: 
       </Link>
       <Link
         to={uncollectedTo}
-        className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-700 shadow-sm transition hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--arcane-ink-900)] shadow-sm transition hover:bg-[var(--arcane-paper)] hover:text-[var(--arcane-ink-900)] focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)]"
         title="View items without a purchase order"
         aria-label="View items without a purchase order"
       >
@@ -584,8 +584,8 @@ function CollectionStatusLinks({ uncollectedTo, collectedTo }: { uncollectedTo: 
 
 function TopListCard({ title, loading, children }: { title: string; loading: boolean; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
-      <h4 className="text-sm font-semibold text-gray-800">{title}</h4>
+    <div className="rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] p-4">
+      <h4 className="text-sm font-semibold text-[var(--arcane-ink-900)]">{title}</h4>
       {loading ? (
         <div className="mt-3 space-y-2" aria-label="Loading list">
           <Skeleton className="h-4 w-full" />
@@ -809,149 +809,180 @@ export default function HomePage() {
     },
   });
 
-  const totals = {
-    publishers: Number(dashboardData?.totals?.publishers || 0),
-    collections: Number(dashboardData?.totals?.collections || 0),
-    categories: Number(categoryTerrainMetrics?.categoriesTotal ?? dashboardData?.totals?.categories ?? 0),
-    stores: Number(categoryTerrainMetrics?.storesTotal ?? dashboardData?.totals?.stores ?? 0),
-    items: Number(dashboardData?.totals?.items || 0),
-    miniatures: Number(dashboardData?.totals?.miniatures || 0),
-    terrain: Number(categoryTerrainMetrics?.terrainTotal ?? dashboardData?.totals?.terrain ?? 0),
-    orders: Number(dashboardData?.totals?.orders || 0),
-  };
-
-  const topPublishers = dashboardData?.topPublishers || [];
-  const topCollections = dashboardData?.topCollections || [];
-  const topCategories = dashboardData?.topCategories?.length
-    ? dashboardData.topCategories
-    : (categoryTerrainMetrics?.topCategories || []);
-  const topItemsByPrice = dashboardData?.topItemsByPrice || [];
-  const topMiniatureItemsByQuantity = dashboardData?.topMiniatureItemsByQuantity || [];
-  const topTerrainItemsByQuantity = dashboardData?.topTerrainItemsByQuantity?.length
-    ? dashboardData.topTerrainItemsByQuantity
-    : (categoryTerrainMetrics?.topTerrainItemsByQuantity || []);
-  const topStoresByOrderCount = dashboardData?.topStoresByOrderCount?.length
-    ? dashboardData.topStoresByOrderCount
-    : (categoryTerrainMetrics?.topStoresByOrderCount || []);
-  const topOrdersByAmount = dashboardData?.topOrdersByAmount || [];
-  const publisherDashboard = dashboardData?.publisherDashboard || [];
-  const collectionDashboard = dashboardData?.collectionDashboard || [];
-
-  const publisherBoxes = buildCoverageBoxes({
-    catalogRows: allPublishersRows || [],
-    dashboardRows: publisherDashboard,
-    catalogIdKey: 'PublisherID',
-    catalogNameKey: 'PublisherName',
-    dashboardIdKey: 'PublisherID',
-    dashboardNameKey: 'PublisherName',
-  });
-
-  const collectionTypeNameById = new Map<number, string>();
-  (allCollectionTypeRows || []).forEach((row: any) => {
-    const collectionTypeId = Number(row.CollectionTypeID);
-    const collectionTypeName = String(row.CollectionTypeName || '').trim();
-    if (Number.isFinite(collectionTypeId) && collectionTypeName) {
-      collectionTypeNameById.set(collectionTypeId, collectionTypeName);
-    }
-  });
-
-  const collectionCoverageById = new Map<number, { totalItems: number; itemsInPurchaseOrder: number; coveragePercent: number }>();
-  const collectionCoverageByName = new Map<string, { totalItems: number; itemsInPurchaseOrder: number; coveragePercent: number }>();
-  (collectionDashboard || []).forEach((row: any) => {
-    const collectionId = Number(row.CollectionID || 0);
-    const normalizedName = String(row.CollectionName || '').trim().toLowerCase();
-    const coverageValue = {
-      totalItems: Number(row.TotalItems || 0),
-      itemsInPurchaseOrder: Number(row.ItemsInPurchaseOrder || 0),
-      coveragePercent: Number(row.CoveragePercent || 0),
+  const dashboardViewModel = useMemo<{
+    totals: DashboardData['totals'];
+    topPublishers: DashboardData['topPublishers'];
+    topCollections: DashboardData['topCollections'];
+    topCategories: DashboardData['topCategories'] | CategoryTerrainMetrics['topCategories'];
+    topItemsByPrice: DashboardData['topItemsByPrice'];
+    topMiniatureItemsByQuantity: DashboardData['topMiniatureItemsByQuantity'];
+    topTerrainItemsByQuantity: DashboardData['topTerrainItemsByQuantity'] | CategoryTerrainMetrics['topTerrainItemsByQuantity'];
+    topStoresByOrderCount: DashboardData['topStoresByOrderCount'] | CategoryTerrainMetrics['topStoresByOrderCount'];
+    topOrdersByAmount: DashboardData['topOrdersByAmount'];
+    publisherBoxes: CoverageBox[];
+    collectionBoxes: CoverageBox[];
+  }>(() => {
+    const totals = {
+      publishers: Number(dashboardData?.totals?.publishers || 0),
+      collections: Number(dashboardData?.totals?.collections || 0),
+      categories: Number(categoryTerrainMetrics?.categoriesTotal ?? dashboardData?.totals?.categories ?? 0),
+      stores: Number(categoryTerrainMetrics?.storesTotal ?? dashboardData?.totals?.stores ?? 0),
+      items: Number(dashboardData?.totals?.items || 0),
+      miniatures: Number(dashboardData?.totals?.miniatures || 0),
+      terrain: Number(categoryTerrainMetrics?.terrainTotal ?? dashboardData?.totals?.terrain ?? 0),
+      orders: Number(dashboardData?.totals?.orders || 0),
     };
 
-    if (Number.isFinite(collectionId) && collectionId > 0) {
-      collectionCoverageById.set(collectionId, coverageValue);
-    }
+    const topPublishers = dashboardData?.topPublishers || [];
+    const topCollections = dashboardData?.topCollections || [];
+    const topCategories = dashboardData?.topCategories?.length
+      ? dashboardData.topCategories
+      : (categoryTerrainMetrics?.topCategories || []);
+    const topItemsByPrice = dashboardData?.topItemsByPrice || [];
+    const topMiniatureItemsByQuantity = dashboardData?.topMiniatureItemsByQuantity || [];
+    const topTerrainItemsByQuantity = dashboardData?.topTerrainItemsByQuantity?.length
+      ? dashboardData.topTerrainItemsByQuantity
+      : (categoryTerrainMetrics?.topTerrainItemsByQuantity || []);
+    const topStoresByOrderCount = dashboardData?.topStoresByOrderCount?.length
+      ? dashboardData.topStoresByOrderCount
+      : (categoryTerrainMetrics?.topStoresByOrderCount || []);
+    const topOrdersByAmount = dashboardData?.topOrdersByAmount || [];
+    const publisherDashboard = dashboardData?.publisherDashboard || [];
+    const collectionDashboard = dashboardData?.collectionDashboard || [];
 
-    if (normalizedName) {
-      collectionCoverageByName.set(normalizedName, coverageValue);
-    }
-  });
+    const publisherBoxes = buildCoverageBoxes({
+      catalogRows: allPublishersRows || [],
+      dashboardRows: publisherDashboard,
+      catalogIdKey: 'PublisherID',
+      catalogNameKey: 'PublisherName',
+      dashboardIdKey: 'PublisherID',
+      dashboardNameKey: 'PublisherName',
+    });
 
-  const collectionBoxes: CoverageBox[] = (allCollectionsRows || []).map((row: any) => {
-    const collectionId = Number(row.CollectionID || 0);
-    const collectionName = String(row.CollectionName || '').trim();
-    const collectionTypeName = collectionTypeNameById.get(Number(row.CollectionTypeID)) || '';
-    const entityName = collectionTypeName ? `${collectionName} (${collectionTypeName})` : collectionName;
-    const coverage =
-      collectionCoverageById.get(collectionId) ||
-      collectionCoverageByName.get(collectionName.toLowerCase()) || {
-        totalItems: 0,
-        itemsInPurchaseOrder: 0,
-        coveragePercent: 0,
+    const collectionTypeNameById = new Map<number, string>();
+    (allCollectionTypeRows || []).forEach((row: any) => {
+      const collectionTypeId = Number(row.CollectionTypeID);
+      const collectionTypeName = String(row.CollectionTypeName || '').trim();
+      if (Number.isFinite(collectionTypeId) && collectionTypeName) {
+        collectionTypeNameById.set(collectionTypeId, collectionTypeName);
+      }
+    });
+
+    const collectionCoverageById = new Map<number, { totalItems: number; itemsInPurchaseOrder: number; coveragePercent: number }>();
+    const collectionCoverageByName = new Map<string, { totalItems: number; itemsInPurchaseOrder: number; coveragePercent: number }>();
+    (collectionDashboard || []).forEach((row: any) => {
+      const collectionId = Number(row.CollectionID || 0);
+      const normalizedName = String(row.CollectionName || '').trim().toLowerCase();
+      const coverageValue = {
+        totalItems: Number(row.TotalItems || 0),
+        itemsInPurchaseOrder: Number(row.ItemsInPurchaseOrder || 0),
+        coveragePercent: Number(row.CoveragePercent || 0),
       };
 
+      if (Number.isFinite(collectionId) && collectionId > 0) {
+        collectionCoverageById.set(collectionId, coverageValue);
+      }
+
+      if (normalizedName) {
+        collectionCoverageByName.set(normalizedName, coverageValue);
+      }
+    });
+
+    const collectionBoxes: CoverageBox[] = (allCollectionsRows || []).map((row: any) => {
+      const collectionId = Number(row.CollectionID || 0);
+      const collectionName = String(row.CollectionName || '').trim();
+      const collectionTypeName = collectionTypeNameById.get(Number(row.CollectionTypeID)) || '';
+      const entityName = collectionTypeName ? `${collectionName} (${collectionTypeName})` : collectionName;
+      const coverage =
+        collectionCoverageById.get(collectionId) ||
+        collectionCoverageByName.get(collectionName.toLowerCase()) || {
+          totalItems: 0,
+          itemsInPurchaseOrder: 0,
+          coveragePercent: 0,
+        };
+
+      return {
+        EntityID: collectionId,
+        EntityName: entityName,
+        TotalItems: coverage.totalItems,
+        ItemsInPurchaseOrder: coverage.itemsInPurchaseOrder,
+        CoveragePercent: coverage.coveragePercent,
+        ImageFileName: String(row.ImageFileName || '').trim() || undefined,
+      };
+    });
+
     return {
-      EntityID: collectionId,
-      EntityName: entityName,
-      TotalItems: coverage.totalItems,
-      ItemsInPurchaseOrder: coverage.itemsInPurchaseOrder,
-      CoveragePercent: coverage.coveragePercent,
-      ImageFileName: String(row.ImageFileName || '').trim() || undefined,
+      totals,
+      topPublishers,
+      topCollections,
+      topCategories,
+      topItemsByPrice,
+      topMiniatureItemsByQuantity,
+      topTerrainItemsByQuantity,
+      topStoresByOrderCount,
+      topOrdersByAmount,
+      publisherBoxes,
+      collectionBoxes,
     };
-  });
+  }, [
+    allCollectionTypeRows,
+    allCollectionsRows,
+    allPublishersRows,
+    categoryTerrainMetrics,
+    dashboardData,
+  ]);
+
+  const {
+    totals,
+    topPublishers,
+    topCollections,
+    topCategories,
+    topItemsByPrice,
+    topMiniatureItemsByQuantity,
+    topTerrainItemsByQuantity,
+    topStoresByOrderCount,
+    topOrdersByAmount,
+    publisherBoxes,
+    collectionBoxes,
+  } = dashboardViewModel;
+
+  const coverageTabs = [
+    { value: 'repository', label: 'Repository Metrics' },
+    { value: 'publisher', label: 'Publisher View' },
+    { value: 'collection', label: 'Collection View' },
+    { value: 'collectionDetail', label: 'Collection Detail' },
+  ] as const;
 
   return (
     <AdminLayout>
-      <div className="max-w-[1800px] mx-auto space-y-6">
-        <section className="bg-white rounded-lg shadow p-8">
+      <div className="max-w-[1920px] mx-auto space-y-6 px-0 2xl:px-2">
+        <section className="bg-[var(--arcane-paper-raised)] rounded-lg shadow p-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-            <h3 className="text-xl font-semibold text-gray-900">Coverage Metrics</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-gray-100 rounded-lg p-1 w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={() => setCoverageView('repository')}
-                className={`px-3 py-2 text-sm rounded-md transition ${
-                  coverageView === 'repository'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Repository Metrics
-              </button>
-              <button
-                type="button"
-                onClick={() => setCoverageView('publisher')}
-                className={`px-3 py-2 text-sm rounded-md transition ${
-                  coverageView === 'publisher'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Publisher View
-              </button>
-              <button
-                type="button"
-                onClick={() => setCoverageView('collection')}
-                className={`px-3 py-2 text-sm rounded-md transition ${
-                  coverageView === 'collection'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Collection View
-              </button>
-              <button
-                type="button"
-                onClick={() => setCoverageView('collectionDetail')}
-                className={`px-3 py-2 text-sm rounded-md transition ${
-                  coverageView === 'collectionDetail'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Collection Detail
-              </button>
+            <h3 className="text-xl font-semibold text-[var(--arcane-ink-900)]">Coverage Metrics</h3>
+            <div className="grid grid-cols-2 gap-2 rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-1 shadow-sm sm:grid-cols-4 w-full sm:w-auto">
+              {coverageTabs.map((tab) => {
+                const active = coverageView === tab.value;
+
+                return (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => setCoverageView(tab.value)}
+                    aria-pressed={active}
+                    className={`px-3 py-2 text-sm rounded-md transition duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)] focus:ring-offset-1 ${
+                      active
+                        ? 'bg-[var(--arcane-gold-500)] text-[var(--arcane-ink-950)] shadow-md shadow-[#b886484d] -translate-y-0.5'
+                        : 'text-[var(--arcane-ink-900)] hover:bg-[#e2d5bd99] hover:-translate-y-0.5'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
+          <div key={coverageView} className="animate-coverage-swap">
           {coverageView === 'repository' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               <div className="space-y-3">
@@ -963,17 +994,17 @@ export default function HomePage() {
                         <li key={row.PublisherName} className="flex items-center justify-between gap-2">
                           <Link
                             to={`/admin/inventory?publisher=${encodeURIComponent(row.PublisherName)}`}
-                            className="truncate text-blue-600 hover:text-blue-700 hover:underline"
+                            className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
                             title={`View items for ${row.PublisherName}`}
                           >
                             {row.PublisherName}
                           </Link>
-                          <span className="font-semibold text-gray-900">{row.ItemCount}</span>
+                          <span className="font-semibold text-[var(--arcane-ink-900)]">{row.ItemCount}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-gray-500">No data.</p>
+                    <p className="text-sm text-[var(--arcane-ink-soft)]">No data.</p>
                   )}
                 </TopListCard>
               </div>
@@ -987,17 +1018,17 @@ export default function HomePage() {
                         <li key={row.CollectionName} className="flex items-center justify-between gap-2">
                           <Link
                             to={`/admin/inventory?collection=${encodeURIComponent(row.CollectionName)}`}
-                            className="truncate text-blue-600 hover:text-blue-700 hover:underline"
+                            className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
                             title={`View items for ${row.CollectionName}`}
                           >
                             {row.CollectionName}
                           </Link>
-                          <span className="font-semibold text-gray-900">{row.ItemCount}</span>
+                          <span className="font-semibold text-[var(--arcane-ink-900)]">{row.ItemCount}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-gray-500">No data.</p>
+                    <p className="text-sm text-[var(--arcane-ink-soft)]">No data.</p>
                   )}
                 </TopListCard>
               </div>
@@ -1011,17 +1042,17 @@ export default function HomePage() {
                         <li key={row.CategoryName} className="flex items-center justify-between gap-2">
                           <Link
                             to={`/admin/inventory?category=${encodeURIComponent(row.CategoryName)}`}
-                            className="truncate text-blue-600 hover:text-blue-700 hover:underline"
+                            className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
                             title={`View items for ${row.CategoryName}`}
                           >
                             {row.CategoryName}
                           </Link>
-                          <span className="font-semibold text-gray-900">{row.ItemCount}</span>
+                          <span className="font-semibold text-[var(--arcane-ink-900)]">{row.ItemCount}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-gray-500">No data.</p>
+                    <p className="text-sm text-[var(--arcane-ink-soft)]">No data.</p>
                   )}
                 </TopListCard>
               </div>
@@ -1035,17 +1066,17 @@ export default function HomePage() {
                         <li key={row.ItemID} className="flex items-center justify-between gap-2">
                           <Link
                             to={`/admin/inventory?item=${encodeURIComponent(row.ItemName)}`}
-                            className="truncate text-blue-600 hover:text-blue-700 hover:underline"
+                            className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
                             title={`View item ${row.ItemName}`}
                           >
                             {row.ItemName}{row.ProductID ? ` (${row.ProductID})` : ''}
                           </Link>
-                          <span className="font-semibold text-gray-900">{formatCurrency(Number(row.MaxPrice || 0))}</span>
+                          <span className="font-semibold text-[var(--arcane-ink-900)]">{formatCurrency(Number(row.MaxPrice || 0))}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-gray-500">No pricing data.</p>
+                    <p className="text-sm text-[var(--arcane-ink-soft)]">No pricing data.</p>
                   )}
                 </TopListCard>
               </div>
@@ -1059,17 +1090,17 @@ export default function HomePage() {
                         <li key={row.ItemID} className="flex items-center justify-between gap-2">
                           <Link
                             to={`/admin/miniatures?itemId=${encodeURIComponent(String(row.ItemID))}`}
-                            className="truncate text-blue-600 hover:text-blue-700 hover:underline"
+                            className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
                             title={`View miniatures for ${row.ItemName}`}
                           >
                             {row.ItemName}{row.ProductID ? ` (${row.ProductID})` : ''}
                           </Link>
-                          <span className="font-semibold text-gray-900">{Number(row.TotalQuantity || 0).toLocaleString()}</span>
+                          <span className="font-semibold text-[var(--arcane-ink-900)]">{Number(row.TotalQuantity || 0).toLocaleString()}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-gray-500">No miniature data.</p>
+                    <p className="text-sm text-[var(--arcane-ink-soft)]">No miniature data.</p>
                   )}
                 </TopListCard>
               </div>
@@ -1083,17 +1114,17 @@ export default function HomePage() {
                         <li key={row.ItemID} className="flex items-center justify-between gap-2">
                           <Link
                             to={`/admin/terrain?itemId=${encodeURIComponent(String(row.ItemID))}`}
-                            className="truncate text-blue-600 hover:text-blue-700 hover:underline"
+                            className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
                             title={`View terrain for ${row.ItemName}`}
                           >
                             {row.ItemName}{row.ProductID ? ` (${row.ProductID})` : ''}
                           </Link>
-                          <span className="font-semibold text-gray-900">{Number(row.TotalQuantity || 0).toLocaleString()}</span>
+                          <span className="font-semibold text-[var(--arcane-ink-900)]">{Number(row.TotalQuantity || 0).toLocaleString()}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-gray-500">No terrain data.</p>
+                    <p className="text-sm text-[var(--arcane-ink-soft)]">No terrain data.</p>
                   )}
                 </TopListCard>
               </div>
@@ -1107,17 +1138,17 @@ export default function HomePage() {
                         <li key={row.PurchaseOrderID} className="flex items-center justify-between gap-2">
                           <Link
                             to={`/admin/order-master?invoice=${encodeURIComponent(row.InvoiceNumber)}&store=${encodeURIComponent(row.StoreName)}`}
-                            className="truncate text-blue-600 hover:text-blue-700 hover:underline"
+                            className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
                             title={`View order ${row.InvoiceNumber}`}
                           >
                             #{row.InvoiceNumber} - {row.StoreName}
                           </Link>
-                          <span className="font-semibold text-gray-900">{formatCurrency(Number(row.TotalAmount || 0))}</span>
+                          <span className="font-semibold text-[var(--arcane-ink-900)]">{formatCurrency(Number(row.TotalAmount || 0))}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-gray-500">No order data.</p>
+                    <p className="text-sm text-[var(--arcane-ink-soft)]">No order data.</p>
                   )}
                 </TopListCard>
               </div>
@@ -1131,26 +1162,26 @@ export default function HomePage() {
                         <li key={row.StoreName} className="flex items-center justify-between gap-2">
                           <Link
                             to={`/admin/order-master?store=${encodeURIComponent(row.StoreName)}`}
-                            className="truncate text-blue-600 hover:text-blue-700 hover:underline"
+                            className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
                             title={`View orders for ${row.StoreName}`}
                           >
                             {row.StoreName}
                           </Link>
-                          <span className="font-semibold text-gray-900">{row.OrderCount.toLocaleString()}</span>
+                          <span className="font-semibold text-[var(--arcane-ink-900)]">{row.OrderCount.toLocaleString()}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-gray-500">No store order data.</p>
+                    <p className="text-sm text-[var(--arcane-ink-soft)]">No store order data.</p>
                   )}
                 </TopListCard>
               </div>
             </div>
           ) : coverageView === 'publisher' ? (
             dashboardLoading && !publisherBoxes.length ? (
-              <p className="text-sm text-gray-500">Loading publisher coverage...</p>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Loading publisher coverage...</p>
             ) : publishersLoading && !publisherBoxes.length ? (
-              <p className="text-sm text-gray-500">Loading publishers...</p>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Loading publishers...</p>
             ) : publisherBoxes.length ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {publisherBoxes.map((publisher) => {
@@ -1168,7 +1199,7 @@ export default function HomePage() {
                       key={publisher.EntityID || publisher.EntityName}
                       className={`relative aspect-video overflow-hidden rounded-xl border p-5 transition ${
                         hasPublisherImage
-                          ? 'border-gray-300 bg-gray-900 bg-cover bg-center hover:border-gray-400'
+                          ? 'border-[var(--arcane-border-light)] bg-gray-900 bg-cover bg-center hover:border-[#b8864899]'
                           : coverageBand.card
                       }`}
                       style={hasPublisherImage ? { backgroundImage: `url("${publisherImageUrl}")` } : undefined}
@@ -1176,7 +1207,7 @@ export default function HomePage() {
                       {hasPublisherImage ? <div className="absolute inset-0 bg-black/55" /> : null}
                       <Link
                         to={baseInventoryLink}
-                        className="relative z-10 block h-full pr-36 pb-16 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
+                        className="relative z-10 block h-full pr-36 pb-16 focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)] rounded-md"
                         title={`Open Item Master for ${publisher.EntityName}`}
                       >
                         <p className={`text-3xl font-bold leading-tight truncate ${titleClass}`} title={publisher.EntityName}>
@@ -1198,13 +1229,13 @@ export default function HomePage() {
                 })}
               </div>
             ) : (
-              <p className="text-sm text-gray-500">No publishers found.</p>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">No publishers found.</p>
               )
             ) : coverageView === 'collection' ? (
               dashboardLoading && !collectionBoxes.length ? (
-            <p className="text-sm text-gray-500">Loading collection coverage...</p>
+            <p className="text-sm text-[var(--arcane-ink-soft)]">Loading collection coverage...</p>
           ) : collectionsLoading && !collectionBoxes.length ? (
-            <p className="text-sm text-gray-500">Loading collections...</p>
+            <p className="text-sm text-[var(--arcane-ink-soft)]">Loading collections...</p>
           ) : collectionBoxes.length ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {collectionBoxes.map((collection) => {
@@ -1225,7 +1256,7 @@ export default function HomePage() {
                     key={collection.EntityID || collection.EntityName}
                     className={`relative aspect-video overflow-hidden rounded-xl border p-5 transition ${
                       hasCollectionImage
-                        ? 'border-gray-300 bg-gray-900 bg-cover bg-center hover:border-gray-400'
+                        ? 'border-[var(--arcane-border-light)] bg-gray-900 bg-cover bg-center hover:border-[#b8864899]'
                         : coverageBand.card
                     }`}
                     style={hasCollectionImage ? { backgroundImage: `url("${collectionImageUrl}")` } : undefined}
@@ -1233,7 +1264,7 @@ export default function HomePage() {
                     {hasCollectionImage ? <div className="absolute inset-0 bg-black/55" /> : null}
                     <Link
                       to={baseInventoryLink}
-                      className="relative z-10 block pr-36 pb-14 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
+                      className="relative z-10 block pr-36 pb-14 focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)] rounded-md"
                       title={`Open Item Master for ${collection.EntityName}`}
                     >
                       <p className={`text-sm font-medium truncate ${titleClass}`} title={collection.EntityName}>
@@ -1253,13 +1284,13 @@ export default function HomePage() {
               })}
             </div>
           ) : (
-            <p className="text-sm text-gray-500">No collections found.</p>
+            <p className="text-sm text-[var(--arcane-ink-soft)]">No collections found.</p>
           )
           ) : collectionDetailLoading && !collectionDetailCounts ? (
-            <p className="text-sm text-gray-500">Loading collection detail counts...</p>
+            <p className="text-sm text-[var(--arcane-ink-soft)]">Loading collection detail counts...</p>
           ) : (
-            <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <h4 className="text-sm font-semibold text-gray-800">Category + Sub Category Detail</h4>
+            <div className="rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] p-4">
+              <h4 className="text-sm font-semibold text-[var(--arcane-ink-900)]">Category + Sub Category Detail</h4>
               {collectionDetailCounts?.matrixRows?.length ? (
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                   {collectionDetailCounts.matrixRows.map((row) => {
@@ -1275,7 +1306,7 @@ export default function HomePage() {
                       >
                         <Link
                           to={inventoryBaseLink}
-                          className="block pr-28 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
+                          className="block pr-28 focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)] rounded-md"
                           title={`Open Item Master for ${row.categoryName} (${row.subTypeName})`}
                         >
                           <p
@@ -1324,10 +1355,11 @@ export default function HomePage() {
                   })}
                 </div>
               ) : (
-                <p className="mt-3 text-sm text-gray-500">No matrix rows available.</p>
+                <p className="mt-3 text-sm text-[var(--arcane-ink-soft)]">No matrix rows available.</p>
               )}
               </div>
           )}
+            </div>
         </section>
       </div>
     </AdminLayout>

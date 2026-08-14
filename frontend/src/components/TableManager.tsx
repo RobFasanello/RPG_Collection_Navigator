@@ -60,7 +60,7 @@ export default function TableManager({ tableName, onBack }: TableManagerProps) {
       <div className="flex items-center gap-4 mb-6">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-blue-600 hover:text-blue-800"
+          className="flex items-center gap-2 text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)]"
         >
           <ChevronLeft className="w-5 h-5" />
           Back to Tables
@@ -92,7 +92,7 @@ export default function TableManager({ tableName, onBack }: TableManagerProps) {
         />
       )}
 
-      {dataLoading && <p className="text-gray-500">Loading data...</p>}
+      {dataLoading && <p className="text-[var(--arcane-ink-soft)]">Loading data...</p>}
 
       {tableData && (
         <>
@@ -122,7 +122,7 @@ export default function TableManager({ tableName, onBack }: TableManagerProps) {
                           setEditingId(row.id);
                           setShowForm(true);
                         }}
-                        className="text-blue-600 hover:text-blue-800"
+                        className="text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)]"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -140,7 +140,7 @@ export default function TableManager({ tableName, onBack }: TableManagerProps) {
           </div>
 
           <div className="mt-4 flex items-center justify-between">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-[var(--arcane-ink-soft)]">
               Showing {tableData.data?.length || 0} of {tableData.total} records
               (Page {tableData.page} of {tableData.totalPages})
             </p>

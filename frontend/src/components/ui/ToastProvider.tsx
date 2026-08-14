@@ -22,7 +22,7 @@ interface ToastContextValue {
 const ToastContext = React.createContext<ToastContextValue | null>(null);
 
 const variantClassMap: Record<ToastVariant, string> = {
-  default: 'border-gray-200 bg-white text-gray-900',
+  default: 'border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] text-[var(--arcane-ink-900)]',
   success: 'border-emerald-200 bg-emerald-50 text-emerald-900',
   info: 'border-blue-200 bg-blue-50 text-blue-900',
   warning: 'border-amber-200 bg-amber-50 text-amber-900',

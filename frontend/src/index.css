@@ -2,3 +2,81 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: light dark;
+
+  /* Dark surfaces: marketing page + the HomeShell header bar */
+  --arcane-ink-950: #120f13;
+  --arcane-ink-900: #17151a;
+  --arcane-ink-800: #1e1a1c;
+  --arcane-ink-700: #2d2a2d;
+  --arcane-line: #3d2e1f;
+
+  /* Gold accent, dark-ground and light-ground variants */
+  --arcane-gold-300: #e9d2a7;
+  --arcane-gold-400: #d6b07c;
+  --arcane-gold-500: #b88648;
+  --arcane-gold-600: #9c6a32;
+  --arcane-gold-700: #8a5f2e;
+
+  /* Destructive actions — matches the red already used for error alerts/toasts */
+  --arcane-danger: #dc2626;
+  --arcane-danger-hover: #b91c1c;
+
+  /* Text on dark */
+  --arcane-ivory: #f4efe8;
+  --arcane-ivory-bright: #f9f6f1;
+  --arcane-muted: #b9ae9d;
+  --arcane-sand: #e9e1d3;
+
+  /* Light "operate" surfaces: master/setup pages, dialogs, forms */
+  --arcane-paper: #f4efe8;
+  --arcane-paper-raised: #ffffff;
+  --arcane-border-light: #e2d5bd;
+  --arcane-ink-soft: #6b5f4d;
+}
+
+html {
+  background: var(--arcane-ink-950);
+}
+
+body {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #120f13 0%, #17151a 100%);
+  color: var(--arcane-ivory);
+}
+
+.theme-dark {
+  color-scheme: dark;
+}
+
+.theme-light {
+  color-scheme: light;
+}
+
+@layer utilities {
+  @keyframes coverage-swap-in {
+    0% {
+      opacity: 0;
+      transform: translateY(10px) scale(0.992);
+      filter: blur(4px);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      filter: blur(0);
+    }
+  }
+
+  .animate-coverage-swap {
+    animation: coverage-swap-in 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-coverage-swap {
+      animation: none;
+    }
+  }
+}
+

@@ -44,6 +44,7 @@ const ComboSelect: React.FC<Props> = ({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const dropdownRef = useRef<HTMLUListElement | null>(null);
+  const listboxId = React.useId();
 
   const selectedOption = options.find((o) => normalizeOptionValue(o.value) === normalizeOptionValue(value)) ?? null;
 
@@ -301,24 +302,27 @@ const ComboSelect: React.FC<Props> = ({
     <ul
       ref={dropdownRef}
       data-combo-select-portal="true"
+      id={listboxId}
+      role="listbox"
       style={disablePortal ? undefined : dropdownStyle}
-      className={`bg-white border border-gray-200 rounded-md shadow-lg max-h-64 overflow-auto ${
+      className={`bg-[var(--arcane-paper-raised)] border border-[var(--arcane-border-light)] rounded-md shadow-lg max-h-64 overflow-auto ${
         disablePortal ? 'absolute left-0 right-0 mt-1 z-50' : ''
       }`}
       onWheel={(e) => e.stopPropagation()}
     >
-      <li className="p-2 border-b border-gray-100">
+      <li className="p-2 border-b border-[var(--arcane-border-light)]">
         <input
           ref={searchInputRef}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={handleSearchKeyDown}
+          aria-label="Search options"
           placeholder="Search..."
-          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-3 py-2 text-sm text-[var(--arcane-ink-900)] focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)]"
         />
       </li>
       {filtered.length === 0 ? (
-        <li className="px-3 py-2 text-sm text-gray-500">No matching items</li>
+        <li className="px-3 py-2 text-sm text-[var(--arcane-ink-soft)]">No matching items</li>
       ) : (
         filtered.map((opt, index) => {
           const isSelected = normalizeOptionValue(opt.value) === normalizeOptionValue(value);
@@ -327,13 +331,16 @@ const ComboSelect: React.FC<Props> = ({
           return (
             <li
               key={opt.value}
+              id={`${listboxId}-option-${index}`}
+              role="option"
+              aria-selected={isSelected}
               onMouseEnter={() => setActiveIndex(index)}
               onMouseDown={(e) => {
                 e.preventDefault();
                 handleSelect(opt);
               }}
-              className={`px-3 py-2 text-sm cursor-pointer flex items-center gap-2 ${
-                isActive ? 'bg-blue-50' : 'hover:bg-gray-50'
+              className={`px-3 py-2 text-sm cursor-pointer flex items-center gap-2 text-[var(--arcane-ink-900)] ${
+                isActive ? 'bg-[#b886481a]' : 'hover:bg-[var(--arcane-paper)]'
               } ${isSelected ? 'font-medium' : ''}`}
             >
               <Check className={`h-4 w-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`} />
@@ -357,11 +364,15 @@ const ComboSelect: React.FC<Props> = ({
           disabled={disabled}
           tabIndex={tabIndex}
           autoFocus={autoFocus}
-          className={`w-full flex h-10 items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${triggerClassName ?? ''}`}
+          className={`w-full flex h-10 items-center justify-between rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${triggerClassName ?? ''}`}
+          role="combobox"
           aria-expanded={open}
+          aria-controls={listboxId}
           aria-haspopup="listbox"
+          aria-autocomplete="list"
+          aria-activedescendant={open && filtered[activeIndex] ? `${listboxId}-option-${activeIndex}` : undefined}
         >
-          <span className={`truncate ${selectedOption ? 'text-gray-900' : 'text-gray-500'}`}>
+          <span className={`truncate ${selectedOption ? 'text-[var(--arcane-ink-900)]' : 'text-[var(--arcane-ink-soft)]'}`}>
             {selectedOption?.label || (disabled ? 'Loading...' : placeholder)}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -370,7 +381,7 @@ const ComboSelect: React.FC<Props> = ({
           <button
             type="button"
             onClick={handleClear}
-            className="absolute right-7 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            className="absolute right-7 top-1/2 -translate-y-1/2 text-[var(--arcane-ink-soft)] hover:text-[var(--arcane-ink-900)]"
             tabIndex={-1}
             aria-label="Clear selection"
           >

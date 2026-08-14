@@ -23,7 +23,7 @@ export default function SetupTablePagination({
 
   return (
     <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-[var(--arcane-ink-soft)]">
         Showing {currentCount} of {total} results — Page {safePage} of {safeTotalPages}
       </p>
       <div className="flex gap-2">

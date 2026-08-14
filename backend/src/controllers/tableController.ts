@@ -63,6 +63,10 @@ function parseOptionalTrimmedText(value: unknown): string | undefined {
   return normalized ? normalized : undefined;
 }
 
+function normalizeLocationName(value: unknown): string {
+  return String(value ?? '').trim();
+}
+
 function parseOptionalBoolean(value: unknown): boolean | null {
   if (value === null || value === undefined || value === '') {
     return null;
@@ -827,8 +831,15 @@ export async function getTableData(req: Request, res: Response): Promise<void> {
         FETCH NEXT @pageSize ROWS ONLY
       `);
 
+    const normalizedRows = tableName === 'Location'
+      ? result.recordset.map((row) => ({
+          ...row,
+          LocationName: normalizeLocationName(row.LocationName),
+        }))
+      : result.recordset;
+
     res.json({
-      data: result.recordset,
+      data: normalizedRows,
       total,
       page,
       pageSize,
@@ -854,7 +865,20 @@ export async function getRecord(req: Request, res: Response): Promise<void> {
       WHERE [${primaryKey}] = @id
     `);
 
-    res.json(result.recordset[0] ?? null);
+    const row = result.recordset[0];
+    if (!row) {
+      res.json(null);
+      return;
+    }
+
+    const normalizedRow = tableName === 'Location'
+      ? {
+          ...row,
+          LocationName: normalizeLocationName(row.LocationName),
+        }
+      : row;
+
+    res.json(normalizedRow);
   } catch (error) {
     console.error('Error fetching record:', error);
     res.status(500).json({ error: 'Failed to fetch record' });
@@ -1889,6 +1913,10 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
       const primaryKey = getPrimaryKeyColumn(tableName);
       delete data[primaryKey];
 
+      if (tableName === 'Location' && typeof data.LocationName === 'string') {
+        data.LocationName = normalizeLocationName(data.LocationName);
+      }
+
       const columns = Object.keys(data);
       if (columns.length === 0) {
         res.status(400).json({ error: 'At least one field is required.' });
@@ -2229,6 +2257,10 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
     const data = { ...req.body };
     const pool = await getPool();
     const primaryKey = getPrimaryKeyColumn(tableName);
+
+    if (tableName === 'Location' && typeof data.LocationName === 'string') {
+      data.LocationName = normalizeLocationName(data.LocationName);
+    }
 
     if (tableName === 'Item') {
       if (Object.prototype.hasOwnProperty.call(data, 'StatusID')) {

@@ -9,7 +9,7 @@ function TableBrowserSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3" aria-label="Loading tables">
       {Array.from({ length: 6 }).map((_, index) => (
-        <div key={index} className="rounded-lg border border-gray-200 p-4">
+        <div key={index} className="rounded-lg border border-[var(--arcane-border-light)] p-4">
           <Skeleton className="h-5 w-40" />
           <Skeleton className="mt-2 h-4 w-32" />
         </div>
@@ -42,10 +42,10 @@ export default function TableBrowser() {
     <div className="p-6">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <Database className="w-8 h-8 text-blue-600" />
+          <Database className="w-8 h-8 text-[var(--arcane-gold-700)]" />
           <h1 className="text-3xl font-bold">RPG Collection Manager</h1>
         </div>
-        <p className="text-gray-600">Select a table to manage your data</p>
+        <p className="text-[var(--arcane-ink-soft)]">Select a table to manage your data</p>
       </div>
 
       {isLoading && <TableBrowserSkeleton />}
@@ -56,10 +56,10 @@ export default function TableBrowser() {
           <button
             key={table.TABLE_NAME}
             onClick={() => setSelectedTable(table.TABLE_NAME)}
-            className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition text-left"
+            className="p-4 border border-[var(--arcane-border-light)] rounded-lg hover:border-[var(--arcane-gold-500)] hover:bg-[#b886481a] transition text-left"
           >
             <h3 className="font-semibold text-lg">{table.TABLE_NAME}</h3>
-            <p className="text-sm text-gray-500">Click to manage records</p>
+            <p className="text-sm text-[var(--arcane-ink-soft)]">Click to manage records</p>
           </button>
         ))}
       </div>

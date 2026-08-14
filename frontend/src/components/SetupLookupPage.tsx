@@ -134,14 +134,13 @@ export default function SetupLookupPage({
   return (
     <AdminLayout title={title} subtitle={subtitle}>
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
+        <div className="mb-6 bg-[var(--arcane-paper-raised)] p-4 rounded-lg shadow space-y-4">
           <div className="flex flex-wrap gap-2 justify-end">
             <Button
               onClick={() => {
                 setIsAdding(true);
                 setEditingId(null);
               }}
-              className="bg-green-600 hover:bg-green-700"
             >
               {newButtonLabel}
             </Button>
@@ -167,15 +166,15 @@ export default function SetupLookupPage({
           />
         ) : null}
 
-        {isLoading && <p className="text-gray-500">Loading...</p>}
+        {isLoading && <p className="text-[var(--arcane-ink-soft)]">Loading...</p>}
         {error && <p className="text-red-600">Error loading records</p>}
 
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-[var(--arcane-paper-raised)] rounded-lg shadow overflow-hidden">
           <table className="w-full">
-            <thead className="bg-gray-100 border-b">
+            <thead className="bg-[var(--arcane-paper)] border-b">
               <tr>
                 <th
-                  className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-gray-200 transition"
+                  className="px-6 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-[#e2d5bd99] transition"
                   onClick={handleNameSort}
                 >
                   <div className="flex items-center gap-2">
@@ -189,7 +188,7 @@ export default function SetupLookupPage({
               {pagination.paginatedRows.map((record: any) => (
                 <tr
                   key={record[idColumn]}
-                  className="hover:bg-gray-50 cursor-pointer"
+                  className="hover:bg-[var(--arcane-paper)] cursor-pointer"
                   onClick={() => {
                     setIsAdding(false);
                     setEditingId(String(record[idColumn]));
@@ -224,7 +223,7 @@ export default function SetupLookupPage({
           <div className="space-y-4">
             <p className="text-sm text-red-700">{deleteError}</p>
             <div className="flex justify-end">
-              <Button onClick={() => setDeleteError('')} className="bg-red-600 hover:bg-red-700">
+              <Button onClick={() => setDeleteError('')} className="!bg-[var(--arcane-danger)] hover:!bg-[var(--arcane-danger-hover)] !text-white">
                 OK
               </Button>
             </div>

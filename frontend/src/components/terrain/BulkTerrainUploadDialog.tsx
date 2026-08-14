@@ -459,7 +459,7 @@ export default function BulkTerrainUploadDialog({
       <div className="space-y-5">
         <div
           className={`rounded-lg border-2 border-dashed p-6 text-center transition ${
-            isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'
+            isDragging ? 'border-[var(--arcane-gold-500)] bg-[#b886481a]' : 'border-[var(--arcane-border-light)] bg-[var(--arcane-paper)]'
           }`}
           onDragOver={(event) => {
             event.preventDefault();
@@ -471,10 +471,10 @@ export default function BulkTerrainUploadDialog({
           }}
           onDrop={handleDrop}
         >
-          <p className="text-sm text-gray-700">Drag and drop an Excel file here</p>
-          <p className="text-xs text-gray-500 mt-1">Accepted format: .xlsx</p>
+          <p className="text-sm text-[var(--arcane-ink-900)]">Drag and drop an Excel file here</p>
+          <p className="text-xs text-[var(--arcane-ink-soft)] mt-1">Accepted format: .xlsx</p>
           <div className="mt-3">
-            <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleSelectFile}>
+            <Button type="button" className="bg-[var(--arcane-gold-500)] hover:bg-[var(--arcane-gold-300)]" onClick={handleSelectFile}>
               Select File
             </Button>
             <input
@@ -495,7 +495,7 @@ export default function BulkTerrainUploadDialog({
               download
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-blue-700 underline hover:text-blue-800"
+              className="font-medium text-[var(--arcane-gold-700)] underline hover:text-[var(--arcane-gold-600)]"
             >
               Download Bulk Upload Template
             </a>
@@ -506,7 +506,7 @@ export default function BulkTerrainUploadDialog({
           <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{parseError}</div>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-4 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-700">
+        <div className="flex flex-wrap items-center gap-4 rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] p-3 text-sm text-[var(--arcane-ink-900)]">
           <span>Total rows: {rows.length}</span>
           <span>Ready: {readyRows.length}</span>
           <span>Invalid: {invalidRows.length}</span>
@@ -514,7 +514,7 @@ export default function BulkTerrainUploadDialog({
           <span>Removed: {removedCount}</span>
         </div>
 
-        <div className="max-h-[50vh] overflow-auto rounded-lg border border-gray-200">
+        <div className="max-h-[50vh] overflow-auto rounded-lg border border-[var(--arcane-border-light)]">
           <Table className="min-w-[1000px]">
             <TableHeader>
               <TableRow>
@@ -531,7 +531,7 @@ export default function BulkTerrainUploadDialog({
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-gray-500">
+                  <TableCell colSpan={8} className="py-10 text-center text-[var(--arcane-ink-soft)]">
                     Upload a file to preview and validate rows.
                   </TableCell>
                 </TableRow>
@@ -630,7 +630,7 @@ export default function BulkTerrainUploadDialog({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button
               type="button"
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-[var(--arcane-gold-500)] hover:bg-[var(--arcane-gold-300)]"
               onClick={handleAddBlankRow}
               disabled={bulkAddMutation.isLoading}
             >
@@ -641,7 +641,7 @@ export default function BulkTerrainUploadDialog({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button
               type="button"
-              className="bg-gray-600 hover:bg-gray-700"
+              className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
               onClick={() => onOpenChange(false)}
               disabled={bulkAddMutation.isLoading}
             >

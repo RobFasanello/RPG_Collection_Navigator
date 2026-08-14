@@ -281,12 +281,12 @@ export default function ImageCropDialog({ file, title, onApply, onCancel }: Imag
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div ref={modalRef} tabIndex={-1} className="max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
-        <h3 className="text-xl font-bold text-gray-900">{title}</h3>
-        <p className="mt-1 text-sm text-gray-600">Drag a box across the image to choose the area to keep.</p>
+        <h3 className="text-xl font-bold text-[var(--arcane-ink-900)]">{title}</h3>
+        <p className="mt-1 text-sm text-[var(--arcane-ink-soft)]">Drag a box across the image to choose the area to keep.</p>
 
         {error ? <div className="mt-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
 
-        <div className="mt-5 flex justify-center overflow-hidden rounded-lg border border-gray-300 bg-gray-900">
+        <div className="mt-5 flex justify-center overflow-hidden rounded-lg border border-[var(--arcane-border-light)] bg-gray-900">
           <canvas
             ref={previewCanvasRef}
             width={previewSize.width}
@@ -317,12 +317,12 @@ export default function ImageCropDialog({ file, title, onApply, onCancel }: Imag
         ) : null}
 
         <div className="mt-3 flex items-center justify-between gap-4 text-sm">
-          <span className="font-medium text-gray-700">Selected image: {selectedWidth} x {selectedHeight} px</span>
-          <span className="text-gray-500">Drag again to replace the selection.</span>
+          <span className="font-medium text-[var(--arcane-ink-900)]">Selected image: {selectedWidth} x {selectedHeight} px</span>
+          <span className="text-[var(--arcane-ink-soft)]">Drag again to replace the selection.</span>
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-[var(--arcane-ink-900)]">
             Brightness: {brightness}%
             <input
               type="range"
@@ -334,7 +334,7 @@ export default function ImageCropDialog({ file, title, onApply, onCancel }: Imag
               className="mt-2 w-full"
             />
           </label>
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-[var(--arcane-ink-900)]">
             Contrast: {contrast}%
             <input
               type="range"
@@ -349,10 +349,10 @@ export default function ImageCropDialog({ file, title, onApply, onCancel }: Imag
         </div>
 
         <div className="mt-6 flex flex-wrap justify-end gap-2">
-          <Button type="button" onClick={resetCrop} className="bg-gray-200 text-gray-800 hover:bg-gray-300">
+          <Button type="button" onClick={resetCrop} className="bg-[#e2d5bd99] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]">
             Reset
           </Button>
-          <Button type="button" onClick={onCancel} className="bg-gray-200 text-gray-800 hover:bg-gray-300">
+          <Button type="button" onClick={onCancel} className="bg-[#e2d5bd99] text-[var(--arcane-ink-900)] hover:bg-[var(--arcane-border-light)]">
             Cancel
           </Button>
           <Button type="button" onClick={handleApply} disabled={!imageLoaded || isApplying}>

@@ -79,8 +79,8 @@ export default function UsersSetupPage() {
   return (
     <AdminLayout title="Users" subtitle="Manage who can sign in and what they can do.">
       <div className="space-y-6">
-        <form onSubmit={handleAddUser} className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <label className="flex flex-col gap-1 text-sm text-slate-700">
+        <form onSubmit={handleAddUser} className="flex flex-wrap items-end gap-3 rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-4">
+          <label className="flex flex-col gap-1 text-sm text-[var(--arcane-ink-900)]">
             <span className="font-medium">Email</span>
             <Input
               type="email"
@@ -91,12 +91,12 @@ export default function UsersSetupPage() {
               className="w-64"
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm text-slate-700">
+          <label className="flex flex-col gap-1 text-sm text-[var(--arcane-ink-900)]">
             <span className="font-medium">Mode</span>
             <select
               value={newMode}
               onChange={(event) => setNewMode(event.target.value as AppMode)}
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+              className="rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-3 py-2 text-sm"
             >
               {MODE_OPTIONS.map((mode) => (
                 <option key={mode} value={mode}>
@@ -139,7 +139,7 @@ export default function UsersSetupPage() {
                         onChange={(event) =>
                           updateModeMutation.mutate({ id: user.UserID, mode: event.target.value as AppMode })
                         }
-                        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm"
+                        className="rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-2 py-1 text-sm"
                       >
                         {MODE_OPTIONS.map((mode) => (
                           <option key={mode} value={mode}>
@@ -152,7 +152,7 @@ export default function UsersSetupPage() {
                     <TableCell className="text-right">
                       <Button
                         type="button"
-                        className="border border-red-300 !bg-white !text-red-700 hover:!bg-red-50"
+                        className="border border-red-300 !bg-[var(--arcane-paper-raised)] !text-red-700 hover:!bg-red-50"
                         disabled={user.Email === currentUserEmail}
                         title={user.Email === currentUserEmail ? "You can't remove your own access" : undefined}
                         onClick={() => removeUserMutation.mutate(user.UserID)}
@@ -164,7 +164,7 @@ export default function UsersSetupPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-10 text-gray-500">
+                  <TableCell colSpan={5} className="text-center py-10 text-[var(--arcane-ink-soft)]">
                     No users yet.
                   </TableCell>
                 </TableRow>

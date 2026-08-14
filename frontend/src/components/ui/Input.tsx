@@ -41,7 +41,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const inputElement = (
       <input
         type={type}
-        className={`flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${showClear ? 'pr-8' : ''} ${className ?? ''}`}
+        className={`flex h-10 w-full rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-3 py-2 text-sm text-[var(--arcane-ink-900)] placeholder:text-[var(--arcane-ink-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--arcane-gold-600)] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${showClear ? 'pr-8' : ''} ${className ?? ''}`}
         ref={setRefs}
         onChange={onChange}
         value={value}
@@ -64,7 +64,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           aria-label={clearAriaLabel}
           onMouseDown={(event) => event.preventDefault()}
           onClick={handleClear}
-          className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center rounded text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
+          className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center rounded text-[var(--arcane-ink-soft)] transition hover:bg-[#e2d5bd99] hover:text-[var(--arcane-ink-900)]"
         >
           x
         </button>

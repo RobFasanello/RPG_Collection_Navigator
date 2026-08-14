@@ -595,13 +595,13 @@ export default function PublisherMasterPage() {
   return (
     <AdminLayout title="Publishers" subtitle="Manage publishers and their linked collections in one place.">
       <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 p-4 space-y-4">
+        <aside className="rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] shadow-sm">
+          <div className="border-b border-[var(--arcane-border-light)] p-4 space-y-4">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">Publishers</h2>
-              <p className="text-sm text-slate-500">Select a publisher to edit details and collection links.</p>
+              <h2 className="text-lg font-semibold text-[var(--arcane-ink-900)]">Publishers</h2>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Select a publisher to edit details and collection links.</p>
             </div>
-            <Button className="w-full bg-green-600 hover:bg-green-700" onClick={handleAddPublisher}>
+            <Button className="w-full" onClick={handleAddPublisher}>
               Add Publisher
             </Button>
             <Input
@@ -616,11 +616,11 @@ export default function PublisherMasterPage() {
 
           <div className="max-h-[calc(100vh-260px)] overflow-y-auto p-2">
             {publishersLoading ? (
-              <div className="p-4 text-sm text-slate-500">Loading publishers...</div>
+              <div className="p-4 text-sm text-[var(--arcane-ink-soft)]">Loading publishers...</div>
             ) : publishersError ? (
               <div className="p-4 text-sm text-red-600">Error loading publishers.</div>
             ) : sortedPublishers.length === 0 ? (
-              <div className="p-4 text-sm text-slate-500">No publishers found.</div>
+              <div className="p-4 text-sm text-[var(--arcane-ink-soft)]">No publishers found.</div>
             ) : (
               <div className="space-y-1">
                 {sortedPublishers.map((publisher) => {
@@ -636,16 +636,16 @@ export default function PublisherMasterPage() {
                       onClick={() => handleSelectPublisher(Number(publisher.PublisherID))}
                       className={`w-full rounded-lg border px-4 py-3 text-left transition ${
                         isSelected
-                          ? 'border-sky-200 bg-sky-50 shadow-sm'
-                          : 'border-transparent bg-white hover:border-slate-200 hover:bg-slate-50'
+                          ? 'border-[#b8864866] bg-[#b886481a] shadow-sm'
+                          : 'border-transparent bg-[var(--arcane-paper-raised)] hover:border-[var(--arcane-border-light)] hover:bg-[var(--arcane-paper)]'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold text-slate-900">{publisher.PublisherName}</div>
-                          <div className="truncate text-xs text-slate-500">{publisher.PublisherURL || 'No URL'}</div>
+                          <div className="truncate text-sm font-semibold text-[var(--arcane-ink-900)]">{publisher.PublisherName}</div>
+                          <div className="truncate text-xs text-[var(--arcane-ink-soft)]">{publisher.PublisherURL || 'No URL'}</div>
                         </div>
-                        <div className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-slate-500">
+                        <div className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-[var(--arcane-ink-soft)]">
                           <span>{publisherCollectionCount} collections</span>
                           <span>{publisherItemCount} items</span>
                           <span>{publisherOrderCount} orders</span>
@@ -659,14 +659,14 @@ export default function PublisherMasterPage() {
           </div>
         </aside>
 
-        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 px-5 py-4">
+        <section className="rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] shadow-sm">
+          <div className="border-b border-[var(--arcane-border-light)] px-5 py-4">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">
+                <h2 className="text-2xl font-bold text-[var(--arcane-ink-900)]">
                   {mode === 'new' ? 'Add Publisher' : selectedPublisher?.PublisherName || 'Select a publisher'}
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-[var(--arcane-ink-soft)]">
                   {mode === 'new'
                     ? 'Create a new publisher, then link collections from the Collections tab.'
                     : 'Edit the publisher details or manage linked collections from the tabs below.'}
@@ -678,8 +678,8 @@ export default function PublisherMasterPage() {
                   <Button
                     type="button"
                     className={activeTab === 'details'
-                      ? 'border border-sky-600 !bg-sky-600 !text-white hover:!bg-sky-700'
-                      : 'border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50'}
+                      ? 'border border-[var(--arcane-gold-500)] !bg-[var(--arcane-gold-500)] !text-[var(--arcane-ink-950)] hover:!bg-[var(--arcane-gold-300)]'
+                      : 'border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]'}
                     onClick={() => setActiveTab('details')}
                   >
                     Details
@@ -687,8 +687,8 @@ export default function PublisherMasterPage() {
                   <Button
                     type="button"
                     className={activeTab === 'collections'
-                      ? 'border border-sky-600 !bg-sky-600 !text-white hover:!bg-sky-700'
-                      : 'border border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-50'}
+                      ? 'border border-[var(--arcane-gold-500)] !bg-[var(--arcane-gold-500)] !text-[var(--arcane-ink-950)] hover:!bg-[var(--arcane-gold-300)]'
+                      : 'border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]'}
                     onClick={() => setActiveTab('collections')}
                   >
                     Collections
@@ -715,7 +715,7 @@ export default function PublisherMasterPage() {
                   <form className="space-y-4" onSubmit={handleSaveDetails}>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <label className="block space-y-2 sm:col-span-2">
-                        <span className="text-sm font-medium text-slate-700">Publisher Name</span>
+                        <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Publisher Name</span>
                         <Input
                           ref={nameInputRef}
                           type="text"
@@ -727,7 +727,7 @@ export default function PublisherMasterPage() {
                       </label>
 
                       <label className="block space-y-2 sm:col-span-2">
-                        <span className="text-sm font-medium text-slate-700">Publisher URL</span>
+                        <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Publisher URL</span>
                         <Input
                           type="url"
                           value={formValues.PublisherURL}
@@ -737,7 +737,7 @@ export default function PublisherMasterPage() {
                       </label>
 
                       <div className="sm:col-span-2">
-                        <span className="mb-2 block text-sm font-medium text-slate-700">Image File</span>
+                        <span className="mb-2 block text-sm font-medium text-[var(--arcane-ink-900)]">Image File</span>
                         <Input
                           type="file"
                           accept=".webp,.jpg,.jpeg,image/webp,image/jpeg"
@@ -750,15 +750,15 @@ export default function PublisherMasterPage() {
                           }}
                         />
                         {selectedImageFile ? (
-                          <p className="mt-1 text-sm text-slate-600">Selected: {selectedImageFile.name}</p>
+                          <p className="mt-1 text-sm text-[var(--arcane-ink-soft)]">Selected: {selectedImageFile.name}</p>
                         ) : formValues.ImageFileName ? (
-                          <p className="mt-1 text-sm text-slate-600">
+                          <p className="mt-1 text-sm text-[var(--arcane-ink-soft)]">
                             Current:{' '}
                             <a
                               href={getPublisherImageUrl(formValues.ImageFileName)}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-blue-600 underline hover:text-blue-700"
+                              className="text-[var(--arcane-gold-700)] underline hover:text-[var(--arcane-gold-600)]"
                             >
                               {formValues.ImageFileName}
                             </a>
@@ -774,7 +774,7 @@ export default function PublisherMasterPage() {
                             type="button"
                             onClick={handleDeletePublisher}
                             disabled={isSaving}
-                            className="bg-red-600 hover:bg-red-700"
+                            className="!bg-[var(--arcane-danger)] hover:!bg-[var(--arcane-danger-hover)] !text-white"
                           >
                             Delete Publisher
                           </Button>
@@ -784,7 +784,7 @@ export default function PublisherMasterPage() {
                       <div className="flex gap-2">
                         <Button
                           type="button"
-                          className="bg-slate-600 hover:bg-slate-700"
+                          className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white"
                           onClick={() => {
                             if (mode === 'new') {
                               setMode('existing');
@@ -802,7 +802,6 @@ export default function PublisherMasterPage() {
                         </Button>
                         <Button
                           type="submit"
-                          className="bg-green-600 hover:bg-green-700"
                           disabled={isSaving || (mode === 'existing' && !hasDetailsChanges)}
                         >
                           {isSaving ? 'Saving...' : mode === 'new' ? 'Add Publisher' : 'Save Publisher'}
@@ -813,15 +812,15 @@ export default function PublisherMasterPage() {
                 ) : (
                   <div className="space-y-4">
                     {selectedPublisherId === null || mode === 'new' ? (
-                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">
+                      <div className="rounded-xl border border-dashed border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-5 text-sm text-[var(--arcane-ink-soft)]">
                         Save this publisher first to manage linked collections.
                       </div>
                     ) : (
                       <>
-                        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-4">
                           <div className="min-w-0 flex-1">
-                            <div className="text-sm font-semibold text-slate-900">Add linked collection</div>
-                            <div className="text-xs text-slate-500">Choose a collection and add it immediately to this publisher.</div>
+                            <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">Add linked collection</div>
+                            <div className="text-xs text-[var(--arcane-ink-soft)]">Choose a collection and add it immediately to this publisher.</div>
                           </div>
                           <div className="min-w-[240px] flex-1">
                             <ComboSelect
@@ -834,29 +833,29 @@ export default function PublisherMasterPage() {
                               openOnFocus={false}
                             />
                           </div>
-                          <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={handleAddCollectionLink} disabled={isLinkSaving}>
+                          <Button type="button" className="bg-[var(--arcane-gold-500)] hover:bg-[var(--arcane-gold-300)]" onClick={handleAddCollectionLink} disabled={isLinkSaving}>
                             Add
                           </Button>
                         </div>
 
-                        <div className="rounded-xl border border-slate-200">
-                          <div className="border-b border-slate-200 bg-white px-4 py-3">
-                            <div className="text-sm font-semibold text-slate-900">Linked Collections</div>
-                            <div className="text-xs text-slate-500">{selectedPublisherLinkCount} linked collection{selectedPublisherLinkCount === 1 ? '' : 's'}</div>
+                        <div className="rounded-xl border border-[var(--arcane-border-light)]">
+                          <div className="border-b border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] px-4 py-3">
+                            <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">Linked Collections</div>
+                            <div className="text-xs text-[var(--arcane-ink-soft)]">{selectedPublisherLinkCount} linked collection{selectedPublisherLinkCount === 1 ? '' : 's'}</div>
                           </div>
 
-                          <div className="divide-y divide-slate-200">
+                          <div className="divide-y divide-[var(--arcane-border-light)]">
                             {selectedPublisherCollectionLinks.length === 0 ? (
-                              <div className="px-4 py-5 text-sm text-slate-500">No collections linked yet.</div>
+                              <div className="px-4 py-5 text-sm text-[var(--arcane-ink-soft)]">No collections linked yet.</div>
                             ) : (
                               selectedPublisherCollectionLinks.map((record) => (
                                 <div key={record.PublisherCollectionID ?? `${record.PublisherID}-${record.CollectionID}`} className="flex items-center justify-between gap-4 px-4 py-3">
                                   <div>
-                                    <div className="text-sm font-medium text-slate-900">{collectionNameById[Number(record.CollectionID)] ?? record.CollectionID}</div>
+                                    <div className="text-sm font-medium text-[var(--arcane-ink-900)]">{collectionNameById[Number(record.CollectionID)] ?? record.CollectionID}</div>
                                   </div>
                                   <Button
                                     type="button"
-                                    className="border border-red-300 !bg-white !text-red-700 hover:!bg-red-50"
+                                    className="border border-red-300 !bg-[var(--arcane-paper-raised)] !text-red-700 hover:!bg-red-50"
                                     onClick={() => handleRemoveCollectionLink(record)}
                                     disabled={isLinkSaving}
                                   >
@@ -873,10 +872,10 @@ export default function PublisherMasterPage() {
                 )}
               </div>
 
-              <aside className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <aside className="space-y-4 rounded-xl border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-4">
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">Publisher Summary</div>
-                  <div className="mt-2 space-y-1 text-sm text-slate-600">
+                  <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">Publisher Summary</div>
+                  <div className="mt-2 space-y-1 text-sm text-[var(--arcane-ink-soft)]">
                     <div>Items: {selectedPublisherItemCount.toLocaleString()}</div>
                     <div>Orders: {selectedPublisherOrderCount.toLocaleString()}</div>
                     <div>Collections: {selectedPublisherLinkCount.toLocaleString()}</div>
@@ -885,47 +884,46 @@ export default function PublisherMasterPage() {
 
                 {selectedPublisher && mode === 'existing' ? (
                   <>
-                    <div className="rounded-lg bg-white p-3 shadow-sm">
-                      <div className="text-sm font-semibold text-slate-900">Quick Links</div>
+                    <div className="rounded-lg bg-[var(--arcane-paper-raised)] p-3 shadow-sm">
+                      <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">Quick Links</div>
                       <div className="mt-2 space-y-2 text-sm">
                         <Link
                           to={buildPublisherInventoryLink(String(selectedPublisher.PublisherName || ''), false)}
-                          className="block text-blue-600 underline hover:text-blue-700"
+                          className="block text-[var(--arcane-gold-700)] underline hover:text-[var(--arcane-gold-600)]"
                         >
                           View items for this publisher
                         </Link>
                         <Link
                           to={buildPublisherInventoryLink(String(selectedPublisher.PublisherName || ''), true)}
-                          className="block text-blue-600 underline hover:text-blue-700"
+                          className="block text-[var(--arcane-gold-700)] underline hover:text-[var(--arcane-gold-600)]"
                         >
                           View owned items for this publisher
                         </Link>
                       </div>
                     </div>
 
-                    <div className="rounded-lg bg-white p-3 shadow-sm">
-                      <div className="text-sm font-semibold text-slate-900">Image Preview</div>
-                      <div className="mt-2">
+                    <div className="rounded-lg bg-[var(--arcane-paper-raised)] p-3 shadow-sm">
+                      <div className="text-sm font-semibold text-[var(--arcane-ink-900)]">Image Preview</div>
+                      <div className="mt-2 flex min-h-[160px] items-center justify-center overflow-hidden rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] p-2">
                         {formValues.ImageFileName ? (
-                          <a
-                            href={getPublisherImageUrl(formValues.ImageFileName)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-blue-600 underline hover:text-blue-700"
-                          >
-                            {formValues.ImageFileName}
+                          <a href={getPublisherImageUrl(formValues.ImageFileName)} target="_blank" rel="noreferrer" className="block">
+                            <img
+                              src={getPublisherImageUrl(formValues.ImageFileName)}
+                              alt={`${selectedPublisher?.PublisherName ?? 'Publisher'} preview`}
+                              className="max-h-40 w-auto max-w-[220px] rounded-md border border-[var(--arcane-border-light)] object-contain bg-white"
+                            />
                           </a>
                         ) : (
-                          <div className="text-sm text-slate-500">No image uploaded.</div>
+                          <div className="text-sm text-[var(--arcane-ink-soft)]">No image uploaded.</div>
                         )}
                       </div>
-                      <div className="mt-2 text-xs text-slate-500">
+                      <div className="mt-2 text-xs text-[var(--arcane-ink-soft)]">
                         Upload date: {formatImageUploadDate(selectedPublisher.ImageUploadDate)}
                       </div>
                     </div>
                   </>
                 ) : (
-                  <div className="rounded-lg bg-white p-3 text-sm text-slate-500 shadow-sm">
+                  <div className="rounded-lg bg-[var(--arcane-paper-raised)] p-3 text-sm text-[var(--arcane-ink-soft)] shadow-sm">
                     Select a publisher to see summary information.
                   </div>
                 )}
@@ -962,7 +960,7 @@ export default function PublisherMasterPage() {
         <div className="space-y-4">
           <p className="text-sm text-red-700">{deleteError}</p>
           <div className="flex justify-end">
-            <Button onClick={() => setDeleteError('')} className="bg-red-600 hover:bg-red-700">
+            <Button onClick={() => setDeleteError('')} className="!bg-[var(--arcane-danger)] hover:!bg-[var(--arcane-danger-hover)] !text-white">
               OK
             </Button>
           </div>
