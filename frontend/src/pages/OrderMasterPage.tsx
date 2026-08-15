@@ -1802,13 +1802,14 @@ export default function OrderMasterPage() {
         title="Edit Order"
         onClose={requestCloseModal}
         showCloseButton={false}
+        contentClassName="max-w-6xl h-[min(760px,90vh)] overflow-hidden flex flex-col [&>div:last-child]:min-h-0 [&>div:last-child]:flex-1"
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           editOrderInvoiceInputRef.current?.focus();
         }}
       >
         {selectedOrder && (
-          <div className="space-y-6">
+          <div className="flex h-full min-h-0 flex-col gap-6">
             <div className="flex items-center justify-end gap-2">
               <Button
                 type="button"
@@ -1941,9 +1942,9 @@ export default function OrderMasterPage() {
             />
 
             {/* Inventory Items Grid */}
-            <div>
+            <div className="flex min-h-0 flex-1 flex-col">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Inventory Items</h3>
+                <h3 className="text-lg font-semibold text-[var(--arcane-ink-900)]">Inventory Items</h3>
                 <Button
                   type="button"
                   onClick={addNewDetailRow}
@@ -1956,9 +1957,19 @@ export default function OrderMasterPage() {
               {inventoryLoading ? (
                 <p className="text-[var(--arcane-ink-soft)]">Loading inventory items...</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
+                <div className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden rounded-lg border border-[var(--arcane-border-light)]">
+                  <div className="flex h-full min-w-[960px] flex-col">
+                    <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable] [&>div]:overflow-visible">
+                  <Table className="table-fixed">
+                    <colgroup>
+                      <col className="w-[34%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[12%]" />
+                      <col className="w-[12%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[14%]" />
+                    </colgroup>
+                    <TableHeader className="sticky top-0 z-10">
                       <TableRow>
                         <TableHead>Item Name</TableHead>
                         <TableHead>Product ID</TableHead>
@@ -2129,15 +2140,6 @@ export default function OrderMasterPage() {
                               )}
                             </TableRow>
                           ))}
-                          <TableRow className="bg-[var(--arcane-paper)] font-semibold">
-                            <TableCell colSpan={4} className="text-right">Total:</TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(
-                                inventoryData.data.reduce((sum: number, item: InventoryItem) => sum + item.LineTotal, 0)
-                              )}
-                            </TableCell>
-                            <TableCell />
-                          </TableRow>
                         </>
                       ) : (
                         <TableRow>
@@ -2148,6 +2150,31 @@ export default function OrderMasterPage() {
                       )}
                     </TableBody>
                   </Table>
+                    </div>
+                    <div className="shrink-0 overflow-y-auto border-t-2 border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] [scrollbar-gutter:stable] [&>div]:overflow-visible">
+                      <Table className="table-fixed">
+                        <colgroup>
+                          <col className="w-[34%]" />
+                          <col className="w-[14%]" />
+                          <col className="w-[12%]" />
+                          <col className="w-[12%]" />
+                          <col className="w-[14%]" />
+                          <col className="w-[14%]" />
+                        </colgroup>
+                        <TableBody>
+                          <TableRow className="bg-[var(--arcane-paper-raised)] font-semibold hover:bg-[var(--arcane-paper-raised)]">
+                            <TableCell colSpan={4} className="text-right">Total:</TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(
+                                (inventoryData?.data || []).reduce((sum: number, item: InventoryItem) => sum + item.LineTotal, 0)
+                              )}
+                            </TableCell>
+                            <TableCell />
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

@@ -2517,7 +2517,7 @@ export default function InventoryLookupPage() {
                 <img
                   src={getItemImageUrl(viewingImageItem.ImageFileName)}
                   alt={viewingImageItem.ItemName}
-                  className="h-full w-full object-cover object-center"
+                  className="h-full w-full object-contain object-center"
                 />
               </div>
             </div>
