@@ -535,7 +535,7 @@ export default function MiniatureMasterPage() {
     });
   }, [miniatureRows, filterValues, sortBy, sortOrder, hasPurchaseOrderByItemId]);
 
-  const pagination = useSetupPagination(filteredRows, [filterValues, sortBy, sortOrder]);
+  const pagination = useSetupPagination(filteredRows, [filterValues, sortBy, sortOrder], 10);
   const currentPageRows = pagination.paginatedRows;
   const currentEditMiniatureIndex = useMemo(() => {
     if (!editingMiniature) {
@@ -1483,11 +1483,11 @@ export default function MiniatureMasterPage() {
 
           {!isLoading && !error ? (
             <>
-              <div className="overflow-x-auto">
-                <Table>
+              <div className="h-[608px] overflow-hidden">
+                <Table className="table-fixed [&_th]:overflow-hidden [&_th_button]:overflow-hidden [&_th_button]:whitespace-nowrap [&_tbody_tr]:h-14 [&_tbody_td]:overflow-hidden [&_tbody_td]:text-ellipsis [&_tbody_td]:whitespace-nowrap">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-px whitespace-nowrap px-2 text-center">
+                      <TableHead className="w-[4%] whitespace-nowrap px-2 text-center">
                         <SelectionScopeMenu
                           checked={areAllCurrentPageRowsSelected}
                           disabled={currentPageRows.length === 0}
@@ -1496,47 +1496,47 @@ export default function MiniatureMasterPage() {
                           onSelectAll={selectAllFilteredRows}
                         />
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[12%]">
                         <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Collection Name <SortIndicator column="CollectionName" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[10%]">
                         <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Sub Category <SortIndicator column="SubTypeName" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[18%]">
                         <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Item <SortIndicator column="ItemName" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[18%]">
                         <button onClick={() => handleSort('MiniatureName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Miniature Name <SortIndicator column="MiniatureName" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[9%]">
                         <button onClick={() => handleSort('MiniatureSizeName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Miniature Size <SortIndicator column="MiniatureSizeName" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[10%]">
                         <button onClick={() => handleSort('MiniatureRarityName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Miniature Rarity <SortIndicator column="MiniatureRarityName" />
                         </button>
                       </TableHead>
-                      <TableHead className="text-right">
+                      <TableHead className="w-[8%] text-right">
                         <button onClick={() => handleSort('MiniatureQuantity')} className="flex items-center justify-end w-full hover:text-[var(--arcane-gold-700)]">
                           Miniature Quantity <SortIndicator column="MiniatureQuantity" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[6%]">
                         <button onClick={() => handleSort('LocationName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Location <SortIndicator column="LocationName" />
                         </button>
                       </TableHead>
-                      <TableHead className="w-px whitespace-nowrap px-2 text-center">
+                      <TableHead className="w-[5%] whitespace-nowrap px-2 text-center">
                         <button onClick={() => handleSort('HasPurchaseOrder')} className="flex items-center justify-center w-full hover:text-[var(--arcane-gold-700)]">
                           Is Owned <SortIndicator column="HasPurchaseOrder" />
                         </button>

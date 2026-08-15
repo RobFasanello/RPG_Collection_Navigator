@@ -388,7 +388,7 @@ export default function OrderMasterPage() {
       const response = await tablesAPI.getPurchaseOrders({
         ...filterValues,
         page,
-        pageSize: 50,
+        pageSize: 10,
         sortBy,
         sortOrder,
       });
@@ -1458,11 +1458,11 @@ export default function OrderMasterPage() {
 
           {!isLoading && !error && (
             <>
-              <div className="overflow-x-auto">
-                <Table>
+              <div className="h-[608px] overflow-hidden">
+                <Table className="table-fixed [&_th]:overflow-hidden [&_th_button]:overflow-hidden [&_th_button]:whitespace-nowrap [&_tbody_tr]:h-14 [&_tbody_td]:overflow-hidden [&_tbody_td]:text-ellipsis [&_tbody_td]:whitespace-nowrap">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-10">
+                      <TableHead className="w-[4%]">
                         <SelectionScopeMenu
                           checked={data?.data?.length ? data.data.every((order: PurchaseOrder) => selectedOrderIds.includes(order.PurchaseOrderID)) : false}
                           disabled={!data?.data?.length}
@@ -1473,32 +1473,32 @@ export default function OrderMasterPage() {
                           }}
                         />
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[15%]">
                         <button onClick={() => handleSort('PurchaseDate')} className="flex items-center hover:text-[var(--arcane-gold-700)]" tabIndex={11}>
                           Purchase Date <SortIndicator column="PurchaseDate" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[20%]">
                         <button onClick={() => handleSort('InvoiceNumber')} className="flex items-center hover:text-[var(--arcane-gold-700)]" tabIndex={12}>
                           Invoice Number <SortIndicator column="InvoiceNumber" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[25%]">
                         <button onClick={() => handleSort('StoreName')} className="flex items-center hover:text-[var(--arcane-gold-700)]" tabIndex={13}>
                           Store Name <SortIndicator column="StoreName" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[16%]">
                         <button onClick={() => handleSort('StatusName')} className="flex items-center hover:text-[var(--arcane-gold-700)]" tabIndex={14}>
                           Order Status <SortIndicator column="StatusName" />
                         </button>
                       </TableHead>
-                      <TableHead className="text-right">
+                      <TableHead className="w-[9%] text-right">
                         <button onClick={() => handleSort('ItemCount')} className="flex items-center justify-end hover:text-[var(--arcane-gold-700)] w-full" tabIndex={15}>
                           Item Count <SortIndicator column="ItemCount" />
                         </button>
                       </TableHead>
-                      <TableHead className="text-right">
+                      <TableHead className="w-[11%] text-right">
                         <button onClick={() => handleSort('TotalAmount')} className="flex items-center justify-end hover:text-[var(--arcane-gold-700)] w-full" tabIndex={16}>
                           Total Amount <SortIndicator column="TotalAmount" />
                         </button>

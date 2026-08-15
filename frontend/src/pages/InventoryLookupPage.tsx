@@ -979,7 +979,7 @@ export default function InventoryLookupPage() {
       const response = await tablesAPI.getInventoryItems({
         ...cleanedParams,
         page,
-        pageSize: 50,
+        pageSize: 10,
         sortBy,
         sortOrder,
       });
@@ -2249,11 +2249,11 @@ export default function InventoryLookupPage() {
 
           {!isLoading && !error && (
             <>
-                  <div className="overflow-x-auto">
-                <Table>
+                  <div className="h-[608px] overflow-hidden">
+                <Table className="table-fixed [&_th]:overflow-hidden [&_th_button]:overflow-hidden [&_th_button]:whitespace-nowrap [&_tbody_tr]:h-14 [&_tbody_td]:overflow-hidden [&_tbody_td]:text-ellipsis [&_tbody_td]:whitespace-nowrap">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-px whitespace-nowrap px-2 text-center">
+                      <TableHead className="w-[4%] whitespace-nowrap px-2 text-center">
                         <SelectionScopeMenu
                           checked={areAllCurrentPageItemsSelected}
                           disabled={currentPageItems.length === 0}
@@ -2264,57 +2264,57 @@ export default function InventoryLookupPage() {
                           }}
                         />
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[9%]">
                         <button onClick={() => handleSort('PublisherName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Publisher <SortIndicator column="PublisherName" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[11%]">
                         <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Collection <SortIndicator column="CollectionName" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[17%]">
                         <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Item <SortIndicator column="ItemName" />
                         </button>
                       </TableHead>
-                      <TableHead className="text-right">
+                      <TableHead className="w-[7%] text-right">
                         <button onClick={() => handleSort('SubItemCount')} className="flex items-center justify-end w-full hover:text-[var(--arcane-gold-700)]">
                           Sub Item Count <SortIndicator column="SubItemCount" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[7%]">
                         <button onClick={() => handleSort('ItemVersion')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Version <SortIndicator column="ItemVersion" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[9%]">
                         <button onClick={() => handleSort('CategoryName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Category <SortIndicator column="CategoryName" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[10%]">
                         <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Sub Category <SortIndicator column="SubTypeName" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[8%]">
                         <button onClick={() => handleSort('ProductID')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Product ID <SortIndicator column="ProductID" />
                         </button>
                       </TableHead>
-                      <TableHead className="text-center">
+                      <TableHead className="w-[6%] text-center">
                         <button onClick={() => handleSort('IsPhysical')} className="flex items-center justify-center w-full hover:text-[var(--arcane-gold-700)]">
                           Is Physical <SortIndicator column="IsPhysical" />
                         </button>
                       </TableHead>
-                      <TableHead className="text-center">
+                      <TableHead className="w-[6%] text-center">
                         <button onClick={() => handleSort('IsDigital')} className="flex items-center justify-center w-full hover:text-[var(--arcane-gold-700)]">
                           Is Digital <SortIndicator column="IsDigital" />
                         </button>
                       </TableHead>
-                      <TableHead className="w-px whitespace-nowrap px-2 text-center">
+                      <TableHead className="w-[6%] whitespace-nowrap px-2 text-center">
                         <button onClick={() => handleSort('HasPurchaseOrder')} className="flex items-center justify-center w-full hover:text-[var(--arcane-gold-700)]">
                           Is Owned <SortIndicator column="HasPurchaseOrder" />
                         </button>

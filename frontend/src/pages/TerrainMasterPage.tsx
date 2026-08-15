@@ -507,7 +507,7 @@ export default function TerrainMasterPage() {
     });
   }, [terrainRows, filterValues, sortBy, sortOrder, hasPurchaseOrderByItemId]);
 
-  const pagination = useSetupPagination(filteredRows, [filterValues, sortBy, sortOrder]);
+  const pagination = useSetupPagination(filteredRows, [filterValues, sortBy, sortOrder], 10);
   const currentPageRows = pagination.paginatedRows;
   const currentEditTerrainIndex = useMemo(() => {
     if (!editingTerrain) {
@@ -1404,11 +1404,11 @@ export default function TerrainMasterPage() {
 
           {!isLoading && !error ? (
             <>
-              <div className="overflow-x-auto">
-                <Table>
+              <div className="h-[608px] overflow-hidden">
+                <Table className="table-fixed [&_th]:overflow-hidden [&_th_button]:overflow-hidden [&_th_button]:whitespace-nowrap [&_tbody_tr]:h-14 [&_tbody_td]:overflow-hidden [&_tbody_td]:text-ellipsis [&_tbody_td]:whitespace-nowrap">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-px whitespace-nowrap px-2 text-center">
+                      <TableHead className="w-[4%] whitespace-nowrap px-2 text-center">
                         <SelectionScopeMenu
                           checked={areAllCurrentPageRowsSelected}
                           disabled={currentPageRows.length === 0}
@@ -1417,42 +1417,42 @@ export default function TerrainMasterPage() {
                           onSelectAll={selectAllFilteredRows}
                         />
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[13%]">
                         <button onClick={() => handleSort('CollectionName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Collection Name <SortIndicator column="CollectionName" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[11%]">
                         <button onClick={() => handleSort('SubTypeName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Sub Category <SortIndicator column="SubTypeName" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[20%]">
                         <button onClick={() => handleSort('ItemName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Item <SortIndicator column="ItemName" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[18%]">
                         <button onClick={() => handleSort('TerrainName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Terrain Name <SortIndicator column="TerrainName" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[9%]">
                         <button onClick={() => handleSort('TerrainCode')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Terrain Code <SortIndicator column="TerrainCode" />
                         </button>
                       </TableHead>
-                      <TableHead className="text-right">
+                      <TableHead className="w-[9%] text-right">
                         <button onClick={() => handleSort('TerrainQuantity')} className="flex items-center justify-end w-full hover:text-[var(--arcane-gold-700)]">
                           Terrain Quantity <SortIndicator column="TerrainQuantity" />
                         </button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[10%]">
                         <button onClick={() => handleSort('LocationName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
                           Location <SortIndicator column="LocationName" />
                         </button>
                       </TableHead>
-                      <TableHead className="w-px whitespace-nowrap px-2 text-center">
+                      <TableHead className="w-[6%] whitespace-nowrap px-2 text-center">
                         <button onClick={() => handleSort('HasPurchaseOrder')} className="flex items-center justify-center w-full hover:text-[var(--arcane-gold-700)]">
                           Is Owned <SortIndicator column="HasPurchaseOrder" />
                         </button>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface SelectionScopeMenuProps {
   checked: boolean;
@@ -18,11 +19,29 @@ export default function SelectionScopeMenu({
   onSelectAll,
 }: SelectionScopeMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const updateMenuPosition = () => {
+    const triggerRect = triggerRef.current?.getBoundingClientRect();
+    if (!triggerRect) {
+      return;
+    }
+
+    setMenuStyle({
+      position: 'fixed',
+      left: Math.min(triggerRect.left, window.innerWidth - 148),
+      top: triggerRect.bottom + 8,
+      zIndex: 9999,
+    });
+  };
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!containerRef.current?.contains(target) && !menuRef.current?.contains(target)) {
         setIsOpen(false);
       }
     };
@@ -30,6 +49,20 @@ export default function SelectionScopeMenu({
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    updateMenuPosition();
+    window.addEventListener('resize', updateMenuPosition);
+    window.addEventListener('scroll', updateMenuPosition, true);
+    return () => {
+      window.removeEventListener('resize', updateMenuPosition);
+      window.removeEventListener('scroll', updateMenuPosition, true);
+    };
+  }, [isOpen]);
 
   const handleSelect = (callback: () => void) => {
     setIsOpen(false);
@@ -39,11 +72,13 @@ export default function SelectionScopeMenu({
   return (
     <div ref={containerRef} className="relative inline-flex">
       <input
+        ref={triggerRef}
         type="checkbox"
         checked={checked}
         onChange={(event) => {
           event.preventDefault();
           if (!disabled) {
+            updateMenuPosition();
             setIsOpen(true);
           }
         }}
@@ -54,8 +89,12 @@ export default function SelectionScopeMenu({
         className="h-4 w-4 rounded border-[var(--arcane-border-light)] accent-[var(--arcane-gold-500)] focus:ring-[var(--arcane-gold-600)]"
       />
 
-      {isOpen && !disabled ? (
-        <div className="absolute left-0 top-full z-20 mt-2 min-w-[140px] rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] p-1 shadow-lg">
+      {isOpen && !disabled && typeof document !== 'undefined' ? createPortal(
+        <div
+          ref={menuRef}
+          style={menuStyle}
+          className="min-w-[140px] rounded-md border border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] p-1 shadow-lg"
+        >
           <button
             type="button"
             onClick={() => handleSelect(onSelectPage)}
@@ -70,7 +109,8 @@ export default function SelectionScopeMenu({
           >
             Select All
           </button>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </div>
   );

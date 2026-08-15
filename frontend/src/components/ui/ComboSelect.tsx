@@ -48,16 +48,25 @@ const ComboSelect: React.FC<Props> = ({
 
   const selectedOption = options.find((o) => normalizeOptionValue(o.value) === normalizeOptionValue(value)) ?? null;
 
+  const resolvePortalContainer = () =>
+    typeof document !== 'undefined'
+      ? ref.current?.closest('[role="dialog"]') ?? document.body
+      : null;
+
   const recalcPosition = () => {
     if (disablePortal) {
       return;
     }
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
+      const portalContainer = resolvePortalContainer();
+      const dialogRect = portalContainer && portalContainer !== document.body
+        ? portalContainer.getBoundingClientRect()
+        : null;
       setDropdownStyle({
-        position: 'fixed',
-        top: rect.bottom + 2,
-        left: rect.left,
+        position: dialogRect ? 'absolute' : 'fixed',
+        top: rect.bottom - (dialogRect?.top ?? 0) + 2,
+        left: rect.left - (dialogRect?.left ?? 0),
         width: rect.width,
         zIndex: 9999,
         // Radix modal dialogs set pointer-events:none on the body while open.
@@ -298,6 +307,8 @@ const ComboSelect: React.FC<Props> = ({
     triggerRef.current?.focus();
   };
 
+  const portalContainer = resolvePortalContainer();
+
   const dropdown = open && !disabled ? (
     <ul
       ref={dropdownRef}
@@ -392,7 +403,7 @@ const ComboSelect: React.FC<Props> = ({
 
       {disablePortal
         ? dropdown
-        : typeof document !== 'undefined' && createPortal(dropdown, document.body)}
+        : portalContainer && createPortal(dropdown, portalContainer)}
     </div>
   );
 };
