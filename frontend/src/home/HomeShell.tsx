@@ -42,11 +42,6 @@ const MANAGE_NAV_ITEMS: TopMenuItem[] = [
     description: 'Select to view, add, delete or update Miniatures within your collection.',
   },
   {
-    label: 'Orders',
-    path: '/home/orders',
-    description: 'Select to view, add, delete or update Orders within your collection.',
-  },
-  {
     label: 'Terrain',
     path: '/home/terrain',
     description: 'Select to view, add, delete or update Terrain within your collection.',
@@ -113,7 +108,7 @@ export default function HomeShell() {
     <div className="theme-light min-h-[100dvh] bg-[var(--arcane-paper)] text-[var(--arcane-ink-900)] flex flex-col">
       <header className="sticky top-0 z-50 border-b border-[var(--arcane-gold-400)] bg-[var(--arcane-ink-900)] shadow-[0_10px_30px_rgba(18,15,19,0.2)] backdrop-blur-md">
         <div className="mx-auto w-full max-w-[1920px] px-4 py-3 sm:px-6 lg:px-8 2xl:px-10">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="grid items-center gap-3 lg:grid-cols-[auto_1fr] 2xl:grid-cols-[minmax(15rem,1fr)_minmax(18rem,26rem)_minmax(15rem,1fr)]">
             <div className="flex items-center gap-3 shrink-0">
               <img
                 src="/favicon.png"
@@ -126,7 +121,32 @@ export default function HomeShell() {
               </div>
             </div>
 
-            <nav className="flex flex-wrap items-center gap-2">
+            <form
+              onSubmit={handleSearchSubmit}
+              className="order-3 col-span-full flex w-full max-w-xl items-center justify-self-center gap-1.5 rounded-lg border border-[var(--arcane-line)] bg-[var(--arcane-ink-800)] px-3 py-2 transition focus-within:border-[var(--arcane-gold-500)] focus-within:ring-2 focus-within:ring-[var(--arcane-gold-500-ring)] 2xl:order-none 2xl:col-span-1 2xl:col-start-2 2xl:row-start-1"
+            >
+              <Search className="h-4 w-4 shrink-0 text-[var(--arcane-gold-300)]" aria-hidden="true" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search…"
+                aria-label="Global search"
+                className="min-w-0 flex-1 bg-transparent text-sm text-[var(--arcane-ivory)] outline-none placeholder:text-[var(--arcane-muted)]/70"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Clear global search"
+                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-[var(--arcane-gold-300)] transition hover:bg-[var(--arcane-ink-700)] hover:text-[var(--arcane-ivory)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--arcane-gold-600)]"
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              )}
+            </form>
+
+            <nav className="flex flex-wrap items-center justify-end gap-2 lg:min-w-0 2xl:col-start-3 2xl:row-start-1">
               <NavigationMenu>
                 <NavigationMenuList>
                   <NavigationMenuItem>
@@ -170,6 +190,14 @@ export default function HomeShell() {
                         })}
                       </ul>
                     </NavigationMenuContent>
+                  </NavigationMenuItem>
+
+                  <NavigationMenuItem>
+                    <NavigationMenuLink asChild active={isTopMenuItemActive('/home/orders')}>
+                      <Link to="/home/orders" className={navigationMenuTriggerStyle(isTopMenuItemActive('/home/orders'))}>
+                        Orders
+                      </Link>
+                    </NavigationMenuLink>
                   </NavigationMenuItem>
 
                   {isAdmin && (
@@ -224,31 +252,6 @@ export default function HomeShell() {
                   Log out
                 </button>
               </div>
-
-              <form
-                onSubmit={handleSearchSubmit}
-                className="flex items-center gap-1.5 rounded-lg border border-[var(--arcane-line)] bg-[var(--arcane-ink-800)] px-3 py-2 transition focus-within:border-[var(--arcane-gold-500)] focus-within:ring-2 focus-within:ring-[var(--arcane-gold-500-ring)]"
-              >
-                <Search className="h-4 w-4 shrink-0 text-[var(--arcane-gold-300)]" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search…"
-                  aria-label="Global search"
-                  className="w-32 bg-transparent text-sm text-[var(--arcane-ivory)] outline-none placeholder:text-[var(--arcane-muted)]/70 sm:w-40"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    aria-label="Clear global search"
-                    className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--arcane-gold-300)] transition hover:bg-[var(--arcane-ink-700)] hover:text-[var(--arcane-ivory)]"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </form>
             </nav>
           </div>
         </div>

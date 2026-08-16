@@ -69,7 +69,7 @@ export const Dialog: React.FC<DialogProps> = ({
           onPointerDownOutside={preventDismissForComboSelectPortal}
           onFocusOutside={preventDismissForComboSelectPortal}
           onOpenAutoFocus={onOpenAutoFocus}
-          className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-[var(--arcane-paper-raised)] rounded-lg shadow-lg p-6 max-h-[90vh] overflow-y-auto z-50 w-[92vw] max-w-4xl ${contentClassName || ''}`}
+          className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-[var(--arcane-paper-raised)] rounded-lg shadow-lg p-6 max-h-[90vh] overflow-visible z-50 w-[92vw] max-w-4xl flex flex-col ${contentClassName || ''}`}
         >
           <div className="flex items-center justify-between mb-4">
             <RadixDialog.Title className="text-xl font-semibold text-[var(--arcane-ink-900)]">
@@ -88,7 +88,7 @@ export const Dialog: React.FC<DialogProps> = ({
               </RadixDialog.Close>
             ) : null}
           </div>
-          <div>{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-1">{children}</div>
         </RadixDialog.Content>
       </RadixDialog.Portal>
     </RadixDialog.Root>

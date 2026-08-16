@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router';
 import AdminLayout from '../components/AdminLayout';
+import MasterTablePagination from '../components/MasterTablePagination';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import ComboSelect from '../components/ui/ComboSelect';
@@ -1383,16 +1384,18 @@ export default function OrderMasterPage() {
                   </button>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <Button
-                    type="button"
-                    className="border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]"
-                    onClick={openBulkUpdateDialog}
-                    disabled={!canWrite}
-                    title={canWrite ? undefined : 'Switch to Update mode to edit orders'}
-                    tabIndex={3}
-                  >
-                    Bulk Update
-                  </Button>
+                  {selectedOrderIds.length > 1 ? (
+                    <Button
+                      type="button"
+                      className="border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]"
+                      onClick={openBulkUpdateDialog}
+                      disabled={!canWrite}
+                      title={canWrite ? undefined : 'Switch to Update mode to edit orders'}
+                      tabIndex={3}
+                    >
+                      Bulk Update
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     className="border border-red-300 !bg-[var(--arcane-paper-raised)] !text-red-700 hover:!bg-red-50"
@@ -1541,47 +1544,14 @@ export default function OrderMasterPage() {
                 </Table>
               </div>
 
-              <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <p className="text-sm text-[var(--arcane-ink-soft)]">
-                  Showing {data?.data?.length ?? 0} of {data?.total ?? 0} results
-                  {data?.page && data?.totalPages ? ` — Page ${data.page} of ${data.totalPages}` : ''}
-                </p>
-                <div className="flex gap-2">
-                  {(() => {
-                    const totalPages = data?.totalPages ?? 0;
-                    const hasManyPages = totalPages > 3;
-
-                    return (
-                      <>
-                        <Button onClick={() => setPage(1)} disabled={!hasManyPages || page === 1} tabIndex={17}>
-                          First
-                        </Button>
-                        <Button
-                          onClick={() => setPage(Math.max(1, page - 1))}
-                          disabled={page === 1}
-                          tabIndex={18}
-                        >
-                          Previous
-                        </Button>
-                        <Button
-                          onClick={() => setPage(page + 1)}
-                          disabled={page >= (data?.totalPages ?? 1)}
-                          tabIndex={19}
-                        >
-                          Next
-                        </Button>
-                        <Button
-                          onClick={() => setPage(totalPages)}
-                          disabled={!hasManyPages || page >= totalPages}
-                          tabIndex={20}
-                        >
-                          Last
-                        </Button>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
+              <MasterTablePagination
+                currentCount={data?.data?.length ?? 0}
+                total={data?.total ?? 0}
+                page={data?.page ?? page}
+                totalPages={data?.totalPages ?? 1}
+                onPageChange={setPage}
+                tabIndexStart={17}
+              />
             </>
           )}
         </section>
@@ -1799,7 +1769,7 @@ export default function OrderMasterPage() {
 
           requestCloseModal();
         }}
-        title="Edit Order"
+        title="Edit Order Detail"
         onClose={requestCloseModal}
         showCloseButton={false}
         contentClassName="max-w-6xl h-[min(760px,90vh)] overflow-hidden flex flex-col [&>div:last-child]:min-h-0 [&>div:last-child]:flex-1"

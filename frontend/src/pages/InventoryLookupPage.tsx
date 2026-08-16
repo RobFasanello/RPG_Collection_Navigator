@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, CircleHelp, Link2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import AdminLayout from '../components/AdminLayout';
+import MasterTablePagination from '../components/MasterTablePagination';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import ComboSelect from '../components/ui/ComboSelect';
@@ -191,6 +192,28 @@ export default function InventoryLookupPage() {
     SubTypeID: '',
   });
   const [addError, setAddError] = useState('');
+  const [selectedAddImageFile, setSelectedAddImageFile] = useState<File | null>(null);
+  const [selectedAddImageUrl, setSelectedAddImageUrl] = useState('');
+  const [addCropSourceFile, setAddCropSourceFile] = useState<File | null>(null);
+  const closeAddModal = useCallback(() => {
+    setIsAddingItem(false);
+    setAddValues({
+      ItemName: '',
+      ItemVersion: '',
+      ProductID: '',
+      ReleaseDate: '',
+      IsPhysical: false,
+      IsDigital: false,
+      PublisherID: '',
+      CollectionID: '',
+      CategoryID: '',
+      SubTypeID: '',
+    });
+    setSelectedAddImageFile(null);
+    setAddCropSourceFile(null);
+    setAddError('');
+  }, []);
+  const addModalRef = useModalFocusTrap<HTMLDivElement>(isAddingItem, closeAddModal);
   const [selectedItemIds, setSelectedItemIds] = useState<number[]>([]);
   const [isBulkUpdateOpen, setIsBulkUpdateOpen] = useState(false);
   const [bulkStep, setBulkStep] = useState<'edit' | 'confirm'>('edit');
@@ -1749,6 +1772,17 @@ export default function InventoryLookupPage() {
     return () => URL.revokeObjectURL(previewUrl);
   }, [selectedEditImageFile]);
 
+  useEffect(() => {
+    if (!selectedAddImageFile) {
+      setSelectedAddImageUrl('');
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(selectedAddImageFile);
+    setSelectedAddImageUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [selectedAddImageFile]);
+
   const handleOpenRelatedOrders = async (item: InventoryItem, event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     setSelectedItemForRelatedOrders(item);
@@ -1940,23 +1974,8 @@ export default function InventoryLookupPage() {
       CategoryID: '',
       SubTypeID: '',
     });
-    setAddError('');
-  };
-
-  const closeAddModal = () => {
-    setIsAddingItem(false);
-    setAddValues({
-      ItemName: '',
-      ItemVersion: '',
-      ProductID: '',
-      ReleaseDate: '',
-      IsPhysical: false,
-      IsDigital: false,
-      PublisherID: '',
-      CollectionID: '',
-      CategoryID: '',
-      SubTypeID: '',
-    });
+    setSelectedAddImageFile(null);
+    setAddCropSourceFile(null);
     setAddError('');
   };
 
@@ -1982,7 +2001,7 @@ export default function InventoryLookupPage() {
   });
 
   const addMutation = useMutation({
-    mutationFn: async (payload: Record<string, any>) => {
+    mutationFn: async (payload: Record<string, any> | FormData) => {
       return tablesAPI.createRecord('Item', payload);
     },
     onSuccess: () => {
@@ -2078,6 +2097,26 @@ export default function InventoryLookupPage() {
     setAddValues((current) => ({ ...current, [field]: value }));
   };
 
+  const handleAddImageFileChange = (file: File | null) => {
+    if (!file) {
+      setSelectedAddImageFile(null);
+      setAddCropSourceFile(null);
+      return;
+    }
+
+    const extension = file.name.toLowerCase().match(/\.(webp|jpe?g)$/)?.[1];
+    const hasValidType = !file.type || file.type === (extension === 'webp' ? 'image/webp' : 'image/jpeg');
+    if (!extension || !hasValidType) {
+      setSelectedAddImageFile(null);
+      setAddCropSourceFile(null);
+      setAddError('Image File Name must be a .webp, .jpg, or .jpeg file.');
+      return;
+    }
+
+    setAddCropSourceFile(file);
+    setAddError('');
+  };
+
   const handleAddSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setAddError('');
@@ -2093,18 +2132,22 @@ export default function InventoryLookupPage() {
       return;
     }
 
-    addMutation.mutate({
-      ItemName: addValues.ItemName.trim(),
-      ItemVersion: addValues.ItemVersion.trim() || null,
-      ProductID: addValues.ProductID || null,
-      ReleaseDate: addValues.ReleaseDate ? normalizeReleaseDateForSave(addValues.ReleaseDate) : null,
-      IsPhysical: addValues.IsPhysical,
-      IsDigital: addValues.IsDigital,
-      PublisherID: parseInt(addValues.PublisherID, 10),
-      CollectionID: parseInt(addValues.CollectionID, 10),
-      CategoryID: parseInt(addValues.CategoryID, 10),
-      SubTypeID: parseInt(addValues.SubTypeID, 10),
-    });
+    const payload = new FormData();
+    payload.append('ItemName', addValues.ItemName.trim());
+    payload.append('ItemVersion', addValues.ItemVersion.trim());
+    payload.append('ProductID', addValues.ProductID);
+    payload.append('ReleaseDate', addValues.ReleaseDate ? normalizeReleaseDateForSave(addValues.ReleaseDate) : '');
+    payload.append('IsPhysical', String(addValues.IsPhysical));
+    payload.append('IsDigital', String(addValues.IsDigital));
+    payload.append('PublisherID', addValues.PublisherID);
+    payload.append('CollectionID', addValues.CollectionID);
+    payload.append('CategoryID', addValues.CategoryID);
+    payload.append('SubTypeID', addValues.SubTypeID);
+    if (selectedAddImageFile) {
+      payload.append('ImageFile', selectedAddImageFile);
+    }
+
+    addMutation.mutate(payload);
   };
 
   const handleDeleteItem = () => {
@@ -2164,15 +2207,17 @@ export default function InventoryLookupPage() {
                       Create Order
                     </Button>
                   ) : null}
-                  <Button
-                    type="button"
-                    className="border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]"
-                    onClick={openBulkUpdateDialog}
-                    disabled={!canWrite}
-                    title={canWrite ? undefined : 'Switch to Update mode to edit items'}
-                  >
-                    Bulk Update
-                  </Button>
+                  {selectedItemIds.length > 1 ? (
+                    <Button
+                      type="button"
+                      className="border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]"
+                      onClick={openBulkUpdateDialog}
+                      disabled={!canWrite}
+                      title={canWrite ? undefined : 'Switch to Update mode to edit items'}
+                    >
+                      Bulk Update
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     className="border border-red-300 !bg-[var(--arcane-paper-raised)] !text-red-700 hover:!bg-red-50"
@@ -2424,47 +2469,14 @@ export default function InventoryLookupPage() {
                 </Table>
               </div>
 
-              <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <p className="text-sm text-[var(--arcane-ink-soft)]">
-                  Showing {data?.data?.length ?? 0} of {data?.total ?? 0} results
-                  {data?.page && data?.totalPages ? ` — Page ${data.page} of ${data.totalPages}` : ''}
-                </p>
-                <div className="flex gap-2">
-                  {(() => {
-                    const totalPages = data?.totalPages ?? 0;
-                    const hasManyPages = totalPages > 3;
-
-                    return (
-                      <>
-                        <Button onClick={() => setPage(1)} disabled={!hasManyPages || page === 1} tabIndex={pagerTabIndexStart}>
-                          First
-                        </Button>
-                        <Button
-                          onClick={() => setPage(Math.max(1, page - 1))}
-                          disabled={page === 1}
-                          tabIndex={pagerTabIndexStart + 1}
-                        >
-                          Previous
-                        </Button>
-                        <Button
-                          onClick={() => setPage(page + 1)}
-                          disabled={page >= (data?.totalPages ?? 1)}
-                          tabIndex={pagerTabIndexStart + 2}
-                        >
-                          Next
-                        </Button>
-                        <Button
-                          onClick={() => setPage(totalPages)}
-                          disabled={!hasManyPages || page >= totalPages}
-                          tabIndex={pagerTabIndexStart + 3}
-                        >
-                          Last
-                        </Button>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
+              <MasterTablePagination
+                currentCount={data?.data?.length ?? 0}
+                total={data?.total ?? 0}
+                page={data?.page ?? page}
+                totalPages={data?.totalPages ?? 1}
+                onPageChange={setPage}
+                tabIndexStart={pagerTabIndexStart}
+              />
             </>
           )}
         </section>
@@ -2727,33 +2739,11 @@ export default function InventoryLookupPage() {
 
       {editingItem ? (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div ref={editModalRef} tabIndex={-1} className="bg-[var(--arcane-paper-raised)] rounded-xl shadow-xl max-w-4xl w-full p-6">
-            <div className="flex items-center justify-between mb-5">
+          <div ref={editModalRef} tabIndex={-1} className="relative bg-[var(--arcane-paper-raised)] rounded-xl shadow-xl max-w-4xl w-full p-6">
+            <div className="mb-5">
               <div>
                 <h2 className="text-xl font-semibold">Edit Item Detail</h2>
                 <p className="text-sm text-[var(--arcane-ink-soft)]">Update item values and save changes.</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  className="h-9 !bg-[var(--arcane-border-light)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
-                  onClick={() => handleNavigateEditItem('previous')}
-                  disabled={!canNavigateToPreviousEditItem || editMutation.isLoading || deleteMutation.isLoading}
-                  aria-label="Previous item"
-                  title="Previous item"
-                >
-                  Prev
-                </Button>
-                <Button
-                  type="button"
-                  className="h-9 !bg-[var(--arcane-border-light)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
-                  onClick={() => handleNavigateEditItem('next')}
-                  disabled={!canNavigateToNextEditItem || editMutation.isLoading || deleteMutation.isLoading}
-                  aria-label="Next item"
-                  title="Next item"
-                >
-                  Next
-                </Button>
               </div>
             </div>
 
@@ -2765,49 +2755,7 @@ export default function InventoryLookupPage() {
 
             <form onSubmit={handleEditSubmit} className="space-y-5">
               <div className="grid gap-6 md:grid-cols-[240px_minmax(0,1fr)]">
-                <div className="min-w-0">
-                  <div className="mb-1 text-sm font-medium text-[var(--arcane-ink-900)]">Image</div>
-                  <div className="aspect-square overflow-hidden rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)]">
-                    {selectedEditImageFile || editingItem.ImageFileName ? (
-                      <img
-                        src={selectedEditImageUrl || getItemImageUrl(editingItem.ImageFileName)}
-                        alt={`${editingItem.ItemName} preview`}
-                        className="h-full w-full object-contain"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center p-4 text-center text-sm text-[var(--arcane-ink-soft)]">
-                        No image uploaded.
-                      </div>
-                    )}
-                  </div>
-                  {editingItem.ImageFileName ? (
-                    <p
-                      className="mt-1 whitespace-nowrap text-xs text-[var(--arcane-ink-soft)]"
-                      title={`Current: ${getItemImageUrl(editingItem.ImageFileName)}`}
-                    >
-                      Current: {truncateMiddle(getItemImageUrl(editingItem.ImageFileName), 31)}
-                    </p>
-                  ) : null}
-                  <div className="mt-4">
-                    <span className="mb-2 block text-sm font-medium text-[var(--arcane-ink-900)]">Image File</span>
-                    <Input
-                      type="file"
-                      accept=".webp,.jpg,.jpeg,image/webp,image/jpeg"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0] ?? null;
-                        handleEditImageFileChange(file);
-                        if (file) {
-                          event.target.value = '';
-                        }
-                      }}
-                    />
-                    {selectedEditImageFile ? (
-                      <p className="mt-1 break-all text-sm text-[var(--arcane-ink-soft)]">Selected: {selectedEditImageFile.name}</p>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="order-1 grid grid-cols-1 gap-4 sm:grid-cols-2 md:order-2">
                 <div>
                   <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Item</label>
                   <Input
@@ -2901,6 +2849,50 @@ export default function InventoryLookupPage() {
                   Is Digital
                 </label>
                 </div>
+
+                <div className="order-2 min-w-0 md:order-1">
+                  <div className="mb-1 text-sm font-medium text-[var(--arcane-ink-900)]">Image</div>
+                  <div className="h-60 w-60 overflow-hidden rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)]">
+                    {selectedEditImageFile || editingItem.ImageFileName ? (
+                      <img
+                        src={selectedEditImageUrl || getItemImageUrl(editingItem.ImageFileName)}
+                        alt={`${editingItem.ItemName} preview`}
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center p-4 text-center text-sm text-[var(--arcane-ink-soft)]">
+                        No image uploaded.
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-1 h-4">
+                    {editingItem.ImageFileName ? (
+                      <p
+                        className="whitespace-nowrap text-xs text-[var(--arcane-ink-soft)]"
+                        title={`Current: ${getItemImageUrl(editingItem.ImageFileName)}`}
+                      >
+                        Current: {truncateMiddle(getItemImageUrl(editingItem.ImageFileName), 31)}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="mt-4">
+                    <span className="mb-2 block text-sm font-medium text-[var(--arcane-ink-900)]">Image File</span>
+                    <Input
+                      type="file"
+                      accept=".webp,.jpg,.jpeg,image/webp,image/jpeg"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] ?? null;
+                        handleEditImageFileChange(file);
+                        if (file) {
+                          event.target.value = '';
+                        }
+                      }}
+                    />
+                    {selectedEditImageFile ? (
+                      <p className="mt-1 break-all text-sm text-[var(--arcane-ink-soft)]">Selected: {selectedEditImageFile.name}</p>
+                    ) : null}
+                  </div>
+                </div>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
@@ -2930,6 +2922,28 @@ export default function InventoryLookupPage() {
                 </Button>
               </div>
             </form>
+            <div className="absolute right-6 top-6 flex items-center gap-2">
+              <Button
+                type="button"
+                className="h-9 !bg-[var(--arcane-border-light)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
+                onClick={() => handleNavigateEditItem('previous')}
+                disabled={!canNavigateToPreviousEditItem || editMutation.isLoading || deleteMutation.isLoading}
+                aria-label="Previous item"
+                title="Previous item"
+              >
+                Prev
+              </Button>
+              <Button
+                type="button"
+                className="h-9 !bg-[var(--arcane-border-light)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-border-light)]"
+                onClick={() => handleNavigateEditItem('next')}
+                disabled={!canNavigateToNextEditItem || editMutation.isLoading || deleteMutation.isLoading}
+                aria-label="Next item"
+                title="Next item"
+              >
+                Next
+              </Button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -2948,26 +2962,10 @@ export default function InventoryLookupPage() {
       ) : null}
 
       {isAddingItem ? (
-        <Dialog
-          open={isAddingItem}
-          onOpenChange={(open) => {
-            if (open) {
-              setIsAddingItem(true);
-              return;
-            }
-
-            closeAddModal();
-          }}
-          title="Add Item"
-          contentClassName="max-w-2xl"
-          closeButtonTabIndex={-1}
-          showCloseButton={false}
-          onOpenAutoFocus={(event) => {
-            event.preventDefault();
-            addItemInputRef.current?.focus();
-          }}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div ref={addModalRef} tabIndex={-1} className="bg-[var(--arcane-paper-raised)] rounded-xl shadow-xl max-w-4xl w-full p-6">
           <div className="mb-5">
+            <h2 className="text-xl font-semibold">Add Item Detail</h2>
             <p className="text-sm text-[var(--arcane-ink-soft)]">Create a new item record.</p>
           </div>
 
@@ -2978,11 +2976,13 @@ export default function InventoryLookupPage() {
           ) : null}
 
           <form onSubmit={handleAddSubmit} className="space-y-5">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-[240px_minmax(0,1fr)]">
+              <div className="order-1 grid grid-cols-1 gap-4 sm:grid-cols-2 md:order-2">
               <div>
                 <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Item</label>
                 <Input
                   ref={addItemInputRef}
+                  autoFocus
                   value={addValues.ItemName}
                   onChange={(e) => handleAddChange('ItemName', e.target.value)}
                   placeholder="Item name"
@@ -3017,22 +3017,6 @@ export default function InventoryLookupPage() {
                   className="text-[var(--arcane-ink-900)]"
                 />
               </div>
-              <label className="flex items-center gap-2 pt-6 text-sm font-medium text-[var(--arcane-ink-900)]">
-                <input
-                  type="checkbox"
-                  checked={addValues.IsPhysical}
-                  onChange={(event) => setAddValues((current) => ({ ...current, IsPhysical: event.target.checked }))}
-                />
-                Is Physical
-              </label>
-              <label className="flex items-center gap-2 pt-6 text-sm font-medium text-[var(--arcane-ink-900)]">
-                <input
-                  type="checkbox"
-                  checked={addValues.IsDigital}
-                  onChange={(event) => setAddValues((current) => ({ ...current, IsDigital: event.target.checked }))}
-                />
-                Is Digital
-              </label>
               <div>
                 <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Publisher</label>
                 <ComboSelect
@@ -3054,7 +3038,7 @@ export default function InventoryLookupPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Category</label>
+                <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Sub Category</label>
                 <ComboSelect
                   options={categorySelectOptions.map((option: { value: string | number; label: string }) => ({ value: String(option.value), label: option.label }))}
                   value={addValues.CategoryID}
@@ -3073,6 +3057,54 @@ export default function InventoryLookupPage() {
                   className="w-full"
                 />
               </div>
+              <label className="flex items-center gap-2 pt-2 text-sm font-medium text-[var(--arcane-ink-900)]">
+                <input
+                  type="checkbox"
+                  checked={addValues.IsPhysical}
+                  onChange={(event) => setAddValues((current) => ({ ...current, IsPhysical: event.target.checked }))}
+                />
+                Is Physical
+              </label>
+              <label className="flex items-center gap-2 pt-2 text-sm font-medium text-[var(--arcane-ink-900)]">
+                <input
+                  type="checkbox"
+                  checked={addValues.IsDigital}
+                  onChange={(event) => setAddValues((current) => ({ ...current, IsDigital: event.target.checked }))}
+                />
+                Is Digital
+              </label>
+              </div>
+
+              <div className="order-2 min-w-0 md:order-1">
+                <div className="mb-1 text-sm font-medium text-[var(--arcane-ink-900)]">Image</div>
+                <div className="h-60 w-60 overflow-hidden rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)]">
+                  {selectedAddImageUrl ? (
+                    <img src={selectedAddImageUrl} alt={`${addValues.ItemName || 'New item'} preview`} className="h-full w-full object-contain" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center p-4 text-center text-sm text-[var(--arcane-ink-soft)]">
+                      No image uploaded.
+                    </div>
+                  )}
+                </div>
+                <div className="mt-1 h-4" />
+                <div className="mt-4">
+                  <span className="mb-2 block text-sm font-medium text-[var(--arcane-ink-900)]">Image File</span>
+                  <Input
+                    type="file"
+                    accept=".webp,.jpg,.jpeg,image/webp,image/jpeg"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      handleAddImageFileChange(file);
+                      if (file) {
+                        event.target.value = '';
+                      }
+                    }}
+                  />
+                  {selectedAddImageFile ? (
+                    <p className="mt-1 break-all text-sm text-[var(--arcane-ink-soft)]">Selected: {selectedAddImageFile.name}</p>
+                  ) : null}
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
@@ -3088,7 +3120,21 @@ export default function InventoryLookupPage() {
               </Button>
             </div>
           </form>
-        </Dialog>
+          </div>
+        </div>
+      ) : null}
+
+      {addCropSourceFile ? (
+        <ImageCropDialog
+          file={addCropSourceFile}
+          title="Crop Item Image"
+          onApply={(croppedFile) => {
+            setSelectedAddImageFile(croppedFile);
+            setAddCropSourceFile(null);
+            setAddError('');
+          }}
+          onCancel={() => setAddCropSourceFile(null)}
+        />
       ) : null}
 
       {isBulkUpdateOpen ? (

@@ -10,7 +10,7 @@ import AlertDialog from '../components/ui/AlertDialog';
 import SelectionScopeMenu from '../components/ui/SelectionScopeMenu';
 import { useToast } from '../components/ui/ToastProvider';
 import { Input } from '../components/ui/Input';
-import SetupTablePagination from '../components/SetupTablePagination';
+import MasterTablePagination from '../components/MasterTablePagination';
 import AdminLayout from '../components/AdminLayout';
 import BulkMiniatureUploadDialog from '../components/miniatures/BulkMiniatureUploadDialog';
 import { type LinkedPurchaseOrder } from '../components/order/LinkedOrderDetailModal';
@@ -1401,15 +1401,17 @@ export default function MiniatureMasterPage() {
                   </button>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <Button
-                    type="button"
-                    className="border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]"
-                    onClick={openBulkUpdateDialog}
-                    disabled={!canWrite}
-                    title={canWrite ? undefined : 'Switch to Update mode to edit miniatures'}
-                  >
-                    Bulk Update
-                  </Button>
+                  {selectedMiniatureIds.length > 1 ? (
+                    <Button
+                      type="button"
+                      className="border border-[var(--arcane-border-light)] !bg-[var(--arcane-paper-raised)] !text-[var(--arcane-ink-900)] hover:!bg-[var(--arcane-paper)]"
+                      onClick={openBulkUpdateDialog}
+                      disabled={!canWrite}
+                      title={canWrite ? undefined : 'Switch to Update mode to edit miniatures'}
+                    >
+                      Bulk Update
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     className="border border-red-300 !bg-[var(--arcane-paper-raised)] !text-red-700 hover:!bg-red-50"
@@ -1601,7 +1603,7 @@ export default function MiniatureMasterPage() {
                 </Table>
               </div>
 
-              <SetupTablePagination
+              <MasterTablePagination
                 currentCount={currentPageRows.length}
                 total={pagination.total}
                 page={pagination.page}
@@ -1654,7 +1656,6 @@ export default function MiniatureMasterPage() {
               }}
               placeholder="Select item"
               className="w-full"
-              disablePortal
               openOnFocus={false}
             />
           </label>

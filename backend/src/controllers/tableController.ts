@@ -2297,7 +2297,7 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
       }
 
       if (Object.prototype.hasOwnProperty.call(data, 'ReleaseDate')) {
-        request.input('ReleaseDate', sql.Date, data.ReleaseDate ?? null);
+        request.input('ReleaseDate', sql.Date, data.ReleaseDate === '' ? null : data.ReleaseDate ?? null);
         updates.push('[ReleaseDate] = @ReleaseDate');
       }
 
