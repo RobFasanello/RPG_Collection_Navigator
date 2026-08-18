@@ -121,6 +121,7 @@ export default function MiniatureMasterPage() {
   const [hasPurchaseOrderByItemId, setHasPurchaseOrderByItemId] = useState<Record<number, boolean>>({});
   const addMiniatureNameInputRef = useRef<HTMLInputElement | null>(null);
   const editMiniatureNameInputRef = useRef<HTMLInputElement | null>(null);
+  const bulkDeleteConfirmInputRef = useRef<HTMLInputElement | null>(null);
   const firstRelatedOrderOpenButtonRef = useRef<HTMLButtonElement | null>(null);
   const relatedOrdersCloseButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -494,6 +495,18 @@ export default function MiniatureMasterPage() {
     }, 300);
     return () => clearTimeout(timeout);
   }, [searchInput]);
+
+  useEffect(() => {
+    if (!isBulkDeleteOpen) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      bulkDeleteConfirmInputRef.current?.focus();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isBulkDeleteOpen]);
 
   const filteredRows = useMemo(() => {
     const itemFilterId = parseInt(filterValues.itemId, 10);
@@ -1899,6 +1912,7 @@ export default function MiniatureMasterPage() {
               Type DELETE to confirm
             </label>
             <Input
+              ref={bulkDeleteConfirmInputRef}
               value={bulkDeleteConfirmText}
               onChange={(event) => {
                 setBulkDeleteError('');

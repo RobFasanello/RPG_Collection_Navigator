@@ -117,6 +117,7 @@ export default function OrderMasterPage() {
     { direction: 'previous' | 'next'; targetPage: number } | null
   >(null);
   const editOrderInvoiceInputRef = useRef<HTMLInputElement | null>(null);
+  const bulkDeleteConfirmInputRef = useRef<HTMLInputElement | null>(null);
   const queryClient = useQueryClient();
 
   const queryKey = useMemo(
@@ -134,6 +135,18 @@ export default function OrderMasterPage() {
   useEffect(() => {
     setPage(1);
   }, [filterValues]);
+
+  useEffect(() => {
+    if (!isBulkDeleteOpen) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      bulkDeleteConfirmInputRef.current?.focus();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isBulkDeleteOpen]);
 
   useEffect(() => {
     setSelectedOrderIds([]);
@@ -1599,6 +1612,7 @@ export default function OrderMasterPage() {
               Type DELETE to confirm
             </label>
             <Input
+              ref={bulkDeleteConfirmInputRef}
               value={bulkDeleteConfirmText}
               onChange={(event) => {
                 setBulkDeleteError(null);

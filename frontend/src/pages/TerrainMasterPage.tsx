@@ -136,6 +136,7 @@ export default function TerrainMasterPage() {
   const [hasPurchaseOrderByItemId, setHasPurchaseOrderByItemId] = useState<Record<number, boolean>>({});
   const addTerrainNameInputRef = useRef<HTMLInputElement | null>(null);
   const editTerrainNameInputRef = useRef<HTMLInputElement | null>(null);
+  const bulkDeleteConfirmInputRef = useRef<HTMLInputElement | null>(null);
   const firstRelatedOrderOpenButtonRef = useRef<HTMLButtonElement | null>(null);
   const relatedOrdersCloseButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -462,6 +463,18 @@ export default function TerrainMasterPage() {
     return () => clearTimeout(timeout);
   }, [searchInput]);
 
+  useEffect(() => {
+    if (!isBulkDeleteOpen) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      bulkDeleteConfirmInputRef.current?.focus();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isBulkDeleteOpen]);
+
   const filteredRows = useMemo(() => {
     const itemFilterId = parseInt(filterValues.itemId, 10);
     const terrainFilter = filterValues.terrainName.trim().toLowerCase();
@@ -471,7 +484,10 @@ export default function TerrainMasterPage() {
         !filterValues.collectionName.length || filterValues.collectionName.includes(row.CollectionName);
       const subTypeMatches = !filterValues.subTypeName.length || filterValues.subTypeName.includes(row.SubTypeName);
       const itemMatches = !Number.isInteger(itemFilterId) || Number(row.ItemID) === itemFilterId;
-      const nameMatches = !terrainFilter || String(row.TerrainName || '').toLowerCase().includes(terrainFilter);
+      const nameMatches =
+        !terrainFilter
+        || String(row.TerrainName || '').toLowerCase().includes(terrainFilter)
+        || String(row.ItemName || '').toLowerCase().includes(terrainFilter);
       const locationMatches = !filterValues.locationName.length || filterValues.locationName.includes(row.LocationName);
       const isOwned = hasPurchaseOrderByItemId[Number(row.ResolvedItemID)] === true;
       const ownedMatches =
@@ -1355,7 +1371,7 @@ export default function TerrainMasterPage() {
                     onClear={() => setSearchInput('')}
                     clearable
                     clearAriaLabel="Clear terrain search"
-                    placeholder="Search by terrain name..."
+                    placeholder="Search by item or terrain name..."
                     className="w-full max-w-md"
                     autoFocus
                   />
@@ -1885,6 +1901,7 @@ export default function TerrainMasterPage() {
           <div>
             <label className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Type DELETE to confirm</label>
             <Input
+              ref={bulkDeleteConfirmInputRef}
               value={bulkDeleteConfirmText}
               onChange={(event) => {
                 setBulkDeleteError('');

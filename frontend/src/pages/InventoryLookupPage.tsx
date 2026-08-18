@@ -139,6 +139,7 @@ export default function InventoryLookupPage() {
   const [urlSearchParams] = useSearchParams();
   const addItemInputRef = useRef<HTMLInputElement>(null);
   const editItemInputRef = useRef<HTMLInputElement>(null);
+  const bulkDeleteConfirmInputRef = useRef<HTMLInputElement>(null);
   const firstRelatedOrderOpenButtonRef = useRef<HTMLButtonElement>(null);
   const relatedOrdersCloseButtonRef = useRef<HTMLButtonElement>(null);
   const [page, setPage] = useState(1);
@@ -299,6 +300,18 @@ export default function InventoryLookupPage() {
     setPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterValues]);
+
+  useEffect(() => {
+    if (!isBulkDeleteOpen) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      bulkDeleteConfirmInputRef.current?.focus();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isBulkDeleteOpen]);
 
   // Debounce the always-visible search box (searches Item Name / Product ID) before applying it
   useEffect(() => {
@@ -3420,6 +3433,7 @@ export default function InventoryLookupPage() {
                 Type DELETE to confirm
               </label>
               <Input
+                ref={bulkDeleteConfirmInputRef}
                 value={bulkDeleteConfirmText}
                 onChange={(event) => {
                   setBulkDeleteError('');
