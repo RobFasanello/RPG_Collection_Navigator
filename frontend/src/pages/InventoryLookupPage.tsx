@@ -87,6 +87,28 @@ function parseHasPurchaseOrderQueryParam(value: string | null): boolean | undefi
   return undefined;
 }
 
+function getSubItemTargetPath(categoryName: string): '/admin/miniatures' | '/admin/terrain' | null {
+  const normalized = categoryName.trim().toLowerCase();
+  if (['miniature', 'miniatures'].includes(normalized)) {
+    return '/admin/miniatures';
+  }
+  if (normalized === 'terrain') {
+    return '/admin/terrain';
+  }
+  return null;
+}
+
+function buildSubItemCountLink(item: InventoryItem): string | null {
+  const targetPath = getSubItemTargetPath(item.CategoryName || '');
+  if (!targetPath) {
+    return null;
+  }
+
+  const params = new URLSearchParams();
+  params.set('itemId', String(item.ItemID));
+  return `${targetPath}?${params.toString()}`;
+}
+
 function getItemImageUrl(fileName?: string | null) {
   return fileName ? `/api/uploads/items/${encodeURIComponent(fileName)}` : '';
 }
@@ -2326,7 +2348,7 @@ export default function InventoryLookupPage() {
                       </TableHead>
                       <TableHead className="w-[7%] text-right">
                         <button onClick={() => handleSort('SubItemCount')} className="flex items-center justify-end w-full hover:text-[var(--arcane-gold-700)]">
-                          Sub Item Count <SortIndicator column="SubItemCount" />
+                            Count <SortIndicator column="SubItemCount" />
                         </button>
                       </TableHead>
                       <TableHead className="w-[7%]">
@@ -2351,17 +2373,17 @@ export default function InventoryLookupPage() {
                       </TableHead>
                       <TableHead className="w-[6%] text-center">
                         <button onClick={() => handleSort('IsPhysical')} className="flex items-center justify-center w-full hover:text-[var(--arcane-gold-700)]">
-                          Is Physical <SortIndicator column="IsPhysical" />
+                            Physical <SortIndicator column="IsPhysical" />
                         </button>
                       </TableHead>
                       <TableHead className="w-[6%] text-center">
                         <button onClick={() => handleSort('IsDigital')} className="flex items-center justify-center w-full hover:text-[var(--arcane-gold-700)]">
-                          Is Digital <SortIndicator column="IsDigital" />
+                            Digital <SortIndicator column="IsDigital" />
                         </button>
                       </TableHead>
                       <TableHead className="w-[6%] whitespace-nowrap px-2 text-center">
                         <button onClick={() => handleSort('HasPurchaseOrder')} className="flex items-center justify-center w-full hover:text-[var(--arcane-gold-700)]">
-                          Is Owned <SortIndicator column="HasPurchaseOrder" />
+                            Owned <SortIndicator column="HasPurchaseOrder" />
                         </button>
                       </TableHead>
                     </TableRow>
@@ -2412,9 +2434,33 @@ export default function InventoryLookupPage() {
                               )}
                             </TableCell>
                             <TableCell className="text-right">
-                              {['miniature', 'miniatures', 'terrain'].includes(item.CategoryName.trim().toLowerCase())
-                                ? Number(item.SubItemCount || 0).toLocaleString()
-                                : ''}
+                              {(() => {
+                                const subItemCount = Number(item.SubItemCount || 0);
+                                const subItemLink = buildSubItemCountLink(item);
+
+                                if (!subItemLink) {
+                                  return '';
+                                }
+
+                                if (subItemCount <= 0) {
+                                  return '0';
+                                }
+
+                                return (
+                                  <button
+                                    type="button"
+                                    className="font-medium text-[var(--arcane-gold-700)] underline decoration-[var(--arcane-gold-400)] underline-offset-2 hover:text-[var(--arcane-gold-600)]"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      navigate(subItemLink);
+                                    }}
+                                    aria-label={`Open ${item.CategoryName} for ${item.ItemName}`}
+                                    title={`Open ${item.CategoryName} for ${item.ItemName}`}
+                                  >
+                                    {subItemCount.toLocaleString()}
+                                  </button>
+                                );
+                              })()}
                             </TableCell>
                             <TableCell>{item.ItemVersion || '-'}</TableCell>
                             <TableCell>{item.CategoryName}</TableCell>

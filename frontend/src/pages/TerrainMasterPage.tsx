@@ -1441,12 +1441,12 @@ export default function TerrainMasterPage() {
                       </TableHead>
                       <TableHead className="w-[9%]">
                         <button onClick={() => handleSort('TerrainCode')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
-                          Terrain Code <SortIndicator column="TerrainCode" />
+                            Code <SortIndicator column="TerrainCode" />
                         </button>
                       </TableHead>
                       <TableHead className="w-[9%] text-right">
                         <button onClick={() => handleSort('TerrainQuantity')} className="flex items-center justify-end w-full hover:text-[var(--arcane-gold-700)]">
-                          Terrain Quantity <SortIndicator column="TerrainQuantity" />
+                            Quantity <SortIndicator column="TerrainQuantity" />
                         </button>
                       </TableHead>
                       <TableHead className="w-[10%]">
@@ -1456,7 +1456,7 @@ export default function TerrainMasterPage() {
                       </TableHead>
                       <TableHead className="w-[6%] whitespace-nowrap px-2 text-center">
                         <button onClick={() => handleSort('HasPurchaseOrder')} className="flex items-center justify-center w-full hover:text-[var(--arcane-gold-700)]">
-                          Is Owned <SortIndicator column="HasPurchaseOrder" />
+                            Owned <SortIndicator column="HasPurchaseOrder" />
                         </button>
                       </TableHead>
                     </TableRow>

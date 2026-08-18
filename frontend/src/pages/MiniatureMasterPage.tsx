@@ -503,7 +503,10 @@ export default function MiniatureMasterPage() {
       const collectionMatches = !filterValues.collectionName.length || filterValues.collectionName.includes(row.CollectionName);
       const subTypeMatches = !filterValues.subTypeName.length || filterValues.subTypeName.includes(row.SubTypeName);
       const itemMatches = !Number.isInteger(itemFilterId) || Number(row.ItemID) === itemFilterId;
-      const nameMatches = !miniatureFilter || String(row.MiniatureName || '').toLowerCase().includes(miniatureFilter);
+      const nameMatches =
+        !miniatureFilter ||
+        String(row.MiniatureName || '').toLowerCase().includes(miniatureFilter) ||
+        String(row.ItemName || '').toLowerCase().includes(miniatureFilter);
       const miniatureSizeMatches = !filterValues.miniatureSizeName.length || filterValues.miniatureSizeName.includes(row.MiniatureSizeName);
       const miniatureRarityMatches = !filterValues.miniatureRarityName.length || filterValues.miniatureRarityName.includes(row.MiniatureRarityName);
       const locationMatches = !filterValues.locationName.length || filterValues.locationName.includes(row.LocationName);
@@ -1432,7 +1435,7 @@ export default function MiniatureMasterPage() {
                     onClear={() => setSearchInput('')}
                     clearable
                     clearAriaLabel="Clear miniature search"
-                    placeholder="Search by miniature name..."
+                    placeholder="Search by item or miniature name..."
                     className="w-full max-w-md"
                     autoFocus
                   />
@@ -1520,17 +1523,17 @@ export default function MiniatureMasterPage() {
                       </TableHead>
                       <TableHead className="w-[9%]">
                         <button onClick={() => handleSort('MiniatureSizeName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
-                          Miniature Size <SortIndicator column="MiniatureSizeName" />
+                            Size <SortIndicator column="MiniatureSizeName" />
                         </button>
                       </TableHead>
                       <TableHead className="w-[10%]">
                         <button onClick={() => handleSort('MiniatureRarityName')} className="flex items-center hover:text-[var(--arcane-gold-700)]">
-                          Miniature Rarity <SortIndicator column="MiniatureRarityName" />
+                            Rarity <SortIndicator column="MiniatureRarityName" />
                         </button>
                       </TableHead>
                       <TableHead className="w-[8%] text-right">
                         <button onClick={() => handleSort('MiniatureQuantity')} className="flex items-center justify-end w-full hover:text-[var(--arcane-gold-700)]">
-                          Miniature Quantity <SortIndicator column="MiniatureQuantity" />
+                            Quantity <SortIndicator column="MiniatureQuantity" />
                         </button>
                       </TableHead>
                       <TableHead className="w-[6%]">
@@ -1540,7 +1543,7 @@ export default function MiniatureMasterPage() {
                       </TableHead>
                       <TableHead className="w-[5%] whitespace-nowrap px-2 text-center">
                         <button onClick={() => handleSort('HasPurchaseOrder')} className="flex items-center justify-center w-full hover:text-[var(--arcane-gold-700)]">
-                          Is Owned <SortIndicator column="HasPurchaseOrder" />
+                            Owned <SortIndicator column="HasPurchaseOrder" />
                         </button>
                       </TableHead>
                     </TableRow>
