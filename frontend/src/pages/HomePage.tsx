@@ -520,21 +520,6 @@ function buildCoverageBoxes({
   });
 }
 
-function buildInventoryLink(params: Record<string, string | number | boolean | undefined>) {
-  const searchParams = new URLSearchParams();
-
-  Object.entries(params).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === '') {
-      return;
-    }
-
-    searchParams.set(key, String(value));
-  });
-
-  const query = searchParams.toString();
-  return query ? `/admin/inventory?${query}` : '/admin/inventory';
-}
-
 function getCollectionImageUrl(fileName?: string) {
   const normalizedFileName = String(fileName || '').trim();
   if (!normalizedFileName) {
@@ -677,11 +662,8 @@ function CollectionCoverageCarousel({ collectionBoxes }: { collectionBoxes: Cove
                   const titleClass = hasCollectionImage ? 'text-white drop-shadow' : coverageBand.title;
                   const valueClass = hasCollectionImage ? 'text-white drop-shadow' : coverageBand.value;
                   const detailClass = hasCollectionImage ? 'text-gray-100 drop-shadow' : coverageBand.detail;
-                  const baseInventoryLink = buildInventoryLink({ collection: String(collection.EntityID || collection.EntityName) });
-                  const uncollectedInventoryLink = buildInventoryLink({
-                    collection: String(collection.EntityID || collection.EntityName),
-                    hasPurchaseOrder: false,
-                  });
+                  const baseInventoryLink = `/home/inventory?collection=${encodeURIComponent(String(collection.EntityID || collection.EntityName))}`;
+const uncollectedInventoryLink = `/home/inventory?collection=${encodeURIComponent(String(collection.EntityID || collection.EntityName))}&hasPurchaseOrder=false`;
 
                   return (
                     <div
@@ -710,7 +692,7 @@ function CollectionCoverageCarousel({ collectionBoxes }: { collectionBoxes: Cove
                         {formatPercent(collection.CoveragePercent)}
                       </p>
                       <CollectionStatusLinks
-                        collectedTo={buildInventoryLink({ collection: String(collection.EntityID || collection.EntityName), hasPurchaseOrder: true })}
+                        collectedTo={`/home/inventory?collection=${encodeURIComponent(String(collection.EntityID || collection.EntityName))}&hasPurchaseOrder=true`}
                         uncollectedTo={uncollectedInventoryLink}
                       />
                     </div>
@@ -940,8 +922,8 @@ function PublisherCoverageCarousel({ publisherBoxes }: { publisherBoxes: Coverag
                   const titleClass = hasPublisherImage ? 'text-white drop-shadow' : coverageBand.title;
                   const valueClass = hasPublisherImage ? 'text-white drop-shadow' : coverageBand.value;
                   const detailClass = hasPublisherImage ? 'text-gray-100 drop-shadow' : coverageBand.detail;
-                  const baseInventoryLink = buildInventoryLink({ publisher: publisher.EntityName });
-                  const uncollectedInventoryLink = buildInventoryLink({ publisher: publisher.EntityName, hasPurchaseOrder: false });
+                  const baseInventoryLink = `/home/inventory?publisher=${encodeURIComponent(publisher.EntityName)}`;
+                  const uncollectedInventoryLink = `/home/inventory?publisher=${encodeURIComponent(publisher.EntityName)}&hasPurchaseOrder=false`;
 
                   return (
                     <div
@@ -970,7 +952,7 @@ function PublisherCoverageCarousel({ publisherBoxes }: { publisherBoxes: Coverag
                         {formatPercent(publisher.CoveragePercent)}
                       </p>
                       <CollectionStatusLinks
-                        collectedTo={buildInventoryLink({ publisher: publisher.EntityName, hasPurchaseOrder: true })}
+                        collectedTo={`/home/inventory?publisher=${encodeURIComponent(publisher.EntityName)}&hasPurchaseOrder=true`}
                         uncollectedTo={uncollectedInventoryLink}
                       />
                     </div>
@@ -1388,7 +1370,7 @@ export default function HomePage() {
           {coverageView === 'repository' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               <RepositoryMetricColumn
-                metric={<MetricCard label="Categories" value={totals.categories} loading={dashboardLoading || categoryTerrainLoading} to="/admin/categories" />}
+                metric={<MetricCard label="Categories" value={totals.categories} loading={dashboardLoading || categoryTerrainLoading} to="/home/setup/categories" />}
                 detail={
                   <TopListCard title="Top 10 Category Counts" loading={dashboardLoading || categoryTerrainLoading}>
                     {topCategories.length ? (
@@ -1396,7 +1378,7 @@ export default function HomePage() {
                         {topCategories.map((row) => (
                           <li key={row.CategoryName} className="flex items-center justify-between gap-2">
                             <Link
-                              to={`/admin/inventory?category=${encodeURIComponent(row.CategoryName)}`}
+                              to={`/home/inventory?category=${encodeURIComponent(row.CategoryName)}`}
                               className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
                               title={`View items for ${row.CategoryName}`}
                             >
@@ -1414,7 +1396,7 @@ export default function HomePage() {
               />
 
               <RepositoryMetricColumn
-                metric={<MetricCard label="Collections" value={totals.collections} loading={dashboardLoading} to="/admin/collections" />}
+                metric={<MetricCard label="Collections" value={totals.collections} loading={dashboardLoading} to="/home/setup/collections" />}
                 detail={
                   <TopListCard title="Top 10 Collections by Item Count" loading={dashboardLoading}>
                     {topCollections.length ? (
@@ -1422,7 +1404,7 @@ export default function HomePage() {
                         {topCollections.map((row) => (
                           <li key={row.CollectionName} className="flex items-center justify-between gap-2">
                             <Link
-                              to={`/admin/inventory?collection=${encodeURIComponent(row.CollectionName)}`}
+                              to={`/home/inventory?collection=${encodeURIComponent(row.CollectionName)}`}
                               className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
                               title={`View items for ${row.CollectionName}`}
                             >
@@ -1440,7 +1422,7 @@ export default function HomePage() {
               />
 
               <RepositoryMetricColumn
-                metric={<MetricCard label="Items" value={totals.items} loading={dashboardLoading} to="/admin/inventory" />}
+                metric={<MetricCard label="Items" value={totals.items} loading={dashboardLoading} to="/home/inventory" />}
                 detail={
                   <TopListCard title="Top 10 Most Expensive Items" loading={dashboardLoading}>
                     {topItemsByPrice.length ? (
@@ -1448,7 +1430,7 @@ export default function HomePage() {
                         {topItemsByPrice.map((row) => (
                           <li key={row.ItemID} className="flex items-center justify-between gap-2">
                             <Link
-                              to={`/admin/inventory?item=${encodeURIComponent(row.ItemName)}`}
+                              to={`/home/inventory?item=${encodeURIComponent(row.ItemName)}`}
                               className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
                               title={`View item ${row.ItemName}`}
                             >
@@ -1466,7 +1448,7 @@ export default function HomePage() {
               />
 
               <RepositoryMetricColumn
-                metric={<MetricCard label="Miniatures" value={totals.miniatures} loading={dashboardLoading} to="/admin/miniatures" />}
+                metric={<MetricCard label="Miniatures" value={totals.miniatures} loading={dashboardLoading} to="/home/miniatures" />}
                 detail={
                   <TopListCard title="Top 10 Miniature Items by Quantity" loading={dashboardLoading}>
                     {topMiniatureItemsByQuantity.length ? (
@@ -1474,7 +1456,7 @@ export default function HomePage() {
                         {topMiniatureItemsByQuantity.map((row) => (
                           <li key={row.ItemID} className="flex items-center justify-between gap-2">
                             <Link
-                              to={`/admin/miniatures?itemId=${encodeURIComponent(String(row.ItemID))}`}
+                              to={`/home/miniatures?itemId=${encodeURIComponent(String(row.ItemID))}`}
                               className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
                               title={`View miniatures for ${row.ItemName}`}
                             >
@@ -1492,7 +1474,7 @@ export default function HomePage() {
               />
 
               <RepositoryMetricColumn
-                metric={<MetricCard label="Orders" value={totals.orders} loading={dashboardLoading} to="/admin/order-master" />}
+                metric={<MetricCard label="Orders" value={totals.orders} loading={dashboardLoading} to="/home/orders" />}
                 detail={
                   <TopListCard title="Top 10 Most Expensive Orders" loading={dashboardLoading}>
                     {topOrdersByAmount.length ? (
@@ -1500,7 +1482,7 @@ export default function HomePage() {
                         {topOrdersByAmount.map((row) => (
                           <li key={row.PurchaseOrderID} className="flex items-center justify-between gap-2">
                             <Link
-                              to={`/admin/order-master?invoice=${encodeURIComponent(row.InvoiceNumber)}&store=${encodeURIComponent(row.StoreName)}`}
+                              to={`/home/orders?invoice=${encodeURIComponent(row.InvoiceNumber)}&store=${encodeURIComponent(row.StoreName)}`}
                               className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
                               title={`View order ${row.InvoiceNumber}`}
                             >
@@ -1518,7 +1500,7 @@ export default function HomePage() {
               />
 
               <RepositoryMetricColumn
-                metric={<MetricCard label="Publishers" value={totals.publishers} loading={dashboardLoading} to="/admin/publishers" />}
+                metric={<MetricCard label="Publishers" value={totals.publishers} loading={dashboardLoading} to="/home/setup/publishers" />}
                 detail={
                   <TopListCard title="Top 10 Publishers by Item Count" loading={dashboardLoading}>
                     {topPublishers.length ? (
@@ -1526,7 +1508,7 @@ export default function HomePage() {
                         {topPublishers.map((row) => (
                           <li key={row.PublisherName} className="flex items-center justify-between gap-2">
                             <Link
-                              to={`/admin/inventory?publisher=${encodeURIComponent(row.PublisherName)}`}
+                              to={`/home/inventory?publisher=${encodeURIComponent(row.PublisherName)}`}
                               className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
                               title={`View items for ${row.PublisherName}`}
                             >
@@ -1544,7 +1526,7 @@ export default function HomePage() {
               />
 
               <RepositoryMetricColumn
-                metric={<MetricCard label="Stores" value={totals.stores} loading={dashboardLoading || categoryTerrainLoading} to="/admin/stores" />}
+                metric={<MetricCard label="Stores" value={totals.stores} loading={dashboardLoading || categoryTerrainLoading} to="/home/setup/reference-lists?table=stores" />}
                 detail={
                   <TopListCard title="Top 10 Stores by Order Count" loading={dashboardLoading || categoryTerrainLoading}>
                     {topStoresByOrderCount.length ? (
@@ -1552,7 +1534,7 @@ export default function HomePage() {
                         {topStoresByOrderCount.map((row) => (
                           <li key={row.StoreName} className="flex items-center justify-between gap-2">
                             <Link
-                              to={`/admin/order-master?store=${encodeURIComponent(row.StoreName)}`}
+                              to={`/home/orders?store=${encodeURIComponent(row.StoreName)}`}
                               className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
                               title={`View orders for ${row.StoreName}`}
                             >
@@ -1570,7 +1552,7 @@ export default function HomePage() {
               />
 
               <RepositoryMetricColumn
-                metric={<MetricCard label="Terrain" value={totals.terrain} loading={dashboardLoading || categoryTerrainLoading} to="/admin/terrain" />}
+                metric={<MetricCard label="Terrain" value={totals.terrain} loading={dashboardLoading || categoryTerrainLoading} to="/home/terrain" />}
                 detail={
                   <TopListCard title="Top 10 Terrain Items by Quantity" loading={dashboardLoading || categoryTerrainLoading}>
                     {topTerrainItemsByQuantity.length ? (
@@ -1578,7 +1560,7 @@ export default function HomePage() {
                         {topTerrainItemsByQuantity.map((row) => (
                           <li key={row.ItemID} className="flex items-center justify-between gap-2">
                             <Link
-                              to={`/admin/terrain?itemId=${encodeURIComponent(String(row.ItemID))}`}
+                              to={`/home/terrain?itemId=${encodeURIComponent(String(row.ItemID))}`}
                               className="truncate text-[var(--arcane-gold-700)] hover:text-[var(--arcane-gold-600)] hover:underline"
                               title={`View terrain for ${row.ItemName}`}
                             >

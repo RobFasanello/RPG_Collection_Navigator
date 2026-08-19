@@ -9,6 +9,7 @@ import { uploadsRoot } from './uploads.js';
 import cors from 'cors';
 import tablesRouter from './routes/tables.js';
 import authRouter from './routes/auth.js';
+import auditRouter from './routes/audit.js';
 import { requireAuth } from './auth/requireAuth.js';
 
 const app: Express = express();
@@ -63,6 +64,7 @@ app.use('/api/auth', authRouter);
 // Everything below requires a signed-in session
 app.use('/api/uploads', requireAuth, express.static(uploadsRoot));
 app.use('/api/tables', requireAuth, tablesRouter);
+app.use('/api/audit', requireAuth, auditRouter);
 
 // Initialize database and start server
 async function startServer() {

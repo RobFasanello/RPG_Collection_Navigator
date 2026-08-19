@@ -2274,7 +2274,7 @@ export default function InventoryLookupPage() {
                     clearable
                     clearAriaLabel="Clear item search"
                     placeholder="Search by item name or product ID..."
-                    className="w-full max-w-md"
+                    className="max-w-xl flex-shrink-0"
                     autoFocus
                   />
                   <div className="min-w-0 flex-1">

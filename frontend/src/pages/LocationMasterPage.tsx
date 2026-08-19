@@ -7,6 +7,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
 import AdminLayout from '../components/AdminLayout';
+import { useToast } from '../components/ui/ToastProvider';
 import { tableAPI } from '../services/api';
 
 interface LocationRecord {
@@ -83,6 +84,7 @@ function buildLocationEntityLink(path: '/admin/miniatures' | '/admin/terrain', l
 
 export default function LocationMasterPage() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
   const [mode, setMode] = useState<Mode>('existing');
   const [searchInput, setSearchInput] = useState('');
@@ -292,17 +294,21 @@ export default function LocationMasterPage() {
           LocationName: locationName,
           LocationTypeID: locationTypeId,
         });
+        toast({ title: 'Location updated', variant: 'success' });
       } else {
         await tableAPI.createRecord('Location', {
           LocationName: locationName,
           LocationTypeID: locationTypeId,
         });
+        toast({ title: 'Location created', variant: 'success' });
       }
 
       await queryClient.invalidateQueries({ queryKey: ['table', 'Location'] });
       await refreshLocationsAndSelect(locationName);
     } catch (err: any) {
-      setFormError(err.response?.data?.error || 'Error saving record');
+      const message = err.response?.data?.error || 'Error saving record';
+      setFormError(message);
+      toast({ title: message, variant: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -322,6 +328,7 @@ export default function LocationMasterPage() {
     try {
       await tableAPI.deleteRecord('Location', selectedLocationId);
       await queryClient.invalidateQueries({ queryKey: ['table', 'Location'] });
+      toast({ title: 'Location deleted', variant: 'success' });
       const remaining = await queryClient.fetchQuery({
         queryKey: ['table', 'Location'],
         queryFn: async () => tableAPI.getAllRecords('Location'),
@@ -352,6 +359,7 @@ export default function LocationMasterPage() {
           ? 'Delete failed. This location is still referenced by one or more miniatures or items. Reassign or remove the linked records first, then try again.'
           : backendError || 'Delete failed. Please try again.'
       );
+      toast({ title: 'Delete failed', variant: 'error' });
     } finally {
       setIsSaving(false);
     }

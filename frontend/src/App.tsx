@@ -22,9 +22,9 @@ const InventoryLookupPage = lazy(() => import('./pages/InventoryLookupPage'));
 const MiniatureMasterPage = lazy(() => import('./pages/MiniatureMasterPage'));
 const TerrainMasterPage = lazy(() => import('./pages/TerrainMasterPage'));
 const OrderMasterPage = lazy(() => import('./pages/OrderMasterPage'));
-const SetupLandingPage = lazy(() => import('./pages/SetupLandingPage'));
 const ReferenceListsPage = lazy(() => import('./pages/ReferenceListsPage'));
 const UsersSetupPage = lazy(() => import('./pages/UsersSetupPage'));
+const AuditLogPage = lazy(() => import('./pages/AuditLogPage'));
 const MarketingPage = lazy(() => import('./pages/MarketingPage'));
 
 function RedirectWithSearch({ to }: { to: string }) {
@@ -63,7 +63,6 @@ function App() {
               <Route path="miniatures" element={<MiniatureMasterPage />} />
               <Route path="terrain" element={<TerrainMasterPage />} />
               <Route path="orders" element={<OrderMasterPage />} />
-              <Route path="setup" element={<RequireMode mode="administrator"><SetupLandingPage /></RequireMode>} />
               <Route path="setup/publishers" element={<RequireMode mode="administrator"><PublisherMasterPage /></RequireMode>} />
               <Route path="setup/rpg-systems" element={<Navigate to="/home/setup/reference-lists?table=rpg-systems" replace />} />
               <Route path="setup/collections" element={<RequireMode mode="administrator"><CollectionMasterPage /></RequireMode>} />
@@ -81,6 +80,7 @@ function App() {
               <Route path="setup/status" element={<Navigate to="/home/setup/reference-lists?table=status" replace />} />
               <Route path="setup/reference-lists" element={<RequireMode mode="administrator"><ReferenceListsPage /></RequireMode>} />
               <Route path="setup/users" element={<RequireMode mode="administrator"><UsersSetupPage /></RequireMode>} />
+              <Route path="setup/audit-log" element={<RequireMode mode="administrator"><AuditLogPage /></RequireMode>} />
             </Route>
 
             <Route path="/admin/collections" element={<Navigate to="/home/setup/collections" replace />} />

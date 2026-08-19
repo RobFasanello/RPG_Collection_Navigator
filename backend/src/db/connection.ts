@@ -59,4 +59,16 @@ export async function closePool(): Promise<void> {
   }
 }
 
+// Rolling back an already-aborted transaction (e.g. after a query error
+// that SQL Server itself aborted the transaction for) throws its own error.
+// Callers should always rollback through this helper instead of calling
+// transaction.rollback() directly, so a rollback failure can't crash the process.
+export async function safeRollback(transaction: sql.Transaction): Promise<void> {
+  try {
+    await transaction.rollback();
+  } catch (rollbackError) {
+    console.error('Error rolling back transaction (transaction may already be aborted):', rollbackError);
+  }
+}
+
 export { sql };

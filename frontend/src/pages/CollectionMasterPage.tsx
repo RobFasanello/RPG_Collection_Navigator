@@ -8,6 +8,7 @@ import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
 import ImageCropDialog from '../components/ImageCropDialog';
 import AdminLayout from '../components/AdminLayout';
+import { useToast } from '../components/ui/ToastProvider';
 import { tableAPI } from '../services/api';
 
 interface CollectionRecord {
@@ -101,6 +102,7 @@ function buildCollectionInventoryLink(collectionName: string, ownedOnly: boolean
 
 export default function CollectionMasterPage() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [urlSearchParams] = useSearchParams();
   const [selectedCollectionId, setSelectedCollectionId] = useState<number | null>(null);
   const [mode, setMode] = useState<Mode>('existing');
@@ -424,14 +426,18 @@ export default function CollectionMasterPage() {
 
       if (mode === 'existing' && selectedCollectionId !== null) {
         await tableAPI.updateRecord('Collection', selectedCollectionId, payload);
+        toast({ title: 'Collection updated', variant: 'success' });
       } else {
         await tableAPI.createRecord('Collection', payload);
+        toast({ title: 'Collection created', variant: 'success' });
       }
 
       await queryClient.invalidateQueries({ queryKey: ['table', 'Collection'] });
       await refreshCollectionsAndSelect(collectionName);
     } catch (err: any) {
-      setFormError(err.response?.data?.error || 'Error saving record');
+      const message = err.response?.data?.error || 'Error saving record';
+      setFormError(message);
+      toast({ title: message, variant: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -452,6 +458,7 @@ export default function CollectionMasterPage() {
       await tableAPI.deleteRecord('Collection', selectedCollectionId);
       await queryClient.invalidateQueries({ queryKey: ['table', 'Collection'] });
       await queryClient.invalidateQueries({ queryKey: ['table', 'CollectionRPGSystem'] });
+      toast({ title: 'Collection deleted', variant: 'success' });
       const remaining = await queryClient.fetchQuery({
         queryKey: ['table', 'Collection'],
         queryFn: async () => tableAPI.getAllRecords('Collection'),
@@ -482,6 +489,7 @@ export default function CollectionMasterPage() {
           ? 'Delete failed. This collection is still referenced by linked items or RPG system assignments. Remove the linked records first, then try again.'
           : backendError || 'Delete failed. Please try again.'
       );
+      toast({ title: 'Delete failed', variant: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -514,8 +522,11 @@ export default function CollectionMasterPage() {
       });
       await queryClient.invalidateQueries({ queryKey: ['table', 'CollectionRPGSystem'] });
       setRpgSystemToLinkId('');
+      toast({ title: 'RPG system linked', variant: 'success' });
     } catch (err: any) {
-      setLinkError(err.response?.data?.error || 'Error adding RPG system link');
+      const message = err.response?.data?.error || 'Error adding RPG system link';
+      setLinkError(message);
+      toast({ title: message, variant: 'error' });
     } finally {
       setIsLinkSaving(false);
     }
@@ -539,8 +550,11 @@ export default function CollectionMasterPage() {
       }
 
       await queryClient.invalidateQueries({ queryKey: ['table', 'CollectionRPGSystem'] });
+      toast({ title: 'RPG system link removed', variant: 'success' });
     } catch (err: any) {
-      setLinkError(err.response?.data?.error || 'Error removing RPG system link');
+      const message = err.response?.data?.error || 'Error removing RPG system link';
+      setLinkError(message);
+      toast({ title: message, variant: 'error' });
     } finally {
       setIsLinkSaving(false);
     }

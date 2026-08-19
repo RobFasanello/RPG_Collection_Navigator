@@ -5,6 +5,7 @@ import AdminLayout from './AdminLayout';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Dialog } from './ui/Dialog';
+import { useToast } from './ui/ToastProvider';
 import { tableAPI } from '../services/api';
 
 type FieldType = 'text' | 'url' | 'textarea';
@@ -117,6 +118,7 @@ export default function ReferenceMasterDetailPage({
   listItemSummary,
 }: ReferenceMasterDetailPageProps) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const allFields = useMemo<ReferenceFieldConfig[]>(() => {
     const baseField: ReferenceFieldConfig = {
       key: nameColumn,
@@ -280,6 +282,7 @@ export default function ReferenceMasterDetailPage({
     try {
       await tableAPI.deleteRecord(tableName, selectedId);
       await queryClient.invalidateQueries({ queryKey: ['table', tableName] });
+      toast({ title: 'Record deleted', variant: 'success' });
       const remaining = await queryClient.fetchQuery({
         queryKey: ['table', tableName],
         queryFn: async () => tableAPI.getAllRecords(tableName),
@@ -306,6 +309,7 @@ export default function ReferenceMasterDetailPage({
         backendMessage.includes('still referenced');
 
       setDeleteError(referentialIntegrityConflict ? deleteConflictMessage : backendError || 'Delete failed. Please try again.');
+      toast({ title: 'Delete failed', variant: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -434,14 +438,18 @@ export default function ReferenceMasterDetailPage({
                           [idColumn]: selectedId,
                           ...payload,
                         });
+                        toast({ title: 'Record updated', variant: 'success' });
                       } else {
                         await tableAPI.createRecord(tableName, payload);
+                        toast({ title: 'Record created', variant: 'success' });
                       }
 
                       await queryClient.invalidateQueries({ queryKey: ['table', tableName] });
                       await refreshAndSelect(payload[nameColumn]);
                     } catch (err: any) {
-                      setFormError(err.response?.data?.error || 'Error saving record');
+                      const message = err.response?.data?.error || 'Error saving record';
+                      setFormError(message);
+                      toast({ title: message, variant: 'error' });
                     } finally {
                       setIsSaving(false);
                     }

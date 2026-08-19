@@ -1449,7 +1449,7 @@ export default function MiniatureMasterPage() {
                     clearable
                     clearAriaLabel="Clear miniature search"
                     placeholder="Search by item or miniature name..."
-                    className="w-full max-w-md"
+                    className="max-w-xl flex-shrink-0"
                     autoFocus
                   />
                   <div className="min-w-0 flex-1">

@@ -4,6 +4,7 @@ export type SetupNavItem = {
   description: string;
 };
 
+// Note: Menu label "Administrator" is in HomeShell.tsx
 export const SETUP_NAV_ITEMS: SetupNavItem[] = [
   {
     label: 'Categories',
@@ -34,5 +35,10 @@ export const SETUP_NAV_ITEMS: SetupNavItem[] = [
     label: 'Users',
     path: '/home/setup/users',
     description: 'Manage who can sign in and their access mode.',
+  },
+  {
+    label: 'Audit Log',
+    path: '/home/setup/audit-log',
+    description: 'View a log of all changes made to records in your collection.',
   },
 ];

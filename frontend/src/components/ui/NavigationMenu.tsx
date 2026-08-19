@@ -24,7 +24,7 @@ const NavigationMenuList = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <NavigationMenuPrimitive.List
     ref={ref}
-    className={cx('group flex flex-1 list-none flex-wrap items-center gap-2', className)}
+    className={cx('group flex flex-1 list-none flex-nowrap items-center gap-2', className)}
     {...props}
   />
 ));

@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
-import { getPool, sql } from '../db/connection.js';
+import { getPool, sql, safeRollback } from '../db/connection.js';
 import { deleteUploadedFile, supportsImageUpload } from '../uploads.js';
+import { insertAuditRow } from '../audit/auditLog.js';
 
-function getPrimaryKeyColumn(tableName: string): string {
+export function getPrimaryKeyColumn(tableName: string): string {
   return `${tableName}ID`;
 }
 
@@ -201,7 +202,7 @@ export async function bulkUpdateItemRecords(req: Request, res: Response): Promis
       });
 
       const currentItemsResult = await itemRequest.query(`
-        SELECT [ItemID], [PublisherID], [CollectionID], [CategoryID], [SubTypeID]
+        SELECT [ItemID], [PublisherID], [CollectionID], [CategoryID], [SubTypeID], [ItemVersion], [IsPhysical], [IsDigital]
         FROM [Item]
         WHERE [ItemID] IN (${uniqueItemIds.map((_, index) => `@itemId${index}`).join(', ')})
       `);
@@ -209,19 +210,14 @@ export async function bulkUpdateItemRecords(req: Request, res: Response): Promis
       if (currentItemsResult.recordset.length !== uniqueItemIds.length) {
         const foundIds = new Set(currentItemsResult.recordset.map((row) => Number(row.ItemID)));
         const missingIds = uniqueItemIds.filter((itemId: number) => !foundIds.has(itemId));
-        await transaction.rollback();
+        await safeRollback(transaction);
         res.status(404).json({ error: `One or more items were not found: ${missingIds.join(', ')}.` });
         return;
       }
 
-      const currentItemsById = new Map<number, { PublisherID: number; CollectionID: number; CategoryID: number; SubTypeID: number }>();
+      const currentItemsById = new Map<number, Record<string, unknown>>();
       currentItemsResult.recordset.forEach((row) => {
-        currentItemsById.set(Number(row.ItemID), {
-          PublisherID: Number(row.PublisherID),
-          CollectionID: Number(row.CollectionID),
-          CategoryID: Number(row.CategoryID),
-          SubTypeID: Number(row.SubTypeID),
-        });
+        currentItemsById.set(Number(row.ItemID), row);
       });
 
       const validationTargets: Array<{ tableName: string; keyColumn: string; id: number; label: string }> = [];
@@ -241,7 +237,7 @@ export async function bulkUpdateItemRecords(req: Request, res: Response): Promis
       for (const target of validationTargets) {
         const exists = await recordExists(transaction, target.tableName, target.keyColumn, target.id);
         if (!exists) {
-          await transaction.rollback();
+          await safeRollback(transaction);
           res.status(400).json({ error: `${target.label} ${target.id} was not found.` });
           return;
         }
@@ -256,10 +252,10 @@ export async function bulkUpdateItemRecords(req: Request, res: Response): Promis
           continue;
         }
 
-        const nextPublisherId = publisherId ?? currentItem.PublisherID;
-        const nextCollectionId = collectionId ?? currentItem.CollectionID;
-        const nextCategoryId = categoryId ?? currentItem.CategoryID;
-        const nextSubTypeId = subTypeId ?? currentItem.SubTypeID;
+        const nextPublisherId = publisherId ?? Number(currentItem.PublisherID);
+        const nextCollectionId = collectionId ?? Number(currentItem.CollectionID);
+        const nextCategoryId = categoryId ?? Number(currentItem.CategoryID);
+        const nextSubTypeId = subTypeId ?? Number(currentItem.SubTypeID);
 
         const publisherCollectionKey = `${nextPublisherId}:${nextCollectionId}`;
         if (!publisherCollectionCache.has(publisherCollectionKey)) {
@@ -270,7 +266,7 @@ export async function bulkUpdateItemRecords(req: Request, res: Response): Promis
         }
 
         if (!publisherCollectionCache.get(publisherCollectionKey)) {
-          await transaction.rollback();
+          await safeRollback(transaction);
           res.status(409).json({ error: `Item ${itemId} would not have a valid Publisher and Collection combination.` });
           return;
         }
@@ -284,7 +280,7 @@ export async function bulkUpdateItemRecords(req: Request, res: Response): Promis
         }
 
         if (!categorySubTypeCache.get(categorySubTypeKey)) {
-          await transaction.rollback();
+          await safeRollback(transaction);
           res.status(409).json({ error: `Item ${itemId} would not have a valid Category and Sub Category combination.` });
           return;
         }
@@ -306,6 +302,28 @@ export async function bulkUpdateItemRecords(req: Request, res: Response): Promis
         WHERE [ItemID] IN (${uniqueItemIds.map((_, index) => `@itemId${index}`).join(', ')})
       `);
 
+      for (const itemId of uniqueItemIds) {
+        const currentItem = currentItemsById.get(itemId);
+        if (!currentItem) {
+          continue;
+        }
+        const oldValues: Record<string, unknown> = {};
+        const newValues: Record<string, unknown> = {};
+        updateFields.forEach((field) => {
+          oldValues[field.column] = currentItem[field.column];
+          newValues[field.column] = field.value;
+        });
+
+        await insertAuditRow(new sql.Request(transaction), {
+          tableName: 'Item',
+          recordId: itemId,
+          action: 'UPDATE',
+          user: req.appUser!,
+          oldValues,
+          newValues,
+        });
+      }
+
       await transaction.commit();
       res.json({
         success: true,
@@ -313,7 +331,7 @@ export async function bulkUpdateItemRecords(req: Request, res: Response): Promis
         message: `Updated ${uniqueItemIds.length} item${uniqueItemIds.length === 1 ? '' : 's'}.`,
       });
     } catch (error) {
-      await transaction.rollback();
+      await safeRollback(transaction);
       throw error;
     }
   } catch (error) {
@@ -683,10 +701,21 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
         insertRequest.input('IsPhysical', sql.Bit, row.IsPhysical);
         insertRequest.input('IsDigital', sql.Bit, row.IsDigital);
 
-        await insertRequest.query(`
+        const insertResult = await insertRequest.query(`
           INSERT INTO [Item] ([ItemName], [ItemVersion], [ProductID], [ReleaseDate], [PublisherID], [CollectionID], [CategoryID], [SubTypeID], [IsPhysical], [IsDigital])
+          OUTPUT INSERTED.*
           VALUES (@ItemName, @ItemVersion, @ProductID, @ReleaseDate, @PublisherID, @CollectionID, @CategoryID, @SubTypeID, @IsPhysical, @IsDigital)
         `);
+
+        const insertedRow = insertResult.recordset[0];
+        await insertAuditRow(new sql.Request(transaction), {
+          tableName: 'Item',
+          recordId: Number(insertedRow.ItemID),
+          action: 'INSERT',
+          user: req.appUser!,
+          oldValues: null,
+          newValues: insertedRow,
+        });
 
         const rowIndex = rowResultIndexByRowNumber.get(row.rowNumber);
         if (rowIndex !== undefined) {
@@ -703,7 +732,7 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
         rowResults,
       });
     } catch (error) {
-      await transaction.rollback();
+      await safeRollback(transaction);
       throw error;
     }
   } catch (error) {
@@ -1894,16 +1923,36 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
         return;
       }
 
-      const request = pool.request();
-      request.input('RPGSystemName', sql.NVarChar(255), rpgSystemName);
-      request.input('RPGSystemURL', sql.NVarChar(sql.MAX), rpgSystemUrl);
-      request.input('RPGSystemDescription', sql.NVarChar(sql.MAX), rpgSystemDescription);
+      const rpgSystemTransaction = new sql.Transaction(pool);
+      await rpgSystemTransaction.begin();
+      try {
+        const request = new sql.Request(rpgSystemTransaction);
+        request.input('RPGSystemName', sql.NVarChar(255), rpgSystemName);
+        request.input('RPGSystemURL', sql.NVarChar(sql.MAX), rpgSystemUrl);
+        request.input('RPGSystemDescription', sql.NVarChar(sql.MAX), rpgSystemDescription);
 
-      await request.query(`
-        INSERT INTO [RPGSystem] ([RPGSystemID], [RPGSystemName], [RPGSystemURL], [RPGSystemDescription])
-        SELECT ISNULL(MAX([RPGSystemID]), 0) + 1, @RPGSystemName, @RPGSystemURL, @RPGSystemDescription
-        FROM [RPGSystem] WITH (UPDLOCK, HOLDLOCK)
-      `);
+        const insertResult = await request.query(`
+          INSERT INTO [RPGSystem] ([RPGSystemID], [RPGSystemName], [RPGSystemURL], [RPGSystemDescription])
+          OUTPUT INSERTED.*
+          SELECT ISNULL(MAX([RPGSystemID]), 0) + 1, @RPGSystemName, @RPGSystemURL, @RPGSystemDescription
+          FROM [RPGSystem] WITH (UPDLOCK, HOLDLOCK)
+        `);
+
+        const insertedRow = insertResult.recordset[0];
+        await insertAuditRow(new sql.Request(rpgSystemTransaction), {
+          tableName: 'RPGSystem',
+          recordId: Number(insertedRow.RPGSystemID),
+          action: 'INSERT',
+          user: req.appUser!,
+          oldValues: null,
+          newValues: insertedRow,
+        });
+
+        await rpgSystemTransaction.commit();
+      } catch (txError) {
+        await safeRollback(rpgSystemTransaction);
+        throw txError;
+      }
 
       res.status(201).json({ success: true, message: 'Record created' });
       return;
@@ -1923,28 +1972,46 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
         return;
       }
 
-      const request = pool.request();
-      columns.forEach((col) => {
-        request.input(col, data[col]);
-      });
+      const manualIdTransaction = new sql.Transaction(pool);
+      await manualIdTransaction.begin();
+      try {
+        const request = new sql.Request(manualIdTransaction);
+        columns.forEach((col) => {
+          request.input(col, data[col]);
+        });
 
-      const columnList = [primaryKey, ...columns].map((col) => `[${col}]`).join(', ');
-      const selectList = [
-        `ISNULL(MAX([${primaryKey}]), 0) + 1`,
-        ...columns.map((col) => `@${col}`),
-      ].join(', ');
+        const columnList = [primaryKey, ...columns].map((col) => `[${col}]`).join(', ');
+        const selectList = [
+          `ISNULL(MAX([${primaryKey}]), 0) + 1`,
+          ...columns.map((col) => `@${col}`),
+        ].join(', ');
 
-      await request.query(`
-        INSERT INTO [${tableName}] (${columnList})
-        SELECT ${selectList}
-        FROM [${tableName}] WITH (UPDLOCK, HOLDLOCK)
-      `);
+        const insertResult = await request.query(`
+          INSERT INTO [${tableName}] (${columnList})
+          OUTPUT INSERTED.*
+          SELECT ${selectList}
+          FROM [${tableName}] WITH (UPDLOCK, HOLDLOCK)
+        `);
+
+        const insertedRow = insertResult.recordset[0];
+        await insertAuditRow(new sql.Request(manualIdTransaction), {
+          tableName,
+          recordId: Number(insertedRow[primaryKey]),
+          action: 'INSERT',
+          user: req.appUser!,
+          oldValues: null,
+          newValues: insertedRow,
+        });
+
+        await manualIdTransaction.commit();
+      } catch (txError) {
+        await safeRollback(manualIdTransaction);
+        throw txError;
+      }
 
       res.status(201).json({ success: true, message: 'Record created' });
       return;
     }
-
-    const request = pool.request();
 
     if (isImageUploadTable(tableName)) {
       delete data.ImageUploadDate;
@@ -1978,16 +2045,42 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
     ].join(', ');
     const columnList = insertColumns.map(col => `[${col}]`).join(', ');
 
-    columns.forEach((col, i) => {
-      request.input(col, values[i]);
-    });
+    const genericTransaction = new sql.Transaction(pool);
+    await genericTransaction.begin();
+    try {
+      const request = new sql.Request(genericTransaction);
+      columns.forEach((col, i) => {
+        request.input(col, values[i]);
+      });
 
-    const query = `
-      INSERT INTO [${tableName}] (${columnList})
-      VALUES (${placeholders})
-    `;
+      const query = `
+        INSERT INTO [${tableName}] (${columnList})
+        OUTPUT INSERTED.*
+        VALUES (${placeholders})
+      `;
 
-    await request.query(query);
+      const insertResult = await request.query(query);
+      const insertedRow = insertResult.recordset[0];
+      const primaryKey = getPrimaryKeyColumn(tableName);
+      const recordId = Object.prototype.hasOwnProperty.call(insertedRow, primaryKey)
+        ? insertedRow[primaryKey]
+        : insertedRow;
+
+      await insertAuditRow(new sql.Request(genericTransaction), {
+        tableName,
+        recordId,
+        action: 'INSERT',
+        user: req.appUser!,
+        oldValues: null,
+        newValues: insertedRow,
+      });
+
+      await genericTransaction.commit();
+    } catch (txError) {
+      await safeRollback(genericTransaction);
+      throw txError;
+    }
+
     res.status(201).json({ success: true, message: 'Record created' });
   } catch (error) {
     if (isImageUploadTable(tableName)) {
@@ -2106,11 +2199,21 @@ export async function createPurchaseOrderWithDetails(req: Request, res: Response
 
     const headerResult = await headerRequest.query(`
       INSERT INTO [PurchaseOrder] ([InvoiceNumber], [StoreID], [PurchasedDate], [StatusID])
-      OUTPUT INSERTED.[PurchaseOrderID]
+      OUTPUT INSERTED.*
       VALUES (@InvoiceNumber, @StoreID, @PurchasedDate, @StatusID)
     `);
 
-    const newOrderId: number = headerResult.recordset[0].PurchaseOrderID;
+    const newOrderRow = headerResult.recordset[0];
+    const newOrderId: number = newOrderRow.PurchaseOrderID;
+
+    await insertAuditRow(new sql.Request(transaction), {
+      tableName: 'PurchaseOrder',
+      recordId: newOrderId,
+      action: 'INSERT',
+      user: req.appUser!,
+      oldValues: null,
+      newValues: newOrderRow,
+    });
 
     // Insert each detail row
     for (const d of details) {
@@ -2120,16 +2223,27 @@ export async function createPurchaseOrderWithDetails(req: Request, res: Response
       detailRequest.input('Quantity', sql.Int, Math.round(Number(d.Quantity)));
       detailRequest.input('Price', sql.Decimal(18, 2), Number(d.Price));
 
-      await detailRequest.query(`
+      const detailResult = await detailRequest.query(`
         INSERT INTO [PurchaseOrderDetail] ([PurchaseOrderID], [ItemID], [Quantity], [Price])
+        OUTPUT INSERTED.*
         VALUES (@PurchaseOrderID, @ItemID, @Quantity, @Price)
       `);
+
+      const insertedDetail = detailResult.recordset[0];
+      await insertAuditRow(new sql.Request(transaction), {
+        tableName: 'PurchaseOrderDetail',
+        recordId: Number(insertedDetail.PurchaseOrderDetailID),
+        action: 'INSERT',
+        user: req.appUser!,
+        oldValues: null,
+        newValues: insertedDetail,
+      });
     }
 
     await transaction.commit();
     res.status(201).json({ success: true, PurchaseOrderID: newOrderId });
   } catch (error) {
-    await transaction.rollback();
+    await safeRollback(transaction);
     console.error('Error creating purchase order with details:', error);
     const dbError = error as any;
     if (dbError?.number === 2627 || dbError?.number === 2601) {
@@ -2147,11 +2261,35 @@ export async function deleteRecordByQuery(req: Request, res: Response): Promise<
   try {
     const { tableName } = req.params;
     const pool = await getPool();
-    const request = pool.request();
 
     if (req.query.id) {
-      request.input('id', sql.Int, req.query.id as string);
-      await request.query(`DELETE FROM [${tableName}] WHERE [${getPrimaryKeyColumn(tableName)}] = @id`);
+      const transaction = new sql.Transaction(pool);
+      await transaction.begin();
+      try {
+        const request = new sql.Request(transaction);
+        request.input('id', sql.Int, req.query.id as string);
+        const result = await request.query(`
+          DELETE FROM [${tableName}]
+          OUTPUT DELETED.*
+          WHERE [${getPrimaryKeyColumn(tableName)}] = @id
+        `);
+
+        if (result.recordset.length > 0) {
+          await insertAuditRow(new sql.Request(transaction), {
+            tableName,
+            recordId: req.query.id as string,
+            action: 'DELETE',
+            user: req.appUser!,
+            oldValues: result.recordset[0],
+            newValues: null,
+          });
+        }
+
+        await transaction.commit();
+      } catch (txError) {
+        await safeRollback(transaction);
+        throw txError;
+      }
       res.json({ success: true, message: 'Record deleted' });
       return;
     }
@@ -2164,8 +2302,33 @@ export async function deleteRecordByQuery(req: Request, res: Response): Promise<
         return;
       }
 
-      request.input('purchaseOrderId', sql.Int, purchaseOrderId);
-      await request.query('DELETE FROM [PurchaseOrderDetail] WHERE [PurchaseOrderID] = @purchaseOrderId');
+      const transaction = new sql.Transaction(pool);
+      await transaction.begin();
+      try {
+        const request = new sql.Request(transaction);
+        request.input('purchaseOrderId', sql.Int, purchaseOrderId);
+        const result = await request.query(`
+          DELETE FROM [PurchaseOrderDetail]
+          OUTPUT DELETED.*
+          WHERE [PurchaseOrderID] = @purchaseOrderId
+        `);
+
+        for (const deletedRow of result.recordset) {
+          await insertAuditRow(new sql.Request(transaction), {
+            tableName: 'PurchaseOrderDetail',
+            recordId: Number(deletedRow.PurchaseOrderDetailID),
+            action: 'DELETE',
+            user: req.appUser!,
+            oldValues: deletedRow,
+            newValues: null,
+          });
+        }
+
+        await transaction.commit();
+      } catch (txError) {
+        await safeRollback(transaction);
+        throw txError;
+      }
       res.json({ success: true, message: 'Purchase order details deleted' });
       return;
     }
@@ -2179,9 +2342,34 @@ export async function deleteRecordByQuery(req: Request, res: Response): Promise<
         return;
       }
 
-      request.input('categoryId', sql.Int, categoryId);
-      request.input('subTypeId', sql.Int, subTypeId);
-      await request.query(`DELETE FROM [${tableName}] WHERE [CategoryID] = @categoryId AND [SubTypeID] = @subTypeId`);
+      const transaction = new sql.Transaction(pool);
+      await transaction.begin();
+      try {
+        const request = new sql.Request(transaction);
+        request.input('categoryId', sql.Int, categoryId);
+        request.input('subTypeId', sql.Int, subTypeId);
+        const result = await request.query(`
+          DELETE FROM [${tableName}]
+          OUTPUT DELETED.*
+          WHERE [CategoryID] = @categoryId AND [SubTypeID] = @subTypeId
+        `);
+
+        if (result.recordset.length > 0) {
+          await insertAuditRow(new sql.Request(transaction), {
+            tableName,
+            recordId: { CategoryID: categoryId, SubTypeID: subTypeId },
+            action: 'DELETE',
+            user: req.appUser!,
+            oldValues: result.recordset[0],
+            newValues: null,
+          });
+        }
+
+        await transaction.commit();
+      } catch (txError) {
+        await safeRollback(transaction);
+        throw txError;
+      }
       res.json({ success: true, message: 'Record deleted' });
       return;
     }
@@ -2195,9 +2383,34 @@ export async function deleteRecordByQuery(req: Request, res: Response): Promise<
         return;
       }
 
-      request.input('publisherId', sql.Int, publisherId);
-      request.input('collectionId', sql.Int, collectionId);
-      await request.query(`DELETE FROM [${tableName}] WHERE [PublisherID] = @publisherId AND [CollectionID] = @collectionId`);
+      const transaction = new sql.Transaction(pool);
+      await transaction.begin();
+      try {
+        const request = new sql.Request(transaction);
+        request.input('publisherId', sql.Int, publisherId);
+        request.input('collectionId', sql.Int, collectionId);
+        const result = await request.query(`
+          DELETE FROM [${tableName}]
+          OUTPUT DELETED.*
+          WHERE [PublisherID] = @publisherId AND [CollectionID] = @collectionId
+        `);
+
+        if (result.recordset.length > 0) {
+          await insertAuditRow(new sql.Request(transaction), {
+            tableName,
+            recordId: { PublisherID: publisherId, CollectionID: collectionId },
+            action: 'DELETE',
+            user: req.appUser!,
+            oldValues: result.recordset[0],
+            newValues: null,
+          });
+        }
+
+        await transaction.commit();
+      } catch (txError) {
+        await safeRollback(transaction);
+        throw txError;
+      }
       res.json({ success: true, message: 'Record deleted' });
       return;
     }
@@ -2211,9 +2424,34 @@ export async function deleteRecordByQuery(req: Request, res: Response): Promise<
         return;
       }
 
-      request.input('collectionId', sql.Int, collectionId);
-      request.input('rpgSystemId', sql.Int, rpgSystemId);
-      await request.query(`DELETE FROM [${tableName}] WHERE [CollectionID] = @collectionId AND [RPGSystemID] = @rpgSystemId`);
+      const transaction = new sql.Transaction(pool);
+      await transaction.begin();
+      try {
+        const request = new sql.Request(transaction);
+        request.input('collectionId', sql.Int, collectionId);
+        request.input('rpgSystemId', sql.Int, rpgSystemId);
+        const result = await request.query(`
+          DELETE FROM [${tableName}]
+          OUTPUT DELETED.*
+          WHERE [CollectionID] = @collectionId AND [RPGSystemID] = @rpgSystemId
+        `);
+
+        if (result.recordset.length > 0) {
+          await insertAuditRow(new sql.Request(transaction), {
+            tableName,
+            recordId: { CollectionID: collectionId, RPGSystemID: rpgSystemId },
+            action: 'DELETE',
+            user: req.appUser!,
+            oldValues: result.recordset[0],
+            newValues: null,
+          });
+        }
+
+        await transaction.commit();
+      } catch (txError) {
+        await safeRollback(transaction);
+        throw txError;
+      }
       res.json({ success: true, message: 'Record deleted' });
       return;
     }
@@ -2271,73 +2509,89 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
         return;
       }
 
-      const request = pool.request();
+      const itemTransaction = new sql.Transaction(pool);
+      await itemTransaction.begin();
+      const request = new sql.Request(itemTransaction);
       const updates: string[] = [];
+      const updatedColumns: string[] = [];
 
       if (Object.prototype.hasOwnProperty.call(data, 'ItemName')) {
         request.input('ItemName', sql.NVarChar(255), data.ItemName);
         updates.push('[ItemName] = @ItemName');
+        updatedColumns.push('ItemName');
       }
 
       if (Object.prototype.hasOwnProperty.call(data, 'ItemVersion')) {
         const normalizedItemVersion = normalizeItemVersion(data.ItemVersion);
         const itemVersionError = validateItemVersion(normalizedItemVersion);
         if (itemVersionError) {
+          await safeRollback(itemTransaction);
           await deleteUploadedFile(req.file);
           res.status(400).json({ error: itemVersionError });
           return;
         }
         request.input('ItemVersion', sql.NVarChar(sql.MAX), normalizedItemVersion);
         updates.push('[ItemVersion] = @ItemVersion');
+        updatedColumns.push('ItemVersion');
       }
 
       if (Object.prototype.hasOwnProperty.call(data, 'ProductID')) {
         request.input('ProductID', sql.NVarChar(50), data.ProductID ?? null);
         updates.push('[ProductID] = @ProductID');
+        updatedColumns.push('ProductID');
       }
 
       if (Object.prototype.hasOwnProperty.call(data, 'ReleaseDate')) {
         request.input('ReleaseDate', sql.Date, data.ReleaseDate === '' ? null : data.ReleaseDate ?? null);
         updates.push('[ReleaseDate] = @ReleaseDate');
+        updatedColumns.push('ReleaseDate');
       }
 
       if (Object.prototype.hasOwnProperty.call(data, 'IsPhysical')) {
         request.input('IsPhysical', sql.Bit, parseOptionalBoolean(data.IsPhysical));
         updates.push('[IsPhysical] = @IsPhysical');
+        updatedColumns.push('IsPhysical');
       }
 
       if (Object.prototype.hasOwnProperty.call(data, 'IsDigital')) {
         request.input('IsDigital', sql.Bit, parseOptionalBoolean(data.IsDigital));
         updates.push('[IsDigital] = @IsDigital');
+        updatedColumns.push('IsDigital');
       }
 
       if (Object.prototype.hasOwnProperty.call(data, 'PublisherID')) {
         request.input('PublisherID', sql.Int, data.PublisherID ?? null);
         updates.push('[PublisherID] = @PublisherID');
+        updatedColumns.push('PublisherID');
       }
 
       if (Object.prototype.hasOwnProperty.call(data, 'CollectionID')) {
         request.input('CollectionID', sql.Int, data.CollectionID ?? null);
         updates.push('[CollectionID] = @CollectionID');
+        updatedColumns.push('CollectionID');
       }
 
       if (Object.prototype.hasOwnProperty.call(data, 'CategoryID')) {
         request.input('CategoryID', sql.Int, data.CategoryID ?? null);
         updates.push('[CategoryID] = @CategoryID');
+        updatedColumns.push('CategoryID');
       }
 
       if (Object.prototype.hasOwnProperty.call(data, 'SubTypeID')) {
         request.input('SubTypeID', sql.Int, data.SubTypeID ?? null);
         updates.push('[SubTypeID] = @SubTypeID');
+        updatedColumns.push('SubTypeID');
       }
 
       if (req.file) {
         request.input('ImageFileName', sql.NVarChar(255), req.file.filename);
         updates.push('[ImageFileName] = @ImageFileName');
         updates.push('[ImageUploadDate] = GETDATE()');
+        updatedColumns.push('ImageFileName', 'ImageUploadDate');
       }
 
       if (updates.length === 0) {
+        await safeRollback(itemTransaction);
         await deleteUploadedFile(req.file);
         res.status(400).json({ error: 'At least one updatable field is required.' });
         return;
@@ -2345,11 +2599,46 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
 
       request.input('id', sql.Int, id);
 
-      await request.query(`
-        UPDATE [Item]
-        SET ${updates.join(', ')}
-        WHERE [${primaryKey}] = @id
-      `);
+      try {
+        const outputCols = updatedColumns
+          .map((col) => `DELETED.[${col}] AS [old_${col}], INSERTED.[${col}] AS [new_${col}]`)
+          .join(', ');
+
+        const result = await request.query(`
+          UPDATE [Item]
+          SET ${updates.join(', ')}
+          OUTPUT ${outputCols}
+          WHERE [${primaryKey}] = @id
+        `);
+
+        if (result.recordset.length === 0) {
+          await safeRollback(itemTransaction);
+          res.status(404).json({ error: 'Record not found' });
+          return;
+        }
+
+        const row = result.recordset[0];
+        const oldValues: Record<string, unknown> = {};
+        const newValues: Record<string, unknown> = {};
+        updatedColumns.forEach((col) => {
+          oldValues[col] = row[`old_${col}`];
+          newValues[col] = row[`new_${col}`];
+        });
+
+        await insertAuditRow(new sql.Request(itemTransaction), {
+          tableName: 'Item',
+          recordId: id as string,
+          action: 'UPDATE',
+          user: req.appUser!,
+          oldValues,
+          newValues,
+        });
+
+        await itemTransaction.commit();
+      } catch (txError) {
+        await safeRollback(itemTransaction);
+        throw txError;
+      }
 
       res.json({ success: true, message: 'Record updated' });
       return;
@@ -2378,24 +2667,61 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
       }
 
       // If validation passes, proceed with update
-      const request = pool.request();
-      const updates = Object.keys(data)
-        .map(col => `[${col}] = @${col}`)
-        .join(', ');
+      const poColumns = Object.keys(data);
+      const poTransaction = new sql.Transaction(pool);
+      await poTransaction.begin();
+      try {
+        const request = new sql.Request(poTransaction);
+        const updates = poColumns
+          .map(col => `[${col}] = @${col}`)
+          .join(', ');
 
-      Object.entries(data).forEach(([col, value]) => {
-        request.input(col, value);
-      });
+        poColumns.forEach((col) => {
+          request.input(col, data[col]);
+        });
 
-      request.input('id', sql.Int, id);
+        request.input('id', sql.Int, id);
 
-      const query = `
-        UPDATE [${tableName}]
-        SET ${updates}
-        WHERE [${primaryKey}] = @id
-      `;
+        const outputCols = poColumns
+          .map((col) => `DELETED.[${col}] AS [old_${col}], INSERTED.[${col}] AS [new_${col}]`)
+          .join(', ');
 
-      await request.query(query);
+        const result = await request.query(`
+          UPDATE [${tableName}]
+          SET ${updates}
+          OUTPUT ${outputCols}
+          WHERE [${primaryKey}] = @id
+        `);
+
+        if (result.recordset.length === 0) {
+          await safeRollback(poTransaction);
+          res.status(404).json({ error: 'Record not found' });
+          return;
+        }
+
+        const row = result.recordset[0];
+        const oldValues: Record<string, unknown> = {};
+        const newValues: Record<string, unknown> = {};
+        poColumns.forEach((col) => {
+          oldValues[col] = row[`old_${col}`];
+          newValues[col] = row[`new_${col}`];
+        });
+
+        await insertAuditRow(new sql.Request(poTransaction), {
+          tableName,
+          recordId: id as string,
+          action: 'UPDATE',
+          user: req.appUser!,
+          oldValues,
+          newValues,
+        });
+
+        await poTransaction.commit();
+      } catch (txError) {
+        await safeRollback(poTransaction);
+        throw txError;
+      }
+
       res.json({ success: true, message: 'Record updated' });
       return;
     } else {
@@ -2422,28 +2748,66 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
         }
       }
 
-      const request = pool.request();
       const updateColumns = Object.keys(data);
+      const outputColumns = req.file ? [...updateColumns, 'ImageUploadDate'] : updateColumns;
       const updates = [
         ...updateColumns.map(col => `[${col}] = @${col}`),
         ...(req.file ? ['[ImageUploadDate] = GETDATE()'] : []),
       ]
         .join(', ');
 
-      updateColumns.forEach((col) => {
-        const value = data[col];
-        request.input(col, value);
-      });
+      const genericTransaction = new sql.Transaction(pool);
+      await genericTransaction.begin();
+      try {
+        const request = new sql.Request(genericTransaction);
+        updateColumns.forEach((col) => {
+          const value = data[col];
+          request.input(col, value);
+        });
 
-      request.input('id', sql.Int, id);
+        request.input('id', sql.Int, id);
 
-      const query = `
-        UPDATE [${tableName}]
-        SET ${updates}
-        WHERE [${primaryKey}] = @id
-      `;
+        const outputCols = outputColumns
+          .map((col) => `DELETED.[${col}] AS [old_${col}], INSERTED.[${col}] AS [new_${col}]`)
+          .join(', ');
 
-      await request.query(query);
+        const query = `
+          UPDATE [${tableName}]
+          SET ${updates}
+          OUTPUT ${outputCols}
+          WHERE [${primaryKey}] = @id
+        `;
+
+        const result = await request.query(query);
+
+        if (result.recordset.length === 0) {
+          await safeRollback(genericTransaction);
+          res.status(404).json({ error: 'Record not found' });
+          return;
+        }
+
+        const row = result.recordset[0];
+        const oldValues: Record<string, unknown> = {};
+        const newValues: Record<string, unknown> = {};
+        outputColumns.forEach((col) => {
+          oldValues[col] = row[`old_${col}`];
+          newValues[col] = row[`new_${col}`];
+        });
+
+        await insertAuditRow(new sql.Request(genericTransaction), {
+          tableName,
+          recordId: id as string,
+          action: 'UPDATE',
+          user: req.appUser!,
+          oldValues,
+          newValues,
+        });
+
+        await genericTransaction.commit();
+      } catch (txError) {
+        await safeRollback(genericTransaction);
+        throw txError;
+      }
     }
 
     res.json({ success: true, message: 'Record updated' });
@@ -2490,11 +2854,26 @@ export async function deleteRecord(req: Request, res: Response): Promise<void> {
           IF OBJECT_ID('dbo.PurchaseOrderDetail', 'U') IS NOT NULL
             DELETE FROM [PurchaseOrderDetail] WHERE [ItemID] = @id
         `);
-        await request.query(`DELETE FROM [Item] WHERE [ItemID] = @id`);
+        const result = await request.query(`DELETE FROM [Item] OUTPUT DELETED.* WHERE [ItemID] = @id`);
+
+        if (result.recordset.length === 0) {
+          await safeRollback(transaction);
+          res.status(404).json({ error: 'Record not found' });
+          return;
+        }
+
+        await insertAuditRow(new sql.Request(transaction), {
+          tableName: 'Item',
+          recordId: id as string,
+          action: 'DELETE',
+          user: req.appUser!,
+          oldValues: result.recordset[0],
+          newValues: null,
+        });
 
         await transaction.commit();
       } catch (txError) {
-        await transaction.rollback();
+        await safeRollback(transaction);
         throw txError;
       }
     } else if (tableName === 'Publisher') {
@@ -2507,17 +2886,60 @@ export async function deleteRecord(req: Request, res: Response): Promise<void> {
 
         // Remove PublisherCollection links first so a publisher with no remaining items can be deleted.
         await request.query(`DELETE FROM [PublisherCollection] WHERE [PublisherID] = @id`);
-        await request.query(`DELETE FROM [Publisher] WHERE [PublisherID] = @id`);
+        const result = await request.query(`DELETE FROM [Publisher] OUTPUT DELETED.* WHERE [PublisherID] = @id`);
+
+        if (result.recordset.length === 0) {
+          await safeRollback(transaction);
+          res.status(404).json({ error: 'Record not found' });
+          return;
+        }
+
+        await insertAuditRow(new sql.Request(transaction), {
+          tableName: 'Publisher',
+          recordId: id as string,
+          action: 'DELETE',
+          user: req.appUser!,
+          oldValues: result.recordset[0],
+          newValues: null,
+        });
 
         await transaction.commit();
       } catch (txError) {
-        await transaction.rollback();
+        await safeRollback(transaction);
         throw txError;
       }
     } else {
-      await pool.request()
-        .input('id', sql.Int, id)
-        .query(`DELETE FROM [${tableName}] WHERE [${primaryKey}] = @id`);
+      const transaction = new sql.Transaction(pool);
+      await transaction.begin();
+      try {
+        const request = new sql.Request(transaction);
+        request.input('id', sql.Int, id);
+        const result = await request.query(`
+          DELETE FROM [${tableName}]
+          OUTPUT DELETED.*
+          WHERE [${primaryKey}] = @id
+        `);
+
+        if (result.recordset.length === 0) {
+          await safeRollback(transaction);
+          res.status(404).json({ error: 'Record not found' });
+          return;
+        }
+
+        await insertAuditRow(new sql.Request(transaction), {
+          tableName,
+          recordId: id as string,
+          action: 'DELETE',
+          user: req.appUser!,
+          oldValues: result.recordset[0],
+          newValues: null,
+        });
+
+        await transaction.commit();
+      } catch (txError) {
+        await safeRollback(transaction);
+        throw txError;
+      }
     }
 
     res.json({ success: true, message: 'Record deleted' });

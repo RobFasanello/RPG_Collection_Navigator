@@ -5,6 +5,7 @@ import { Search, X } from 'lucide-react';
 import { appAPI } from '../services/api';
 import { FRONTEND_BUILD_TIME_ISO } from '../generated/buildInfo';
 import GlobalSearchModal from '../components/GlobalSearchModal';
+import { Avatar, AvatarFallback } from '../components/ui/Avatar';
 import { SETUP_NAV_ITEMS } from './setupNavItems';
 import { useAppMode } from '../context/AppModeContext';
 import type { AppMode } from '../state/appMode';
@@ -88,6 +89,12 @@ export default function HomeShell() {
     []
   );
 
+  const userInitials = useMemo(() => {
+    const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '?';
+    return parts.slice(0, 2).map((part) => part[0]!.toUpperCase()).join('');
+  }, [name]);
+
   const isTopMenuItemActive = (path: string) => {
     if (path === '/home') {
       return location.pathname === '/home';
@@ -146,7 +153,7 @@ export default function HomeShell() {
               )}
             </form>
 
-            <nav className="flex flex-wrap items-center justify-end gap-2 lg:min-w-0 2xl:col-start-3 2xl:row-start-1">
+            <nav className="flex shrink-0 items-center justify-end gap-2 lg:min-w-0 lg:flex-nowrap 2xl:col-start-3 2xl:row-start-1\">
               <NavigationMenu>
                 <NavigationMenuList>
                   <NavigationMenuItem>
@@ -203,7 +210,7 @@ export default function HomeShell() {
                   {isAdmin && (
                     <NavigationMenuItem>
                       <NavigationMenuTrigger active={isTopMenuItemActive('/home/setup')}>
-                        Setup
+                      Administrator
                       </NavigationMenuTrigger>
                       <NavigationMenuContent>
                         <ul className="grid w-[420px] grid-cols-1 gap-1 p-3 sm:w-[520px]">
@@ -239,11 +246,14 @@ export default function HomeShell() {
                 </NavigationMenuList>
               </NavigationMenu>
 
-              <div className="flex items-center gap-2 rounded-lg border border-[var(--arcane-line)] bg-[var(--arcane-ink-800)] px-3 py-2 text-sm text-[var(--arcane-ivory)] shadow-inner shadow-[var(--arcane-shadow-ink)]">
-                <span>
-                  Signed in as <span className="font-medium text-[var(--arcane-ivory-bright)]">{name}</span>
-                  <span className="text-[var(--arcane-sand)]"> · {MODE_LABELS[mode]}</span>
-                </span>
+              <div className="flex shrink-0 items-center gap-2.5 rounded-lg border border-[var(--arcane-line)] bg-[var(--arcane-ink-800)] px-3 py-1.5 text-sm text-[var(--arcane-ivory)] shadow-inner shadow-[var(--arcane-shadow-ink)]">
+                <Avatar className="ring-1 ring-[var(--arcane-gold-500)]">
+                  <AvatarFallback>{userInitials}</AvatarFallback>
+                </Avatar>
+                <div className="leading-tight">
+                  <div className="font-medium text-[var(--arcane-ivory-bright)]">{name}</div>
+                  <div className="text-xs text-[var(--arcane-sand)]">{MODE_LABELS[mode]}</div>
+                </div>
                 <button
                   type="button"
                   onClick={() => logout()}

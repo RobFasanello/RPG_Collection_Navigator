@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import AdminLayout from '../components/AdminLayout';
+import { useToast } from '../components/ui/ToastProvider';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import ComboSelect from '../components/ui/ComboSelect';
@@ -99,6 +100,7 @@ function buildPublisherInventoryLink(publisherName: string, ownedOnly: boolean) 
 
 export default function PublisherMasterPage() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [selectedPublisherId, setSelectedPublisherId] = useState<number | null>(null);
   const [mode, setMode] = useState<Mode>('existing');
   const [activeTab, setActiveTab] = useState<EditorTab>('details');
@@ -433,8 +435,10 @@ export default function PublisherMasterPage() {
 
       if (mode === 'existing' && selectedPublisherId !== null) {
         await tableAPI.updateRecord('Publisher', selectedPublisherId, payload);
+        toast({ title: 'Publisher updated', variant: 'success' });
       } else {
         await tableAPI.createRecord('Publisher', payload);
+        toast({ title: 'Publisher created', variant: 'success' });
       }
 
       await queryClient.invalidateQueries({ queryKey: ['table', 'Publisher'] });
@@ -442,7 +446,9 @@ export default function PublisherMasterPage() {
       setCollectionToAddId('');
       setCollectionLinkError('');
     } catch (err: any) {
-      setFormError(err.response?.data?.error || 'Error saving record');
+      const message = err.response?.data?.error || 'Error saving record';
+      setFormError(message);
+      toast({ title: message, variant: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -463,6 +469,7 @@ export default function PublisherMasterPage() {
       await tableAPI.deleteRecord('Publisher', selectedPublisherId);
       await queryClient.invalidateQueries({ queryKey: ['table', 'Publisher'] });
       await queryClient.invalidateQueries({ queryKey: ['table', 'PublisherCollection'] });
+      toast({ title: 'Publisher deleted', variant: 'success' });
       const remaining = await queryClient.fetchQuery({
         queryKey: ['table', 'Publisher'],
         queryFn: async () => tableAPI.getAllRecords('Publisher'),
@@ -495,6 +502,7 @@ export default function PublisherMasterPage() {
       } else {
         setDeleteError(backendError || 'Delete failed. Please try again.');
       }
+      toast({ title: 'Delete failed', variant: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -527,8 +535,11 @@ export default function PublisherMasterPage() {
       });
       await queryClient.invalidateQueries({ queryKey: ['table', 'PublisherCollection'] });
       setCollectionToAddId('');
+      toast({ title: 'Collection linked', variant: 'success' });
     } catch (err: any) {
-      setCollectionLinkError(err.response?.data?.error || 'Error adding collection link');
+      const message = err.response?.data?.error || 'Error adding collection link';
+      setCollectionLinkError(message);
+      toast({ title: message, variant: 'error' });
     } finally {
       setIsLinkSaving(false);
     }
@@ -552,8 +563,11 @@ export default function PublisherMasterPage() {
       }
 
       await queryClient.invalidateQueries({ queryKey: ['table', 'PublisherCollection'] });
+      toast({ title: 'Collection link removed', variant: 'success' });
     } catch (err: any) {
-      setCollectionLinkError(err.response?.data?.error || 'Error removing collection link');
+      const message = err.response?.data?.error || 'Error removing collection link';
+      setCollectionLinkError(message);
+      toast({ title: message, variant: 'error' });
     } finally {
       setIsLinkSaving(false);
     }

@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { tablesAPI } from '../services/api';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
+import { useToast } from './ui/ToastProvider';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 
 interface RecordFormProps {
@@ -43,6 +44,7 @@ export default function RecordForm({
   addButtonLabel = 'Add Record',
   editButtonLabel = 'Save Changes',
 }: RecordFormProps) {
+  const { toast } = useToast();
   const [schemaState, setSchemaState] = useState<any[]>(schema ?? []);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [initialFormData, setInitialFormData] = useState<Record<string, any>>({});
@@ -169,8 +171,10 @@ export default function RecordForm({
 
       if (recordId !== null && recordId !== undefined) {
         await tablesAPI.updateRecord(tableName, recordId, payload);
+        toast({ title: 'Record updated', variant: 'success' });
       } else {
         await tablesAPI.createRecord(tableName, payload);
+        toast({ title: 'Record created', variant: 'success' });
       }
       if (onSuccess) {
         onSuccess();
@@ -178,7 +182,9 @@ export default function RecordForm({
         onClose?.();
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error saving record');
+      const message = err.response?.data?.error || 'Error saving record';
+      setError(message);
+      toast({ title: message, variant: 'error' });
     } finally {
       setLoading(false);
     }

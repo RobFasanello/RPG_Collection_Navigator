@@ -143,3 +143,39 @@ export const tablesAPI = {
 
 // Backwards-compatible alias used by UI pages
 export const tableAPI = tablesAPI;
+
+export interface AuditLogEntry {
+  AuditLogID: number;
+  TableName: string;
+  RecordID: string;
+  Action: 'INSERT' | 'UPDATE' | 'DELETE';
+  UserEmail: string;
+  UserName: string | null;
+  ChangedAt: string;
+  OldValues: string | null;
+  NewValues: string | null;
+  UndoOfAuditLogID: number | null;
+  IsUndone: boolean;
+}
+
+export interface AuditLogListResponse {
+  data: AuditLogEntry[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export const auditAPI = {
+  getHistory: (tableName: string, recordId: number | string) =>
+    api.get<AuditLogEntry[]>('/audit', { params: { tableName, recordId } }),
+
+  getRecentActivity: (limit: number = 50) =>
+    api.get<AuditLogEntry[]>('/audit/recent', { params: { limit } }),
+
+  getLog: (params: { page: number; pageSize: number; sortBy: string; sortOrder: 'ASC' | 'DESC' }) =>
+    api.get<AuditLogListResponse>('/audit/log', { params }),
+
+  undo: (auditLogId: number) =>
+    api.post(`/audit/${auditLogId}/undo`),
+};

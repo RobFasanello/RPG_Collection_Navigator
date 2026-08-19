@@ -7,6 +7,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import ComboSelect from '../components/ui/ComboSelect';
 import { Dialog } from '../components/ui/Dialog';
 import AdminLayout from '../components/AdminLayout';
+import { useToast } from '../components/ui/ToastProvider';
 import { tableAPI } from '../services/api';
 
 interface CategoryRecord {
@@ -84,6 +85,7 @@ function buildCategoryInventoryLink(categoryName: string, ownedOnly: boolean) {
 
 export default function CategoryMasterPage() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [mode, setMode] = useState<Mode>('existing');
   const [activeTab, setActiveTab] = useState<EditorTab>('details');
@@ -308,16 +310,20 @@ export default function CategoryMasterPage() {
         await tableAPI.updateRecord('Category', selectedCategoryId, {
           CategoryName: categoryName,
         });
+        toast({ title: 'Category updated', variant: 'success' });
       } else {
         await tableAPI.createRecord('Category', {
           CategoryName: categoryName,
         });
+        toast({ title: 'Category created', variant: 'success' });
       }
 
       await queryClient.invalidateQueries({ queryKey: ['table', 'Category'] });
       await refreshCategoriesAndSelect(categoryName);
     } catch (err: any) {
-      setFormError(err.response?.data?.error || 'Error saving record');
+      const message = err.response?.data?.error || 'Error saving record';
+      setFormError(message);
+      toast({ title: message, variant: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -338,6 +344,7 @@ export default function CategoryMasterPage() {
       await tableAPI.deleteRecord('Category', selectedCategoryId);
       await queryClient.invalidateQueries({ queryKey: ['table', 'Category'] });
       await queryClient.invalidateQueries({ queryKey: ['table', 'CategorySubType'] });
+      toast({ title: 'Category deleted', variant: 'success' });
       const remaining = await queryClient.fetchQuery({
         queryKey: ['table', 'Category'],
         queryFn: async () => tableAPI.getAllRecords('Category'),
@@ -368,6 +375,7 @@ export default function CategoryMasterPage() {
           ? 'Delete failed. This category is still referenced by linked items or category/sub-category assignments. Remove the linked records first, then try again.'
           : backendError || 'Delete failed. Please try again.'
       );
+      toast({ title: 'Delete failed', variant: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -400,8 +408,11 @@ export default function CategoryMasterPage() {
       });
       await queryClient.invalidateQueries({ queryKey: ['table', 'CategorySubType'] });
       setSubTypeToLinkId('');
+      toast({ title: 'Sub category linked', variant: 'success' });
     } catch (err: any) {
-      setLinkError(err.response?.data?.error || 'Error adding sub category link');
+      const message = err.response?.data?.error || 'Error adding sub category link';
+      setLinkError(message);
+      toast({ title: message, variant: 'error' });
     } finally {
       setIsLinkSaving(false);
     }
@@ -425,8 +436,11 @@ export default function CategoryMasterPage() {
       }
 
       await queryClient.invalidateQueries({ queryKey: ['table', 'CategorySubType'] });
+      toast({ title: 'Sub category link removed', variant: 'success' });
     } catch (err: any) {
-      setLinkError(err.response?.data?.error || 'Error removing sub category link');
+      const message = err.response?.data?.error || 'Error removing sub category link';
+      setLinkError(message);
+      toast({ title: message, variant: 'error' });
     } finally {
       setIsLinkSaving(false);
     }

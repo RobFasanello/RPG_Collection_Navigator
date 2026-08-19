@@ -7,6 +7,7 @@ import SetupTablePagination from './SetupTablePagination';
 import { Button } from './ui/Button';
 import { Dialog } from './ui/Dialog';
 import FilterChipBar, { type FilterChipField } from './inventory/FilterChipBar';
+import { useToast } from './ui/ToastProvider';
 import useSetupPagination from '../hooks/useSetupPagination';
 import { tableAPI } from '../services/api';
 
@@ -48,6 +49,7 @@ export default function SetupLookupPage({
   const [deleteError, setDeleteError] = useState('');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: records = [], isLoading, error } = useQuery<any, Error>({
     queryKey: ['table', tableName],
@@ -62,6 +64,7 @@ export default function SetupLookupPage({
       setDeleteError('');
       setEditingId(null);
       queryClient.invalidateQueries({ queryKey: ['table', tableName] });
+      toast({ title: 'Record deleted', variant: 'success' });
     },
     onError: (error: any) => {
       const backendError = String(error?.response?.data?.error || error?.message || '').trim();
@@ -72,7 +75,9 @@ export default function SetupLookupPage({
         backendMessage.includes('conflicted with the reference') ||
         backendMessage.includes('still referenced');
 
-      setDeleteError(referentialIntegrityConflict ? deleteConflictMessage : backendError || 'Delete failed. Please try again.');
+      const message = referentialIntegrityConflict ? deleteConflictMessage : backendError || 'Delete failed. Please try again.';
+      setDeleteError(message);
+      toast({ title: 'Delete failed', variant: 'error' });
     },
   });
 

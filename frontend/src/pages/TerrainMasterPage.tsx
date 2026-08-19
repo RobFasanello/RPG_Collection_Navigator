@@ -1372,7 +1372,7 @@ export default function TerrainMasterPage() {
                     clearable
                     clearAriaLabel="Clear terrain search"
                     placeholder="Search by item or terrain name..."
-                    className="w-full max-w-md"
+                    className="max-w-xl flex-shrink-0"
                     autoFocus
                   />
                   <div className="min-w-0 flex-1">

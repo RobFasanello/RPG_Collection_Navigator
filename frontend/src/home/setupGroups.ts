@@ -77,4 +77,15 @@ export const SETUP_GROUPS: SetupGroup[] = [
       },
     ],
   },
+  {
+    title: 'Audit Log',
+    description: 'A log of every change made to records in your collection.',
+    items: [
+      {
+        label: 'Audit Log',
+        path: '/home/setup/audit-log',
+        description: 'View a log of all changes made to records in your collection.',
+      },
+    ],
+  },
 ];

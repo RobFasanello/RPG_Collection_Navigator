@@ -1431,7 +1431,7 @@ export default function OrderMasterPage() {
                     clearable
                     clearAriaLabel="Clear invoice search"
                     placeholder="Search by invoice number..."
-                    className="w-full max-w-md"
+                    className="max-w-xl flex-shrink-0"
                     autoFocus
                     tabIndex={1}
                   />
