@@ -166,6 +166,24 @@ export interface AuditLogListResponse {
   totalPages: number;
 }
 
+export interface AuditLogFilters {
+  search?: string;
+  changedAtFrom?: string;
+  changedAtTo?: string;
+  action?: AuditLogEntry['Action'] | '';
+  tableName?: string;
+  recordId?: string;
+  user?: string;
+  isUndone?: boolean;
+}
+
+export type AuditLogParams = AuditLogFilters & {
+  page: number;
+  pageSize: number;
+  sortBy: string;
+  sortOrder: 'ASC' | 'DESC';
+};
+
 export const auditAPI = {
   getHistory: (tableName: string, recordId: number | string) =>
     api.get<AuditLogEntry[]>('/audit', { params: { tableName, recordId } }),
@@ -173,7 +191,7 @@ export const auditAPI = {
   getRecentActivity: (limit: number = 50) =>
     api.get<AuditLogEntry[]>('/audit/recent', { params: { limit } }),
 
-  getLog: (params: { page: number; pageSize: number; sortBy: string; sortOrder: 'ASC' | 'DESC' }) =>
+  getLog: (params: AuditLogParams) =>
     api.get<AuditLogListResponse>('/audit/log', { params }),
 
   undo: (auditLogId: number) =>

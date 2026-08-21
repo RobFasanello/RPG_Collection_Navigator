@@ -51,6 +51,77 @@ const AUDIT_LOG_SORT_COLUMNS: Record<string, string> = {
   IsUndone: 'IsUndone',
 };
 
+const parseAuditBoolean = (value: unknown): boolean | null => {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (['true', '1', 'yes', 'y'].includes(normalized)) {
+    return true;
+  }
+  if (['false', '0', 'no', 'n'].includes(normalized)) {
+    return false;
+  }
+  return null;
+};
+
+const parseAuditAction = (value: unknown): AuditAction | null => {
+  const normalized = String(value ?? '').trim().toUpperCase();
+  return normalized === 'INSERT' || normalized === 'UPDATE' || normalized === 'DELETE' ? normalized : null;
+};
+
+const parseAuditDate = (value: unknown): string | null => {
+  const raw = String(value ?? '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
+};
+
+const toAuditDayStart = (value: string): string => `${value}T00:00:00.0000000`;
+const toAuditDayEnd = (value: string): string => `${value}T23:59:59.9999999`;
+
+const addAuditLogFilters = (request: sql.Request, query: Request['query']): string => {
+  const clauses: string[] = [];
+  const changedAtFrom = parseAuditDate(query.changedAtFrom);
+  const changedAtTo = parseAuditDate(query.changedAtTo);
+  const action = parseAuditAction(query.action);
+  const tableName = String(query.tableName ?? '').trim();
+  const recordId = String(query.recordId ?? '').trim();
+  const user = String(query.user ?? '').trim();
+  const search = String(query.search ?? '').trim();
+  const isUndone = parseAuditBoolean(query.isUndone);
+
+  if (changedAtFrom) {
+    request.input('changedAtFrom', sql.NVarChar(27), toAuditDayStart(changedAtFrom));
+    clauses.push('[ChangedAt] >= CONVERT(datetime2(7), @changedAtFrom, 126)');
+  }
+  if (changedAtTo) {
+    request.input('changedAtTo', sql.NVarChar(27), toAuditDayEnd(changedAtTo));
+    clauses.push('[ChangedAt] <= CONVERT(datetime2(7), @changedAtTo, 126)');
+  }
+  if (action) {
+    request.input('action', sql.NVarChar(10), action);
+    clauses.push('[Action] = @action');
+  }
+  if (tableName) {
+    request.input('tableNameFilter', sql.NVarChar(128), `%${tableName}%`);
+    clauses.push('[TableName] LIKE @tableNameFilter');
+  }
+  if (recordId) {
+    request.input('recordIdFilter', sql.NVarChar(400), `%${recordId}%`);
+    clauses.push('[RecordID] LIKE @recordIdFilter');
+  }
+  if (user) {
+    request.input('userFilter', sql.NVarChar(255), `%${user}%`);
+    clauses.push('([UserName] LIKE @userFilter OR [UserEmail] LIKE @userFilter)');
+  }
+  if (search) {
+    request.input('searchFilter', sql.NVarChar(sql.MAX), `%${search}%`);
+    clauses.push('([RecordID] LIKE @searchFilter OR [UserName] LIKE @searchFilter OR [UserEmail] LIKE @searchFilter OR [OldValues] LIKE @searchFilter OR [NewValues] LIKE @searchFilter)');
+  }
+  if (isUndone !== null) {
+    request.input('isUndone', sql.Bit, isUndone);
+    clauses.push('[IsUndone] = @isUndone');
+  }
+
+  return clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+};
+
 export async function getAuditLogEntries(req: Request, res: Response): Promise<void> {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -61,15 +132,21 @@ export async function getAuditLogEntries(req: Request, res: Response): Promise<v
 
     const pool = await getPool();
 
-    const countResult = await pool.request().query('SELECT COUNT(*) as total FROM [AuditLog]');
+    const countRequest = pool.request();
+    const countWhere = addAuditLogFilters(countRequest, req.query);
+    const countResult = await countRequest.query(`SELECT COUNT(*) as total FROM [AuditLog] ${countWhere}`);
+
     const total = countResult.recordset[0].total;
 
-    const result = await pool.request()
+    const listRequest = pool.request();
+    const listWhere = addAuditLogFilters(listRequest, req.query);
+    const result = await listRequest
       .input('offset', sql.Int, offset)
       .input('pageSize', sql.Int, pageSize)
       .query(`
         SELECT [AuditLogID], [TableName], [RecordID], [Action], [UserEmail], [UserName], [ChangedAt], [OldValues], [NewValues], [UndoOfAuditLogID], [IsUndone]
         FROM [AuditLog]
+        ${listWhere}
         ORDER BY [${sortBy}] ${sortOrder}, [AuditLogID] DESC
         OFFSET @offset ROWS
         FETCH NEXT @pageSize ROWS ONLY

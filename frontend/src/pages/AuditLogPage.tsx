@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleHelp } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
@@ -6,8 +6,10 @@ import MasterTablePagination from '../components/MasterTablePagination';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
 import { Dialog } from '../components/ui/Dialog';
 import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 import { useToast } from '../components/ui/ToastProvider';
-import { auditAPI, type AuditLogEntry } from '../services/api';
+import FilterChipBar, { type FilterChipField } from '../components/inventory/FilterChipBar';
+import { auditAPI, type AuditLogEntry, type AuditLogFilters } from '../services/api';
 
 const ACTION_LABELS: Record<AuditLogEntry['Action'], string> = {
   INSERT: 'Created',
@@ -19,6 +21,17 @@ const ACTION_BADGE_CLASSES: Record<AuditLogEntry['Action'], string> = {
   INSERT: 'border-[var(--arcane-success-border)] bg-[var(--arcane-success-soft)] text-[var(--arcane-success-text)]',
   UPDATE: 'border-[var(--arcane-info-border)] bg-[var(--arcane-info-soft)] text-[var(--arcane-info-text)]',
   DELETE: 'border-[var(--arcane-danger-border)] bg-[var(--arcane-danger-soft)] text-[var(--arcane-danger-text)]',
+};
+
+const EMPTY_FILTERS: AuditLogFilters = {
+  search: '',
+  changedAtFrom: '',
+  changedAtTo: '',
+  action: '',
+  tableName: '',
+  recordId: '',
+  user: '',
+  isUndone: undefined,
 };
 
 type ValueMap = Record<string, unknown>;
@@ -54,17 +67,99 @@ export default function AuditLogPage() {
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState('ChangedAt');
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
+  const [searchInput, setSearchInput] = useState('');
+  const [filterValues, setFilterValues] = useState<AuditLogFilters>(EMPTY_FILTERS);
   const [selectedEntry, setSelectedEntry] = useState<AuditLogEntry | null>(null);
   const [restoreError, setRestoreError] = useState('');
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['auditLog', page, sortBy, sortOrder],
+    queryKey: ['auditLog', page, sortBy, sortOrder, filterValues],
     queryFn: async () => {
-      const response = await auditAPI.getLog({ page, pageSize: 10, sortBy, sortOrder });
+      const response = await auditAPI.getLog({ page, pageSize: 10, sortBy, sortOrder, ...filterValues });
       return response.data;
     },
     keepPreviousData: true,
   });
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      const trimmed = searchInput.trim();
+      setFilterValues((current) => {
+        if (trimmed === (current.search ?? '')) {
+          return current;
+        }
+        return { ...current, search: trimmed };
+      });
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
+
+  const handleFilterChange = (patch: Partial<AuditLogFilters>) => {
+    setFilterValues((current) => ({ ...current, ...patch }));
+    setPage(1);
+  };
+
+  const clearAllChipFilters = () => {
+    setFilterValues((current) => ({ ...EMPTY_FILTERS, search: current.search }));
+    setPage(1);
+  };
+
+  const filterChipFields: FilterChipField[] = [
+    {
+      key: 'changedAt',
+      label: 'Changed At',
+      kind: 'dateRange',
+      from: filterValues.changedAtFrom ?? '',
+      to: filterValues.changedAtTo ?? '',
+      onApply: (from, to) => handleFilterChange({ changedAtFrom: from, changedAtTo: to }),
+      onClear: () => handleFilterChange({ changedAtFrom: '', changedAtTo: '' }),
+    },
+    {
+      key: 'action',
+      label: 'Action',
+      kind: 'singleSelect',
+      options: [
+        { value: 'INSERT', label: ACTION_LABELS.INSERT },
+        { value: 'UPDATE', label: ACTION_LABELS.UPDATE },
+        { value: 'DELETE', label: ACTION_LABELS.DELETE },
+      ],
+      value: filterValues.action ?? '',
+      onApply: (value) => handleFilterChange({ action: value as AuditLogEntry['Action'] }),
+      onClear: () => handleFilterChange({ action: '' }),
+    },
+    {
+      key: 'tableName',
+      label: 'Table',
+      kind: 'text',
+      value: filterValues.tableName ?? '',
+      onApply: (value) => handleFilterChange({ tableName: value }),
+      onClear: () => handleFilterChange({ tableName: '' }),
+    },
+    {
+      key: 'recordId',
+      label: 'Record ID',
+      kind: 'text',
+      value: filterValues.recordId ?? '',
+      onApply: (value) => handleFilterChange({ recordId: value }),
+      onClear: () => handleFilterChange({ recordId: '' }),
+    },
+    {
+      key: 'user',
+      label: 'User',
+      kind: 'text',
+      value: filterValues.user ?? '',
+      onApply: (value) => handleFilterChange({ user: value }),
+      onClear: () => handleFilterChange({ user: '' }),
+    },
+    {
+      key: 'isUndone',
+      label: 'Undone',
+      kind: 'yesNo',
+      value: filterValues.isUndone,
+      onApply: (value) => handleFilterChange({ isUndone: value }),
+    },
+  ];
 
   const detailRows = useMemo(() => {
     if (!selectedEntry) return [];
@@ -146,6 +241,22 @@ export default function AuditLogPage() {
 
           {!isLoading && !error && (
             <>
+              <div className="mb-4 flex flex-wrap items-start gap-3">
+                <Input
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  onClear={() => setSearchInput('')}
+                  clearable
+                  clearAriaLabel="Clear audit log search"
+                  placeholder="Search by record number, user, or old/new values..."
+                  className="max-w-xl flex-shrink-0"
+                  autoFocus
+                />
+                <div className="min-w-0 flex-1">
+                  <FilterChipBar fields={filterChipFields} onClearAll={clearAllChipFilters} />
+                </div>
+              </div>
+
               <div className="h-[608px] overflow-hidden">
                 <Table className="table-fixed [&_th]:overflow-hidden [&_th_button]:overflow-hidden [&_th_button]:whitespace-nowrap [&_tbody_tr]:h-14 [&_tbody_td]:overflow-hidden [&_tbody_td]:text-ellipsis [&_tbody_td]:whitespace-nowrap">
                   <TableHeader>
