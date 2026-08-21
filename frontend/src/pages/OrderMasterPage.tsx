@@ -10,11 +10,12 @@ import FilterChipBar, { type FilterChipField } from '../components/inventory/Fil
 import { Dialog } from '../components/ui/Dialog';
 import AlertDialog from '../components/ui/AlertDialog';
 import SelectionScopeMenu from '../components/ui/SelectionScopeMenu';
+import RowActionsMenu from '../components/ui/RowActionsMenu';
 import { useToast } from '../components/ui/ToastProvider';
 import { useAppMode } from '../context/AppModeContext';
 import { tablesAPI } from '../services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
-import { CircleHelp, Edit2, Trash2 } from 'lucide-react';
+import { CircleHelp, Plus } from 'lucide-react';
 
 interface PurchaseOrder {
   PurchaseOrderID: number;
@@ -113,6 +114,7 @@ export default function OrderMasterPage() {
   const [editingDetailId, setEditingDetailId] = useState<number | null>(null);
   const [editingDetailDraft, setEditingDetailDraft] = useState<OrderDetailDraft | null>(null);
   const [newDetailDraft, setNewDetailDraft] = useState<AddOrderDetailDraft | null>(null);
+  const [openDetailActionsRowId, setOpenDetailActionsRowId] = useState<number | null>(null);
   const [pendingOrderNavigation, setPendingOrderNavigation] = useState<
     { direction: 'previous' | 'next'; targetPage: number } | null
   >(null);
@@ -626,16 +628,6 @@ export default function OrderMasterPage() {
     },
     onSuccess: async (newOrderId: number) => {
       const detailCount = addOrderDetails.length;
-      // Fetch the newly created order row so we can open it in the detail modal
-      const listResponse = await tablesAPI.getPurchaseOrders({
-        page: 1,
-        pageSize: 25,
-        sortBy: 'PurchasedDate',
-        sortOrder: 'DESC',
-      });
-      const createdOrder: PurchaseOrder | undefined = (listResponse.data?.data || []).find(
-        (order: PurchaseOrder) => order.PurchaseOrderID === newOrderId
-      );
 
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
       setAddOrderError(null);
@@ -643,11 +635,6 @@ export default function OrderMasterPage() {
       setAddOrderValues({ InvoiceNumber: '', StoreID: '', StatusID: '', PurchaseDate: '' });
       setAddOrderDetails([{ id: 1, ItemID: '', Quantity: '1', Price: '' }]);
       setNextDetailRowId(2);
-
-      if (createdOrder) {
-        setSelectedOrder(createdOrder);
-        setIsModalOpen(true);
-      }
 
       toast({
         title: 'Order Created',
@@ -1429,8 +1416,8 @@ export default function OrderMasterPage() {
                     onChange={(event) => setSearchInput(event.target.value)}
                     onClear={() => setSearchInput('')}
                     clearable
-                    clearAriaLabel="Clear invoice search"
-                    placeholder="Search by invoice number..."
+                    clearAriaLabel="Clear invoice or item search"
+                    placeholder="Search by invoice number or item name..."
                     className="max-w-xl flex-shrink-0"
                     autoFocus
                     tabIndex={1}
@@ -1929,14 +1916,6 @@ export default function OrderMasterPage() {
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-[var(--arcane-ink-900)]">Inventory Items</h3>
-                <Button
-                  type="button"
-                  onClick={addNewDetailRow}
-                  className="bg-[var(--arcane-success)] hover:bg-[var(--arcane-success-hover)] text-white"
-                  disabled={!!newDetailDraft || addDetailMutation.isPending}
-                >
-                  Add Item
-                </Button>
               </div>
               {inventoryLoading ? (
                 <p className="text-[var(--arcane-ink-soft)]">Loading inventory items...</p>
@@ -2028,8 +2007,17 @@ export default function OrderMasterPage() {
                       )}
                       {Array.isArray(inventoryData?.data) && inventoryData.data.length ? (
                         <>
-                          {inventoryData.data.map((item: InventoryItem) => (
-                            <TableRow key={item.PurchaseOrderDetailID}>
+                          {inventoryData.data.map((item: InventoryItem, itemIndex: number) => (
+                            <TableRow
+                              key={item.PurchaseOrderDetailID}
+                              className={
+                                openDetailActionsRowId === item.PurchaseOrderDetailID
+                                  ? 'bg-[var(--arcane-gold-soft-strong)]'
+                                  : openDetailActionsRowId !== null
+                                    ? 'hover:bg-transparent'
+                                    : ''
+                              }
+                            >
                               {editingDetailId === item.PurchaseOrderDetailID && editingDetailDraft ? (
                                 <>
                                   <TableCell>
@@ -2099,25 +2087,36 @@ export default function OrderMasterPage() {
                                   <TableCell className="text-right">{formatCurrency(item.Price)}</TableCell>
                                   <TableCell className="text-right font-semibold">{formatCurrency(item.LineTotal)}</TableCell>
                                   <TableCell className="text-right">
-                                    <div className="flex justify-end gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={() => startEditDetail(item)}
-                                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--arcane-gold-500-border)] text-[var(--arcane-gold-700)] hover:bg-[var(--arcane-gold-soft)] disabled:opacity-50"
-                                        title={canWrite ? 'Edit row' : 'Switch to Update mode to edit rows'}
-                                        disabled={!canWrite || !!editingDetailId || updateDetailMutation.isPending || addDetailMutation.isPending}
-                                      >
-                                        <Edit2 className="w-4 h-4" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => { setDeleteError(null); deleteDetailMutation.mutate(item.PurchaseOrderDetailID); }}
-                                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
-                                        title={canWrite ? 'Delete row' : 'Switch to Update mode to delete rows'}
-                                        disabled={!canWrite || deleteDetailMutation.isPending || updateDetailMutation.isPending || addDetailMutation.isPending}
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </button>
+                                    <div className="flex justify-end">
+                                      <RowActionsMenu
+                                        ariaLabel="Row actions"
+                                        disabled={!canWrite}
+                                        title={canWrite ? undefined : 'Switch to Update mode to manage rows'}
+                                        triggerIcon={itemIndex === 0 ? Plus : undefined}
+                                        onOpenChange={(open) => setOpenDetailActionsRowId(open ? item.PurchaseOrderDetailID : null)}
+                                        items={[
+                                          {
+                                            key: 'add',
+                                            label: 'Add Item',
+                                            onClick: addNewDetailRow,
+                                            disabled: !!newDetailDraft || addDetailMutation.isPending,
+                                          },
+                                          {
+                                            key: 'edit',
+                                            label: 'Edit',
+                                            onClick: () => startEditDetail(item),
+                                            disabled: !!editingDetailId || updateDetailMutation.isPending || addDetailMutation.isPending,
+                                          },
+                                          {
+                                            key: 'delete',
+                                            label: 'Delete',
+                                            destructive: true,
+                                            separatorBefore: true,
+                                            onClick: () => { setDeleteError(null); deleteDetailMutation.mutate(item.PurchaseOrderDetailID); },
+                                            disabled: deleteDetailMutation.isPending || updateDetailMutation.isPending || addDetailMutation.isPending,
+                                          },
+                                        ]}
+                                      />
                                     </div>
                                   </TableCell>
                                 </>
@@ -2127,8 +2126,26 @@ export default function OrderMasterPage() {
                         </>
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-10 text-[var(--arcane-ink-soft)]">
+                          <TableCell colSpan={5} className="text-center py-10 text-[var(--arcane-ink-soft)]">
                             No inventory items found for this order.
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end">
+                              <RowActionsMenu
+                                ariaLabel="Row actions"
+                                disabled={!canWrite}
+                                title={canWrite ? undefined : 'Switch to Update mode to manage rows'}
+                                triggerIcon={Plus}
+                                items={[
+                                  {
+                                    key: 'add',
+                                    label: 'Add Item',
+                                    onClick: addNewDetailRow,
+                                    disabled: !!newDetailDraft || addDetailMutation.isPending,
+                                  },
+                                ]}
+                              />
+                            </div>
                           </TableCell>
                         </TableRow>
                       )}
@@ -2201,11 +2218,11 @@ export default function OrderMasterPage() {
         open={isAddModalOpen}
         onOpenChange={setIsAddModalOpen}
         onClose={closeAddOrderModal}
-        contentClassName="max-w-6xl"
+        contentClassName="max-w-6xl h-[min(760px,90vh)] overflow-hidden flex flex-col [&>div:last-child]:min-h-0 [&>div:last-child]:flex-1"
         title="Add Order"
         showCloseButton={false}
       >
-        <div className="space-y-6">
+        <div className="flex h-full min-h-0 flex-col gap-6">
           {isOnOrderStatusMissing && (
             <div className="p-4 bg-amber-50 border border-amber-300 rounded-md">
               <p className="text-amber-900 font-medium">Default status not found</p>
@@ -2222,9 +2239,9 @@ export default function OrderMasterPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pb-4 border-b">
-            <label className="space-y-2">
-              <span className="text-sm text-[var(--arcane-ink-soft)]">Invoice Number</span>
+          <div className="grid gap-4 pb-4 border-b grid-cols-1 md:grid-cols-4">
+            <div>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Invoice Number</p>
               <Input
                 type="text"
                 value={addOrderValues.InvoiceNumber}
@@ -2233,52 +2250,61 @@ export default function OrderMasterPage() {
                 autoComplete="off"
                 spellCheck={false}
                 data-lpignore="true"
+                className="mt-1"
               />
-            </label>
+            </div>
 
-            <label className="space-y-2">
-              <span className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Store</span>
+            <div>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Store</p>
               <ComboSelect
                 options={storesData.map((store: any) => ({ value: String(store.StoreID), label: store.StoreName }))}
                 value={addOrderValues.StoreID}
                 onChange={(value) => handleAddOrderFieldChange('StoreID', value)}
                 placeholder="Select a store..."
-                className="w-full"
+                className="w-full mt-1"
               />
-            </label>
+            </div>
 
-            <label className="space-y-2">
-              <span className="block text-sm font-medium text-[var(--arcane-ink-900)] mb-1">Order Status</span>
+            <div>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Order Status</p>
               <ComboSelect
                 options={statusesData.map((status: any) => ({ value: String(status.StatusID), label: status.StatusName }))}
                 value={addOrderValues.StatusID}
                 onChange={(value) => handleAddOrderFieldChange('StatusID', value)}
                 placeholder="Select a status..."
-                className="w-full"
+                className="w-full mt-1"
               />
-            </label>
+            </div>
 
-            <label className="space-y-2">
-              <span className="text-sm text-[var(--arcane-ink-soft)]">Purchase Date</span>
+            <div>
+              <p className="text-sm text-[var(--arcane-ink-soft)]">Purchase Date</p>
               <Input
                 type="date"
                 value={addOrderValues.PurchaseDate}
                 onChange={(e) => handleAddOrderFieldChange('PurchaseDate', e.target.value)}
+                className="mt-1"
               />
-            </label>
+            </div>
           </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold">Inventory Items</h3>
-              <Button className="bg-[var(--arcane-success)] hover:bg-[var(--arcane-success-hover)] text-white" onClick={handleAddDetailRow}>
-                Add Item
-              </Button>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-[var(--arcane-ink-900)]">Inventory Items</h3>
             </div>
 
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
+            <div className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden rounded-lg border border-[var(--arcane-border-light)]">
+              <div className="flex h-full min-w-[960px] flex-col">
+                <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable] [&>div]:overflow-visible">
+              <Table className="table-fixed">
+                <colgroup>
+                  <col className="w-[34%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[14%]" />
+                </colgroup>
+                <TableHeader className="sticky top-0 z-10">
                   <TableRow>
                     <TableHead>Item Name</TableHead>
                     <TableHead>Product ID</TableHead>
@@ -2289,7 +2315,7 @@ export default function OrderMasterPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {addOrderDetails.map((detail) => {
+                  {addOrderDetails.map((detail, detailIndex) => {
                     const selectedItem = detail.ItemID ? itemLookupById.get(parseInt(detail.ItemID, 10)) : null;
                     const quantity = Number(detail.Quantity) || 0;
                     const price = Number(detail.Price) || 0;
@@ -2329,41 +2355,70 @@ export default function OrderMasterPage() {
                         </TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(quantity * price)}</TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            className="bg-red-600 hover:bg-red-700"
-                            onClick={() => handleRemoveDetailRow(detail.id)}
-                            disabled={addOrderDetails.length <= 1}
-                          >
-                            Remove
-                          </Button>
+                          <div className="flex justify-end">
+                            <RowActionsMenu
+                              ariaLabel="Row actions"
+                              triggerIcon={detailIndex === 0 ? Plus : undefined}
+                              items={[
+                                {
+                                  key: 'add',
+                                  label: 'Add Item',
+                                  onClick: handleAddDetailRow,
+                                },
+                                {
+                                  key: 'delete',
+                                  label: 'Delete',
+                                  destructive: true,
+                                  separatorBefore: true,
+                                  onClick: () => handleRemoveDetailRow(detail.id),
+                                  disabled: addOrderDetails.length <= 1,
+                                },
+                              ]}
+                            />
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
                   })}
-                  <TableRow className="bg-[var(--arcane-paper)] font-semibold">
-                    <TableCell colSpan={4} className="text-right">Total:</TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(
-                        addOrderDetails.reduce((sum, detail) => {
-                          const quantity = Number(detail.Quantity) || 0;
-                          const price = Number(detail.Price) || 0;
-                          return sum + quantity * price;
-                        }, 0)
-                      )}
-                    </TableCell>
-                    <TableCell />
-                  </TableRow>
                 </TableBody>
               </Table>
+                </div>
+                <div className="shrink-0 overflow-y-auto border-t-2 border-[var(--arcane-border-light)] bg-[var(--arcane-paper-raised)] [scrollbar-gutter:stable] [&>div]:overflow-visible">
+                  <Table className="table-fixed">
+                    <colgroup>
+                      <col className="w-[34%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[12%]" />
+                      <col className="w-[12%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[14%]" />
+                    </colgroup>
+                    <TableBody>
+                      <TableRow className="bg-[var(--arcane-paper-raised)] font-semibold hover:bg-[var(--arcane-paper-raised)]">
+                        <TableCell colSpan={4} className="text-right">Total:</TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(
+                            addOrderDetails.reduce((sum, detail) => {
+                              const quantity = Number(detail.Quantity) || 0;
+                              const price = Number(detail.Price) || 0;
+                              return sum + quantity * price;
+                            }, 0)
+                          )}
+                        </TableCell>
+                        <TableCell />
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
             <Button className="!bg-[var(--arcane-ink-700)] hover:!bg-[var(--arcane-ink-800)] !text-white" onClick={closeAddOrderModal} disabled={addOrderMutation.isPending}>
               Cancel
             </Button>
             <Button
-              className="bg-[var(--arcane-success)] hover:bg-[var(--arcane-success-hover)] text-white"
               onClick={handleCreateOrder}
               disabled={addOrderMutation.isPending || (isOnOrderStatusMissing && !addOrderValues.StatusID)}
             >

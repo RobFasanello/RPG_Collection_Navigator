@@ -1634,10 +1634,19 @@ export async function getPurchaseOrders(req: Request, res: Response): Promise<vo
       }
     }
 
-    // Filter by invoice number (substring match)
+    // Filter by invoice number (substring match) or item name within the order's detail rows
     if (req.query.invoiceNumber) {
       request.input('invoiceNumber', sql.NVarChar(255), `%${req.query.invoiceNumber}%`);
-      filters.push('[PurchaseOrder].[InvoiceNumber] LIKE @invoiceNumber');
+      filters.push(`(
+        [PurchaseOrder].[InvoiceNumber] LIKE @invoiceNumber
+        OR EXISTS (
+          SELECT 1
+          FROM [PurchaseOrderDetail] AS [SearchPOD]
+          INNER JOIN [Item] AS [SearchItem] ON [SearchItem].[ItemID] = [SearchPOD].[ItemID]
+          WHERE [SearchPOD].[PurchaseOrderID] = [PurchaseOrder].[PurchaseOrderID]
+            AND [SearchItem].[ItemName] LIKE @invoiceNumber
+        )
+      )`);
     }
 
     if (req.query.purchaseOrderId) {
