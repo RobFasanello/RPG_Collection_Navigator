@@ -196,4 +196,10 @@ export const auditAPI = {
 
   undo: (auditLogId: number) =>
     api.post(`/audit/${auditLogId}/undo`),
+
+  deleteEntry: (auditLogId: number) =>
+    api.delete(`/audit/${auditLogId}`),
+
+  bulkDeleteEntries: (auditLogIds: number[]) =>
+    api.post<{ success: boolean; deletedCount: number }>('/audit/bulk-delete', { auditLogIds }),
 };

@@ -67,6 +67,20 @@ const REFERENCE_LISTS: ReferenceListConfig[] = [
     deleteConflictMessage: 'Delete failed. This location type is still referenced by one or more locations. Reassign or remove the linked locations first, then try again.',
   },
   {
+    key: 'item-conditions',
+    label: 'Conditions',
+    description: 'Lookup values for item condition grading.',
+    tableName: 'ItemCondition',
+    idColumn: 'ItemConditionID',
+    nameColumn: 'ItemConditionName',
+    nameLabel: 'Condition Name',
+    namePlaceholder: 'Enter condition name',
+    newButtonLabel: 'Add Condition',
+    newTitle: 'Add Condition',
+    editTitle: 'Edit Condition',
+    deleteConflictMessage: 'Delete failed. This condition is still referenced by one or more items. Reassign or remove the linked records first, then try again.',
+  },
+  {
     key: 'stores',
     label: 'Stores',
     description: 'Lookup values for purchase-order vendors.',
@@ -128,6 +142,8 @@ function getTableConfig(tableKey: string | null | undefined) {
   return REFERENCE_LISTS.find((item) => item.key === tableKey) ?? REFERENCE_LISTS[0];
 }
 
+const SORTED_REFERENCE_LISTS = [...REFERENCE_LISTS].sort((a, b) => a.label.localeCompare(b.label));
+
 export default function ReferenceListsPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -147,7 +163,7 @@ export default function ReferenceListsPage() {
           </div>
 
           <div className="flex flex-wrap gap-2 p-3">
-            {REFERENCE_LISTS.map((item) => {
+            {SORTED_REFERENCE_LISTS.map((item) => {
               const isActive = item.key === activeConfig.key;
               return (
                 <button

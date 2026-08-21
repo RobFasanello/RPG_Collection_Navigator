@@ -644,7 +644,10 @@ export default function InventoryLookupPage() {
   const collectionOptions = useMemo(() => {
     return collectionsData
       .filter((c: any) => !allowedCollectionIds || allowedCollectionIds.has(c.CollectionID))
-      .map((c: any) => ({ value: String(c.CollectionID), label: getCollectionLabel(c) }));
+      .map((c: any) => ({ value: String(c.CollectionID), label: getCollectionLabel(c) }))
+      .sort((a: { value: string; label: string }, b: { value: string; label: string }) =>
+        a.label.localeCompare(b.label)
+      );
   }, [collectionsData, allowedCollectionIds, collectionTypeNameById]);
 
   const defaultOnOrderStatusId = useMemo(() => {

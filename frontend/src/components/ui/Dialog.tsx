@@ -11,6 +11,7 @@ interface DialogProps {
   onOpenAutoFocus?: RadixDialog.DialogContentProps['onOpenAutoFocus'];
   closeButtonTabIndex?: number;
   showCloseButton?: boolean;
+  topRightActions?: React.ReactNode;
 }
 
 export const Dialog: React.FC<DialogProps> = ({
@@ -23,6 +24,7 @@ export const Dialog: React.FC<DialogProps> = ({
   onOpenAutoFocus,
   closeButtonTabIndex = 0,
   showCloseButton = true,
+  topRightActions,
 }) => {
   const isComboSelectPortalTarget = (target: EventTarget | null) => {
     if (!target) {
@@ -89,6 +91,9 @@ export const Dialog: React.FC<DialogProps> = ({
             ) : null}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-1">{children}</div>
+          {topRightActions ? (
+            <div className="absolute right-6 top-6 flex items-center gap-2">{topRightActions}</div>
+          ) : null}
         </RadixDialog.Content>
       </RadixDialog.Portal>
     </RadixDialog.Root>

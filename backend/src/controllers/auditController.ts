@@ -392,3 +392,82 @@ export async function undoAuditEntry(req: Request, res: Response): Promise<void>
     res.status(500).json({ error: (error as any)?.message || 'Failed to undo change.' });
   }
 }
+
+export async function deleteAuditEntry(req: Request, res: Response): Promise<void> {
+  const auditLogId = parseInt(req.params.auditLogId, 10);
+  if (!Number.isInteger(auditLogId)) {
+    res.status(400).json({ error: 'Invalid audit log id.' });
+    return;
+  }
+
+  try {
+    const pool = await getPool();
+    const result = await pool.request()
+      .input('id', sql.BigInt, auditLogId)
+      .query('DELETE FROM [AuditLog] OUTPUT DELETED.* WHERE [AuditLogID] = @id');
+
+    if (result.recordset.length === 0) {
+      res.status(404).json({ error: 'Audit entry not found.' });
+      return;
+    }
+
+    res.json({ success: true, message: 'Audit entry deleted.' });
+  } catch (error) {
+    console.error('Error deleting audit entry:', error);
+    res.status(500).json({ error: (error as any)?.message || 'Failed to delete audit entry.' });
+  }
+}
+
+// Deletes many audit entries in a single statement (chunked) instead of one DELETE per row.
+// Running N concurrent single-row deletes against the same table lets SQL Server
+// acquire row/page locks in whatever order requests happen to arrive, which is a
+// classic recipe for deadlocks. Sorting the ids and issuing DELETE ... WHERE IN (...)
+// batches sequentially inside one transaction acquires locks in a single, consistent
+// order and avoids opening many concurrent connections against the same rows.
+const BULK_DELETE_CHUNK_SIZE = 1000;
+
+export async function bulkDeleteAuditEntries(req: Request, res: Response): Promise<void> {
+  const rawIds: unknown[] = Array.isArray(req.body?.auditLogIds) ? req.body.auditLogIds : [];
+  const parsedIds: number[] = rawIds
+    .map((value) => parseInt(String(value), 10))
+    .filter((value): value is number => Number.isInteger(value));
+  const auditLogIds = Array.from(new Set(parsedIds)).sort((a, b) => a - b);
+
+  if (auditLogIds.length === 0) {
+    res.status(400).json({ error: 'auditLogIds must be a non-empty array of audit log ids.' });
+    return;
+  }
+
+  const pool = await getPool();
+  const transaction = new sql.Transaction(pool);
+  await transaction.begin();
+
+  try {
+    let deletedCount = 0;
+
+    for (let offset = 0; offset < auditLogIds.length; offset += BULK_DELETE_CHUNK_SIZE) {
+      const chunk = auditLogIds.slice(offset, offset + BULK_DELETE_CHUNK_SIZE);
+      const request = new sql.Request(transaction);
+      const idParams = chunk.map((id, index) => {
+        const paramName = `id${index}`;
+        request.input(paramName, sql.BigInt, id);
+        return `@${paramName}`;
+      });
+
+      const result = await request.query(`
+        DELETE FROM [AuditLog]
+        OUTPUT DELETED.[AuditLogID]
+        WHERE [AuditLogID] IN (${idParams.join(', ')})
+      `);
+
+      deletedCount += result.recordset.length;
+    }
+
+    await transaction.commit();
+    res.json({ success: true, deletedCount, message: 'Audit entries deleted.' });
+  } catch (error) {
+    await safeRollback(transaction);
+    console.error('Error bulk deleting audit entries:', error);
+    res.status(500).json({ error: (error as any)?.message || 'Failed to bulk delete audit entries.' });
+  }
+}
