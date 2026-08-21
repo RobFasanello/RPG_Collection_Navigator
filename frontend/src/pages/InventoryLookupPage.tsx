@@ -42,6 +42,15 @@ interface InventoryItem {
   CollectionName: string;
   CategoryName: string;
   SubTypeName: string;
+  CreatedDate?: string | null;
+  CreatedUser?: number | null;
+  LastUpdatedDate?: string | null;
+  LastUpdatedUser?: number | null;
+}
+
+interface AppUserLookupRow {
+  UserID: number;
+  Email: string;
 }
 
 interface InventoryExportRow {
@@ -61,6 +70,10 @@ interface InventoryExportRow {
   Price?: number | null;
   Count?: number | null;
   POStatus?: string | null;
+  CreatedDate?: string | null;
+  CreatedUser?: number | null;
+  LastUpdatedDate?: string | null;
+  LastUpdatedUser?: number | null;
 }
 
 interface ItemLookup {
@@ -132,10 +145,29 @@ function formatImageUploadDate(date?: string | null) {
   return Number.isNaN(parsedDate.getTime()) ? date : parsedDate.toLocaleString();
 }
 
+function formatAuditDateValue(date?: string | null) {
+  if (!date) {
+    return '-';
+  }
+
+  const parsedDate = new Date(date);
+  return Number.isNaN(parsedDate.getTime())
+    ? date
+    : parsedDate.toLocaleString(undefined, {
+        timeZone: 'UTC',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+}
+
 export default function InventoryLookupPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { canWrite } = useAppMode();
+  const { canWrite, isAdmin } = useAppMode();
   const [urlSearchParams] = useSearchParams();
   const addItemInputRef = useRef<HTMLInputElement>(null);
   const editItemInputRef = useRef<HTMLInputElement>(null);
@@ -151,6 +183,12 @@ export default function InventoryLookupPage() {
     itemVersion: '',
     releaseDateFrom: '',
     releaseDateTo: '',
+    createdDateFrom: '',
+    createdDateTo: '',
+    createdBy: '',
+    lastUpdatedDateFrom: '',
+    lastUpdatedDateTo: '',
+    lastUpdatedBy: '',
     // publisherName is now an array of selected publisher names
     publisherName: [] as string[],
     collectionName: [] as string[],
@@ -339,6 +377,12 @@ export default function InventoryLookupPage() {
       itemVersion: '',
       releaseDateFrom: '',
       releaseDateTo: '',
+      createdDateFrom: '',
+      createdDateTo: '',
+      createdBy: '',
+      lastUpdatedDateFrom: '',
+      lastUpdatedDateTo: '',
+      lastUpdatedBy: '',
       publisherName: publisher ? [publisher] : [],
       collectionName: collection ? [collection] : [],
       categoryName: category ? [category] : [],
@@ -471,6 +515,23 @@ export default function InventoryLookupPage() {
     const resp = await tablesAPI.getTableData('Status', 1, 100);
     return resp.data;
   });
+
+  const { data: appUsers = [] } = useQuery<AppUserLookupRow[]>({
+    queryKey: ['appUsersLookup'],
+    queryFn: async () => {
+      const rows = await tablesAPI.getAllRecords('User');
+      return rows as AppUserLookupRow[];
+    },
+    enabled: isAdmin,
+  });
+
+  const userEmailById = useMemo(() => {
+    const byId = new Map<number, string>();
+    appUsers.forEach((user) => {
+      byId.set(Number(user.UserID), user.Email || '');
+    });
+    return byId;
+  }, [appUsers]);
 
   const { data: itemLookupResp, isLoading: itemLookupLoading } = useQuery([
     'itemLookupForCreateOrderFromItemMaster',
@@ -1187,6 +1248,12 @@ export default function InventoryLookupPage() {
       itemVersion: '',
       releaseDateFrom: '',
       releaseDateTo: '',
+      createdDateFrom: '',
+      createdDateTo: '',
+      createdBy: '',
+      lastUpdatedDateFrom: '',
+      lastUpdatedDateTo: '',
+      lastUpdatedBy: '',
       isPhysical: undefined,
       isDigital: undefined,
       hasPurchaseOrder: undefined,
@@ -1246,6 +1313,40 @@ export default function InventoryLookupPage() {
       to: filterValues.releaseDateTo,
       onApply: (from, to) => handleChipFiltersChange({ releaseDateFrom: from, releaseDateTo: to }),
       onClear: () => handleChipFiltersChange({ releaseDateFrom: '', releaseDateTo: '' }),
+    },
+    {
+      key: 'createdBy',
+      label: 'Created By',
+      kind: 'text',
+      value: filterValues.createdBy,
+      onApply: (value) => handleChipFiltersChange({ createdBy: value }),
+      onClear: () => handleChipFiltersChange({ createdBy: '' }),
+    },
+    {
+      key: 'createdDate',
+      label: 'Created Date',
+      kind: 'dateRange',
+      from: filterValues.createdDateFrom,
+      to: filterValues.createdDateTo,
+      onApply: (from, to) => handleChipFiltersChange({ createdDateFrom: from, createdDateTo: to }),
+      onClear: () => handleChipFiltersChange({ createdDateFrom: '', createdDateTo: '' }),
+    },
+    {
+      key: 'lastUpdatedBy',
+      label: 'Last Updated By',
+      kind: 'text',
+      value: filterValues.lastUpdatedBy,
+      onApply: (value) => handleChipFiltersChange({ lastUpdatedBy: value }),
+      onClear: () => handleChipFiltersChange({ lastUpdatedBy: '' }),
+    },
+    {
+      key: 'lastUpdatedDate',
+      label: 'Last Updated Date',
+      kind: 'dateRange',
+      from: filterValues.lastUpdatedDateFrom,
+      to: filterValues.lastUpdatedDateTo,
+      onApply: (from, to) => handleChipFiltersChange({ lastUpdatedDateFrom: from, lastUpdatedDateTo: to }),
+      onClear: () => handleChipFiltersChange({ lastUpdatedDateFrom: '', lastUpdatedDateTo: '' }),
     },
     {
       key: 'owned',
@@ -1666,6 +1767,25 @@ export default function InventoryLookupPage() {
 
     return `${String(parts.month).padStart(2, '0')}/${String(parts.day).padStart(2, '0')}/${parts.year}`;
   };
+  
+  const formatAuditDateForCsv = (date?: string | null) => {
+    if (!date) {
+      return '';
+    }
+
+    const parsedDate = new Date(date);
+    return Number.isNaN(parsedDate.getTime())
+      ? date
+      : parsedDate.toLocaleString(undefined, {
+          timeZone: 'UTC',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+  };
 
   const buildCsvContent = (rows: InventoryExportRow[]) => {
     const headers = [
@@ -1685,6 +1805,10 @@ export default function InventoryLookupPage() {
       'Price',
       'Count',
       'PO Status',
+      'Created Date',
+      'Created By',
+      'Last Updated Date',
+      'Last Updated By',
     ];
 
     const lines = rows.map((row) => {
@@ -1705,6 +1829,10 @@ export default function InventoryLookupPage() {
         row.Price !== null && row.Price !== undefined ? Number(row.Price).toFixed(2) : '',
         row.Count !== null && row.Count !== undefined ? String(row.Count) : '',
         row.POStatus || '',
+        formatAuditDateForCsv(row.CreatedDate),
+        row.CreatedUser != null ? (userEmailById.get(Number(row.CreatedUser)) || String(row.CreatedUser)) : '',
+        formatAuditDateForCsv(row.LastUpdatedDate),
+        row.LastUpdatedUser != null ? (userEmailById.get(Number(row.LastUpdatedUser)) || String(row.LastUpdatedUser)) : '',
       ];
 
       return values.map((value) => csvEscape(String(value))).join(',');
@@ -2957,7 +3085,22 @@ export default function InventoryLookupPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              {isAdmin ? (
+                <div className="w-full rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] px-4 py-3">
+                  <div className="space-y-2 text-sm leading-6">
+                    <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+                      <p className="text-[var(--arcane-ink-soft)]">Created On: <span className="font-medium text-[var(--arcane-ink-900)]">{formatAuditDateValue(editingItem.CreatedDate)}</span></p>
+                      <p className="text-[var(--arcane-ink-soft)]">Created By: <span className="font-medium text-[var(--arcane-ink-900)]">{(editingItem.CreatedUser != null ? userEmailById.get(Number(editingItem.CreatedUser)) : '') || '-'}</span></p>
+                    </div>
+                    <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+                      <p className="text-[var(--arcane-ink-soft)]">Last Updated On: <span className="font-medium text-[var(--arcane-ink-900)]">{formatAuditDateValue(editingItem.LastUpdatedDate)}</span></p>
+                      <p className="text-[var(--arcane-ink-soft)]">Last Updated By: <span className="font-medium text-[var(--arcane-ink-900)]">{(editingItem.LastUpdatedUser != null ? userEmailById.get(Number(editingItem.LastUpdatedUser)) : '') || '-'}</span></p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
                 <Button
                   type="button"
                   className="bg-red-600 hover:bg-red-700 sm:mr-auto"

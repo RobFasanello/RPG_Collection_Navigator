@@ -15,6 +15,7 @@ interface UserRecord {
   Email: string;
   DisplayName: string | null;
   AppMode: AppMode;
+  CreatedDate: string | null;
   LastLoginDate: string | null;
 }
 
@@ -145,6 +146,7 @@ export default function UsersSetupPage() {
                 <TableHead>Email</TableHead>
                 <TableHead>Display Name</TableHead>
                 <TableHead>Mode</TableHead>
+                <TableHead>Created Date</TableHead>
                 <TableHead>Last Login</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -170,6 +172,7 @@ export default function UsersSetupPage() {
                         ))}
                       </select>
                     </TableCell>
+                    <TableCell>{formatDate(user.CreatedDate)}</TableCell>
                     <TableCell>{formatDate(user.LastLoginDate)}</TableCell>
                     <TableCell className="text-right">
                       <Button
@@ -186,7 +189,7 @@ export default function UsersSetupPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-10 text-[var(--arcane-ink-soft)]">
+                  <TableCell colSpan={6} className="text-center py-10 text-[var(--arcane-ink-soft)]">
                     No users yet.
                   </TableCell>
                 </TableRow>

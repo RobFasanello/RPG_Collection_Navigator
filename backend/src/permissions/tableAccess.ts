@@ -19,7 +19,7 @@ const ADMIN_ONLY_TABLES = new Set<string>([
   'Store',
   'MiniatureSize',
   'MiniatureRarity',
-  'ItemCondition',
+  'ConditionType',
   'Status',
   'User',
 ]);

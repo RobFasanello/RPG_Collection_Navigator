@@ -12,6 +12,31 @@ const COMPOSITE_KEY_TABLES: Record<string, [string, string]> = {
   CollectionRPGSystem: ['CollectionID', 'RPGSystemID'],
 };
 
+function usesLastUpdatedStampColumns(tableName: string): boolean {
+  return tableName === 'Item' || tableName === 'Miniature' || tableName === 'Terrain';
+}
+
+async function resolveAppUserId(
+  connection: sql.Transaction | sql.ConnectionPool,
+  email: string | undefined
+): Promise<number | null> {
+  const normalizedEmail = String(email ?? '').trim().toLowerCase();
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const request = 'begin' in connection
+    ? new sql.Request(connection as sql.Transaction)
+    : new sql.Request(connection as sql.ConnectionPool);
+
+  const result = await request
+    .input('email', sql.NVarChar(255), normalizedEmail)
+    .query(`SELECT TOP 1 [UserID] FROM [User] WHERE LOWER([Email]) = @email`);
+
+  const userId = result.recordset[0]?.UserID;
+  return Number.isInteger(userId) ? Number(userId) : null;
+}
+
 export async function getRecordHistory(req: Request, res: Response): Promise<void> {
   const tableName = req.query.tableName as string;
   const recordIdParam = req.query.recordId as string;
@@ -274,6 +299,18 @@ export async function undoAuditEntry(req: Request, res: Response): Promise<void>
 
     const oldValues: Record<string, unknown> | null = target.OldValues ? JSON.parse(target.OldValues) : null;
     const action: AuditAction = target.Action;
+    const shouldStampLastUpdated = usesLastUpdatedStampColumns(tableName);
+    const restoreTimestamp = new Date();
+    let restoreUserId: number | null = null;
+
+    if (shouldStampLastUpdated) {
+      restoreUserId = await resolveAppUserId(transaction, req.appUser?.email);
+      if (restoreUserId === null) {
+        await safeRollback(transaction);
+        res.status(403).json({ error: 'The signed-in user is not provisioned in the User table.' });
+        return;
+      }
+    }
 
     let reversedAction: AuditAction;
     let reversedOld: Record<string, unknown> | null = null;
@@ -304,11 +341,17 @@ export async function undoAuditEntry(req: Request, res: Response): Promise<void>
         return;
       }
 
-      const cols = Object.keys(oldValues);
+      const valuesToRestore = { ...oldValues };
+      if (shouldStampLastUpdated) {
+        valuesToRestore.LastUpdatedDate = restoreTimestamp;
+        valuesToRestore.LastUpdatedUser = restoreUserId;
+      }
+
+      const cols = Object.keys(valuesToRestore);
       const identity = primaryKey ? await isIdentityPrimaryKey(transaction, tableName, primaryKey) : false;
 
       const request = new sql.Request(transaction);
-      cols.forEach((col) => request.input(col, oldValues[col]));
+      cols.forEach((col) => request.input(col, valuesToRestore[col]));
       const colList = cols.map((c) => `[${c}]`).join(', ');
       const valList = cols.map((c) => `@${c}`).join(', ');
 
@@ -336,9 +379,15 @@ export async function undoAuditEntry(req: Request, res: Response): Promise<void>
         return;
       }
 
-      const cols = Object.keys(oldValues);
+      const valuesToRestore = { ...oldValues };
+      if (shouldStampLastUpdated) {
+        valuesToRestore.LastUpdatedDate = restoreTimestamp;
+        valuesToRestore.LastUpdatedUser = restoreUserId;
+      }
+
+      const cols = Object.keys(valuesToRestore);
       const request = new sql.Request(transaction);
-      cols.forEach((col) => request.input(col, oldValues[col]));
+      cols.forEach((col) => request.input(col, valuesToRestore[col]));
       bindKeys(request);
 
       const setClause = cols.map((c) => `[${c}] = @${c}`).join(', ');

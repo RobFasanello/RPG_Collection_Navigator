@@ -31,6 +31,27 @@ function normalizeItemUploadData(data: Record<string, any>): void {
   }
 }
 
+async function resolveAppUserId(
+  connection: sql.Transaction | sql.ConnectionPool,
+  email: string | undefined
+): Promise<number | null> {
+  const normalizedEmail = String(email ?? '').trim().toLowerCase();
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const request = 'begin' in connection
+    ? new sql.Request(connection as sql.Transaction)
+    : new sql.Request(connection as sql.ConnectionPool);
+
+  const result = await request
+    .input('email', sql.NVarChar(255), normalizedEmail)
+    .query(`SELECT TOP 1 [UserID] FROM [User] WHERE LOWER([Email]) = @email`);
+
+  const userId = result.recordset[0]?.UserID;
+  return Number.isInteger(userId) ? Number(userId) : null;
+}
+
 function usesServerGeneratedManualId(tableName: string): boolean {
   return (
     tableName === 'Location' ||
@@ -39,8 +60,16 @@ function usesServerGeneratedManualId(tableName: string): boolean {
     tableName === 'Terrain' ||
     tableName === 'MiniatureSize' ||
     tableName === 'MiniatureRarity' ||
-    tableName === 'ItemCondition'
+    tableName === 'ConditionType'
   );
+}
+
+function usesCreatedStampColumns(tableName: string): boolean {
+  return tableName === 'Item' || tableName === 'Miniature' || tableName === 'Terrain';
+}
+
+function usesLastUpdatedStampColumns(tableName: string): boolean {
+  return tableName === 'Item' || tableName === 'Miniature' || tableName === 'Terrain';
 }
 
 function parsePositiveInt(value: unknown): number | null {
@@ -203,7 +232,7 @@ export async function bulkUpdateItemRecords(req: Request, res: Response): Promis
       });
 
       const currentItemsResult = await itemRequest.query(`
-        SELECT [ItemID], [PublisherID], [CollectionID], [CategoryID], [SubTypeID], [ItemVersion], [IsPhysical], [IsDigital]
+        SELECT [ItemID], [PublisherID], [CollectionID], [CategoryID], [SubTypeID], [ItemVersion], [IsPhysical], [IsDigital], [LastUpdatedDate], [LastUpdatedUser]
         FROM [Item]
         WHERE [ItemID] IN (${uniqueItemIds.map((_, index) => `@itemId${index}`).join(', ')})
       `);
@@ -288,15 +317,29 @@ export async function bulkUpdateItemRecords(req: Request, res: Response): Promis
       }
 
       const updateRequest = new sql.Request(transaction);
+      const appUserId = await resolveAppUserId(transaction, req.appUser?.email);
+      if (appUserId === null) {
+        await safeRollback(transaction);
+        res.status(403).json({ error: 'The signed-in user is not provisioned in the User table.' });
+        return;
+      }
+
+      const lastUpdatedDate = new Date();
       updateFields.forEach((field) => {
         updateRequest.input(field.column, field.type as any, field.value);
       });
+      updateRequest.input('LastUpdatedDate', sql.DateTime, lastUpdatedDate);
+      updateRequest.input('LastUpdatedUser', sql.Int, appUserId);
 
       uniqueItemIds.forEach((itemId, index) => {
         updateRequest.input(`itemId${index}`, sql.Int, itemId);
       });
 
-      const updates = updateFields.map((field) => `[${field.column}] = @${field.column}`).join(', ');
+      const updates = [
+        ...updateFields.map((field) => `[${field.column}] = @${field.column}`),
+        '[LastUpdatedDate] = @LastUpdatedDate',
+        '[LastUpdatedUser] = @LastUpdatedUser',
+      ].join(', ');
       await updateRequest.query(`
         UPDATE [Item]
         SET ${updates}
@@ -314,6 +357,10 @@ export async function bulkUpdateItemRecords(req: Request, res: Response): Promis
           oldValues[field.column] = currentItem[field.column];
           newValues[field.column] = field.value;
         });
+        oldValues.LastUpdatedDate = currentItem.LastUpdatedDate;
+        oldValues.LastUpdatedUser = currentItem.LastUpdatedUser;
+        newValues.LastUpdatedDate = lastUpdatedDate;
+        newValues.LastUpdatedUser = appUserId;
 
         await insertAuditRow(new sql.Request(transaction), {
           tableName: 'Item',
@@ -688,6 +735,12 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
       });
 
       let insertedCount = 0;
+      const appUserId = await resolveAppUserId(transaction, req.appUser?.email);
+      if (appUserId === null) {
+        await safeRollback(transaction);
+        res.status(403).json({ error: 'The signed-in user is not provisioned in the User table.' });
+        return;
+      }
 
       for (const row of preparedRows) {
         const insertRequest = new sql.Request(transaction);
@@ -701,11 +754,12 @@ export async function bulkCreateItems(req: Request, res: Response): Promise<void
         insertRequest.input('SubTypeID', sql.Int, row.SubTypeID);
         insertRequest.input('IsPhysical', sql.Bit, row.IsPhysical);
         insertRequest.input('IsDigital', sql.Bit, row.IsDigital);
+        insertRequest.input('CreatedUser', sql.Int, appUserId);
 
         const insertResult = await insertRequest.query(`
-          INSERT INTO [Item] ([ItemName], [ItemVersion], [ProductID], [ReleaseDate], [PublisherID], [CollectionID], [CategoryID], [SubTypeID], [IsPhysical], [IsDigital])
+          INSERT INTO [Item] ([ItemName], [ItemVersion], [ProductID], [ReleaseDate], [PublisherID], [CollectionID], [CategoryID], [SubTypeID], [IsPhysical], [IsDigital], [CreatedDate], [CreatedUser])
           OUTPUT INSERTED.*
-          VALUES (@ItemName, @ItemVersion, @ProductID, @ReleaseDate, @PublisherID, @CollectionID, @CategoryID, @SubTypeID, @IsPhysical, @IsDigital)
+          VALUES (@ItemName, @ItemVersion, @ProductID, @ReleaseDate, @PublisherID, @CollectionID, @CategoryID, @SubTypeID, @IsPhysical, @IsDigital, SYSUTCDATETIME(), @CreatedUser)
         `);
 
         const insertedRow = insertResult.recordset[0];
@@ -1009,6 +1063,42 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
       request.input('releaseDateTo', sql.Date, req.query.releaseDateTo);
       filters.push('[Item].[ReleaseDate] <= @releaseDateTo');
     }
+    if (req.query.createdDateFrom) {
+      request.input('createdDateFrom', sql.Date, req.query.createdDateFrom);
+      filters.push('[Item].[CreatedDate] >= @createdDateFrom');
+    }
+    if (req.query.createdDateTo) {
+      request.input('createdDateTo', sql.Date, req.query.createdDateTo);
+      filters.push('[Item].[CreatedDate] <= @createdDateTo');
+    }
+    if (req.query.lastUpdatedDateFrom) {
+      request.input('lastUpdatedDateFrom', sql.Date, req.query.lastUpdatedDateFrom);
+      filters.push('[Item].[LastUpdatedDate] >= @lastUpdatedDateFrom');
+    }
+    if (req.query.lastUpdatedDateTo) {
+      request.input('lastUpdatedDateTo', sql.Date, req.query.lastUpdatedDateTo);
+      filters.push('[Item].[LastUpdatedDate] <= @lastUpdatedDateTo');
+    }
+    if (req.query.createdBy) {
+      const createdByRaw = String(req.query.createdBy).trim();
+      request.input('createdBy', sql.NVarChar(255), `%${createdByRaw}%`);
+      const createdByClauses = [
+        'CAST([Item].[CreatedUser] AS NVARCHAR(20)) LIKE @createdBy',
+        '[CreatedByUser].[Email] LIKE @createdBy',
+        '[CreatedByUser].[DisplayName] LIKE @createdBy',
+      ];
+      filters.push(`(${createdByClauses.join(' OR ')})`);
+    }
+    if (req.query.lastUpdatedBy) {
+      const lastUpdatedByRaw = String(req.query.lastUpdatedBy).trim();
+      request.input('lastUpdatedBy', sql.NVarChar(255), `%${lastUpdatedByRaw}%`);
+      const lastUpdatedByClauses = [
+        'CAST([Item].[LastUpdatedUser] AS NVARCHAR(20)) LIKE @lastUpdatedBy',
+        '[LastUpdatedByUser].[Email] LIKE @lastUpdatedBy',
+        '[LastUpdatedByUser].[DisplayName] LIKE @lastUpdatedBy',
+      ];
+      filters.push(`(${lastUpdatedByClauses.join(' OR ')})`);
+    }
     if (req.query.publisherName) {
       // Support single value or multiple values (array) for publisherName
       if (Array.isArray(req.query.publisherName)) {
@@ -1107,6 +1197,48 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
       filters.push('[Item].[IsDigital] = @isDigital');
     }
 
+    if (req.query.createdDateFrom) {
+      request.input('createdDateFrom', sql.Date, req.query.createdDateFrom);
+      filters.push('[Item].[CreatedDate] >= @createdDateFrom');
+    }
+
+    if (req.query.createdDateTo) {
+      request.input('createdDateTo', sql.Date, req.query.createdDateTo);
+      filters.push('[Item].[CreatedDate] <= @createdDateTo');
+    }
+
+    if (req.query.lastUpdatedDateFrom) {
+      request.input('lastUpdatedDateFrom', sql.Date, req.query.lastUpdatedDateFrom);
+      filters.push('[Item].[LastUpdatedDate] >= @lastUpdatedDateFrom');
+    }
+
+    if (req.query.lastUpdatedDateTo) {
+      request.input('lastUpdatedDateTo', sql.Date, req.query.lastUpdatedDateTo);
+      filters.push('[Item].[LastUpdatedDate] <= @lastUpdatedDateTo');
+    }
+
+    if (req.query.createdBy) {
+      const createdByRaw = String(req.query.createdBy).trim();
+      request.input('createdBy', sql.NVarChar(255), `%${createdByRaw}%`);
+      const createdByClauses = [
+        'CAST([Item].[CreatedUser] AS NVARCHAR(20)) LIKE @createdBy',
+        '[CreatedByUser].[Email] LIKE @createdBy',
+        '[CreatedByUser].[DisplayName] LIKE @createdBy',
+      ];
+      filters.push(`(${createdByClauses.join(' OR ')})`);
+    }
+
+    if (req.query.lastUpdatedBy) {
+      const lastUpdatedByRaw = String(req.query.lastUpdatedBy).trim();
+      request.input('lastUpdatedBy', sql.NVarChar(255), `%${lastUpdatedByRaw}%`);
+      const lastUpdatedByClauses = [
+        'CAST([Item].[LastUpdatedUser] AS NVARCHAR(20)) LIKE @lastUpdatedBy',
+        '[LastUpdatedByUser].[Email] LIKE @lastUpdatedBy',
+        '[LastUpdatedByUser].[DisplayName] LIKE @lastUpdatedBy',
+      ];
+      filters.push(`(${lastUpdatedByClauses.join(' OR ')})`);
+    }
+
     const hasPurchaseOrder = parseOptionalBoolean(req.query.hasPurchaseOrder);
     if (hasPurchaseOrder !== null) {
       if (hasPurchaseOrder) {
@@ -1137,6 +1269,8 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
       INNER JOIN [Collection] ON [Collection].[CollectionID] = [Item].[CollectionID]
       INNER JOIN [Category] ON [Category].[CategoryID] = [Item].[CategoryID]
       INNER JOIN [SubType] ON [SubType].[SubTypeID] = [Item].[SubTypeID]
+      LEFT JOIN [User] AS [CreatedByUser] ON [CreatedByUser].[UserID] = [Item].[CreatedUser]
+      LEFT JOIN [User] AS [LastUpdatedByUser] ON [LastUpdatedByUser].[UserID] = [Item].[LastUpdatedUser]
       ${whereClause}
     `;
 
@@ -1154,6 +1288,10 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
         [Item].[IsDigital],
         [Item].[ImageFileName],
         [Item].[ImageUploadDate],
+        [Item].[CreatedDate],
+        [Item].[CreatedUser],
+        [Item].[LastUpdatedDate],
+        [Item].[LastUpdatedUser],
         [Item].[PublisherID],
         [Item].[CollectionID],
         [Item].[CategoryID],
@@ -1186,6 +1324,8 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
       INNER JOIN [Collection] ON [Collection].[CollectionID] = [Item].[CollectionID]
       INNER JOIN [Category] ON [Category].[CategoryID] = [Item].[CategoryID]
       INNER JOIN [SubType] ON [SubType].[SubTypeID] = [Item].[SubTypeID]
+      LEFT JOIN [User] AS [CreatedByUser] ON [CreatedByUser].[UserID] = [Item].[CreatedUser]
+      LEFT JOIN [User] AS [LastUpdatedByUser] ON [LastUpdatedByUser].[UserID] = [Item].[LastUpdatedUser]
       ${whereClause}
       ORDER BY ${sortExpression} ${sortOrder}${secondarySortExpression}
       OFFSET @offset ROWS
@@ -1400,12 +1540,18 @@ export async function getInventoryExportRows(req: Request, res: Response): Promi
         [ExportPO].[PurchaseDate] AS [PurchaseDate],
         [ExportPO].[Price] AS [Price],
         [ExportPO].[Count] AS [Count],
-        [ExportPO].[POStatus] AS [POStatus]
+        [ExportPO].[POStatus] AS [POStatus],
+        [Item].[CreatedDate] AS [CreatedDate],
+        [Item].[CreatedUser] AS [CreatedUser],
+        [Item].[LastUpdatedDate] AS [LastUpdatedDate],
+        [Item].[LastUpdatedUser] AS [LastUpdatedUser]
       FROM [Item]
       INNER JOIN [Publisher] ON [Publisher].[PublisherID] = [Item].[PublisherID]
       INNER JOIN [Collection] ON [Collection].[CollectionID] = [Item].[CollectionID]
       INNER JOIN [Category] ON [Category].[CategoryID] = [Item].[CategoryID]
       INNER JOIN [SubType] ON [SubType].[SubTypeID] = [Item].[SubTypeID]
+      LEFT JOIN [User] AS [CreatedByUser] ON [CreatedByUser].[UserID] = [Item].[CreatedUser]
+      LEFT JOIN [User] AS [LastUpdatedByUser] ON [LastUpdatedByUser].[UserID] = [Item].[LastUpdatedUser]
       LEFT JOIN (
         SELECT
           [PurchaseOrderDetail].[ItemID],
@@ -1897,6 +2043,13 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
     const data = { ...req.body };
     const pool = await getPool();
 
+    if (usesCreatedStampColumns(tableName)) {
+      delete data.CreatedDate;
+      delete data.CreatedUser;
+      delete data.LastUpdatedDate;
+      delete data.LastUpdatedUser;
+    }
+
     if (tableName === 'Item' && Object.prototype.hasOwnProperty.call(data, 'StatusID')) {
       res.status(400).json({
         error: 'StatusID can no longer be set on Item. Update PurchaseOrder.StatusID instead.',
@@ -1912,6 +2065,18 @@ export async function createRecord(req: Request, res: Response): Promise<void> {
         return;
       }
       data.ItemVersion = normalizedItemVersion;
+    }
+
+    if (usesCreatedStampColumns(tableName)) {
+      const appUserId = await resolveAppUserId(pool, req.appUser?.email);
+      if (appUserId === null) {
+        await deleteUploadedFile(req.file);
+        res.status(403).json({ error: 'The signed-in user is not provisioned in the User table.' });
+        return;
+      }
+
+      data.CreatedDate = new Date();
+      data.CreatedUser = appUserId;
     }
 
     if (tableName === 'RPGSystem') {
@@ -2515,6 +2680,14 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
       const request = new sql.Request(itemTransaction);
       const updates: string[] = [];
       const updatedColumns: string[] = [];
+      const appUserId = await resolveAppUserId(itemTransaction, req.appUser?.email);
+      if (appUserId === null) {
+        await safeRollback(itemTransaction);
+        await deleteUploadedFile(req.file);
+        res.status(403).json({ error: 'The signed-in user is not provisioned in the User table.' });
+        return;
+      }
+      const lastUpdatedDate = new Date();
 
       if (Object.prototype.hasOwnProperty.call(data, 'ItemName')) {
         request.input('ItemName', sql.NVarChar(255), data.ItemName);
@@ -2591,12 +2764,20 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
         updatedColumns.push('ImageFileName', 'ImageUploadDate');
       }
 
-      if (updates.length === 0) {
+      const hasBusinessUpdate = updates.length > 0;
+
+      if (!hasBusinessUpdate) {
         await safeRollback(itemTransaction);
         await deleteUploadedFile(req.file);
         res.status(400).json({ error: 'At least one updatable field is required.' });
         return;
       }
+
+      request.input('LastUpdatedDate', sql.DateTime, lastUpdatedDate);
+      request.input('LastUpdatedUser', sql.Int, appUserId);
+      updates.push('[LastUpdatedDate] = @LastUpdatedDate');
+      updates.push('[LastUpdatedUser] = @LastUpdatedUser');
+      updatedColumns.push('LastUpdatedDate', 'LastUpdatedUser');
 
       request.input('id', sql.Int, id);
 
@@ -2749,12 +2930,42 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
         }
       }
 
+      if (usesLastUpdatedStampColumns(tableName)) {
+        delete data.LastUpdatedDate;
+        delete data.LastUpdatedUser;
+      }
+
+      const shouldStampLastUpdated = tableName === 'Miniature' || tableName === 'Terrain';
+      let appUserIdForUpdate: number | null = null;
+      const lastUpdatedDate = new Date();
+      if (shouldStampLastUpdated) {
+        appUserIdForUpdate = await resolveAppUserId(pool, req.appUser?.email);
+        if (appUserIdForUpdate === null) {
+          await deleteUploadedFile(req.file);
+          res.status(403).json({ error: 'The signed-in user is not provisioned in the User table.' });
+          return;
+        }
+      }
+
       const updateColumns = Object.keys(data);
-      const outputColumns = req.file ? [...updateColumns, 'ImageUploadDate'] : updateColumns;
+      if (updateColumns.length === 0) {
+        await deleteUploadedFile(req.file);
+        res.status(400).json({ error: 'At least one updatable field is required.' });
+        return;
+      }
+
+      const outputColumns = req.file ? [...updateColumns, 'ImageUploadDate'] : [...updateColumns];
       const updates = [
         ...updateColumns.map(col => `[${col}] = @${col}`),
         ...(req.file ? ['[ImageUploadDate] = GETDATE()'] : []),
-      ]
+      ];
+
+      if (shouldStampLastUpdated) {
+        outputColumns.push('LastUpdatedDate', 'LastUpdatedUser');
+        updates.push('[LastUpdatedDate] = @LastUpdatedDate', '[LastUpdatedUser] = @LastUpdatedUser');
+      }
+
+      const updateStatement = updates
         .join(', ');
 
       const genericTransaction = new sql.Transaction(pool);
@@ -2766,6 +2977,11 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
           request.input(col, value);
         });
 
+        if (shouldStampLastUpdated) {
+          request.input('LastUpdatedDate', sql.DateTime, lastUpdatedDate);
+          request.input('LastUpdatedUser', sql.Int, appUserIdForUpdate);
+        }
+
         request.input('id', sql.Int, id);
 
         const outputCols = outputColumns
@@ -2774,7 +2990,7 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
 
         const query = `
           UPDATE [${tableName}]
-          SET ${updates}
+          SET ${updateStatement}
           OUTPUT ${outputCols}
           WHERE [${primaryKey}] = @id
         `;

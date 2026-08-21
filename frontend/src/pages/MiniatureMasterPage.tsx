@@ -30,6 +30,16 @@ type MiniatureRecord = {
   MiniatureRarityID?: number | null;
   MiniatureQuantity: number;
   LocationID?: number | null;
+  CreatedDate?: string | null;
+  CreatedUser?: number | null;
+  LastUpdatedDate?: string | null;
+  LastUpdatedUser?: number | null;
+};
+
+type AppUserLookupRow = {
+  UserID: number;
+  Email: string;
+  DisplayName?: string | null;
 };
 
 type ItemRecord = {
@@ -58,6 +68,12 @@ type FilterValues = {
   subTypeName: string[];
   itemId: string;
   miniatureName: string;
+  createdBy: string;
+  createdDateFrom: string;
+  createdDateTo: string;
+  lastUpdatedBy: string;
+  lastUpdatedDateFrom: string;
+  lastUpdatedDateTo: string;
   miniatureSizeName: string[];
   miniatureRarityName: string[];
   locationName: string[];
@@ -69,6 +85,12 @@ const EMPTY_FILTERS: FilterValues = {
   subTypeName: [],
   itemId: '',
   miniatureName: '',
+  createdBy: '',
+  createdDateFrom: '',
+  createdDateTo: '',
+  lastUpdatedBy: '',
+  lastUpdatedDateFrom: '',
+  lastUpdatedDateTo: '',
   miniatureSizeName: [],
   miniatureRarityName: [],
   locationName: [],
@@ -83,10 +105,67 @@ const csvEscape = (value: string) => {
   return value;
 };
 
+const formatAuditDateValue = (date?: string | null) => {
+  if (!date) {
+    return '-';
+  }
+
+  const parsedDate = new Date(date);
+  return Number.isNaN(parsedDate.getTime())
+    ? date
+    : parsedDate.toLocaleString(undefined, {
+        timeZone: 'UTC',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+};
+
+const formatAuditDateForCsv = (date?: string | null) => {
+  if (!date) {
+    return '';
+  }
+
+  const parsedDate = new Date(date);
+  return Number.isNaN(parsedDate.getTime())
+    ? date
+    : parsedDate.toLocaleString(undefined, {
+        timeZone: 'UTC',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+};
+
+const normalizeDateKey = (value?: string | null) => {
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+
+  return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, '0')}-${String(parsed.getUTCDate()).padStart(2, '0')}`;
+};
+
 export default function MiniatureMasterPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { canWrite } = useAppMode();
+  const { canWrite, isAdmin } = useAppMode();
   const [urlSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [sortBy, setSortBy] = useState<SortColumn>('MiniatureName');
@@ -174,6 +253,34 @@ export default function MiniatureMasterPage() {
     queryKey: ['table', 'MiniatureRarity', 'all-for-miniatures'],
     queryFn: async () => tablesAPI.getAllRecords('MiniatureRarity'),
   });
+
+  const { data: appUsers = [] } = useQuery<AppUserLookupRow[], Error>({
+    queryKey: ['table', 'User', 'all-for-miniatures'],
+    queryFn: async () => tablesAPI.getAllRecords('User') as Promise<AppUserLookupRow[]>,
+    enabled: true,
+  });
+
+  const userEmailById = useMemo(() => {
+    return appUsers.reduce((map: Record<number, string>, user) => {
+      map[Number(user.UserID)] = String(user.Email ?? '').trim();
+      return map;
+    }, {});
+  }, [appUsers]);
+
+  const userSearchTextById = useMemo(() => {
+    return appUsers.reduce((map: Record<number, string>, user) => {
+      const userId = Number(user.UserID);
+      const tokens = [
+        String(user.UserID ?? '').trim(),
+        String(user.Email ?? '').trim(),
+        String(user.DisplayName ?? '').trim(),
+      ]
+        .filter(Boolean)
+        .map((token) => token.toLowerCase());
+      map[userId] = tokens.join(' ');
+      return map;
+    }, {});
+  }, [appUsers]);
 
   useQuery<Record<number, boolean>, Error>({
     queryKey: ['inventory', 'owned-map-for-miniatures'],
@@ -479,6 +586,12 @@ export default function MiniatureMasterPage() {
       subTypeName: [],
       itemId,
       miniatureName,
+      createdBy: '',
+      createdDateFrom: '',
+      createdDateTo: '',
+      lastUpdatedBy: '',
+      lastUpdatedDateFrom: '',
+      lastUpdatedDateTo: '',
       miniatureSizeName: miniatureSize ? [miniatureSize] : [],
       miniatureRarityName: miniatureRarity ? [miniatureRarity] : [],
       locationName: location ? [location] : [],
@@ -511,6 +624,12 @@ export default function MiniatureMasterPage() {
   const filteredRows = useMemo(() => {
     const itemFilterId = parseInt(filterValues.itemId, 10);
     const miniatureFilter = filterValues.miniatureName.trim().toLowerCase();
+    const createdByFilter = filterValues.createdBy.trim().toLowerCase();
+    const createdDateFrom = filterValues.createdDateFrom.trim();
+    const createdDateTo = filterValues.createdDateTo.trim();
+    const lastUpdatedByFilter = filterValues.lastUpdatedBy.trim().toLowerCase();
+    const lastUpdatedDateFrom = filterValues.lastUpdatedDateFrom.trim();
+    const lastUpdatedDateTo = filterValues.lastUpdatedDateTo.trim();
 
     const filtered = miniatureRows.filter((row) => {
       const collectionMatches = !filterValues.collectionName.length || filterValues.collectionName.includes(row.CollectionName);
@@ -528,7 +647,36 @@ export default function MiniatureMasterPage() {
         typeof filterValues.hasPurchaseOrder === 'undefined' ||
         (filterValues.hasPurchaseOrder === true ? isOwned : !isOwned);
 
-      return collectionMatches && subTypeMatches && itemMatches && nameMatches && miniatureSizeMatches && miniatureRarityMatches && locationMatches && ownedMatches;
+      const createdBySearch = row.CreatedUser != null
+        ? (userSearchTextById[Number(row.CreatedUser)] || String(row.CreatedUser)).toLowerCase()
+        : '';
+      const lastUpdatedBySearch = row.LastUpdatedUser != null
+        ? (userSearchTextById[Number(row.LastUpdatedUser)] || String(row.LastUpdatedUser)).toLowerCase()
+        : '';
+      const createdByMatches = !createdByFilter || createdBySearch.includes(createdByFilter);
+      const lastUpdatedByMatches = !lastUpdatedByFilter || lastUpdatedBySearch.includes(lastUpdatedByFilter);
+
+      const createdDateKey = normalizeDateKey(row.CreatedDate);
+      const lastUpdatedDateKey = normalizeDateKey(row.LastUpdatedDate);
+      const createdDateMatches =
+        (!createdDateFrom || (createdDateKey && createdDateKey >= createdDateFrom)) &&
+        (!createdDateTo || (createdDateKey && createdDateKey <= createdDateTo));
+      const lastUpdatedDateMatches =
+        (!lastUpdatedDateFrom || (lastUpdatedDateKey && lastUpdatedDateKey >= lastUpdatedDateFrom)) &&
+        (!lastUpdatedDateTo || (lastUpdatedDateKey && lastUpdatedDateKey <= lastUpdatedDateTo));
+
+      return collectionMatches
+        && subTypeMatches
+        && itemMatches
+        && nameMatches
+        && miniatureSizeMatches
+        && miniatureRarityMatches
+        && locationMatches
+        && ownedMatches
+        && createdByMatches
+        && createdDateMatches
+        && lastUpdatedByMatches
+        && lastUpdatedDateMatches;
     });
 
     return [...filtered].sort((a, b) => {
@@ -549,7 +697,7 @@ export default function MiniatureMasterPage() {
       if (valueA > valueB) return sortOrder === 'ASC' ? 1 : -1;
       return String(a.MiniatureName || '').localeCompare(String(b.MiniatureName || ''), undefined, { sensitivity: 'base' });
     });
-  }, [miniatureRows, filterValues, sortBy, sortOrder, hasPurchaseOrderByItemId]);
+  }, [miniatureRows, filterValues, sortBy, sortOrder, hasPurchaseOrderByItemId, userSearchTextById]);
 
   const pagination = useSetupPagination(filteredRows, [filterValues, sortBy, sortOrder], 10);
   const currentPageRows = pagination.paginatedRows;
@@ -701,6 +849,12 @@ export default function MiniatureMasterPage() {
       collectionName: [],
       subTypeName: [],
       itemId: '',
+      createdBy: '',
+      createdDateFrom: '',
+      createdDateTo: '',
+      lastUpdatedBy: '',
+      lastUpdatedDateFrom: '',
+      lastUpdatedDateTo: '',
       miniatureSizeName: [],
       miniatureRarityName: [],
       locationName: [],
@@ -735,6 +889,40 @@ export default function MiniatureMasterPage() {
       value: filterValues.itemId,
       onApply: (value) => handleChipFiltersChange({ itemId: value }),
       onClear: () => handleChipFiltersChange({ itemId: '' }),
+    },
+    {
+      key: 'createdBy',
+      label: 'Created By',
+      kind: 'text',
+      value: filterValues.createdBy,
+      onApply: (value) => handleChipFiltersChange({ createdBy: value }),
+      onClear: () => handleChipFiltersChange({ createdBy: '' }),
+    },
+    {
+      key: 'createdDate',
+      label: 'Created Date',
+      kind: 'dateRange',
+      from: filterValues.createdDateFrom,
+      to: filterValues.createdDateTo,
+      onApply: (from, to) => handleChipFiltersChange({ createdDateFrom: from, createdDateTo: to }),
+      onClear: () => handleChipFiltersChange({ createdDateFrom: '', createdDateTo: '' }),
+    },
+    {
+      key: 'lastUpdatedBy',
+      label: 'Last Updated By',
+      kind: 'text',
+      value: filterValues.lastUpdatedBy,
+      onApply: (value) => handleChipFiltersChange({ lastUpdatedBy: value }),
+      onClear: () => handleChipFiltersChange({ lastUpdatedBy: '' }),
+    },
+    {
+      key: 'lastUpdatedDate',
+      label: 'Last Updated Date',
+      kind: 'dateRange',
+      from: filterValues.lastUpdatedDateFrom,
+      to: filterValues.lastUpdatedDateTo,
+      onApply: (from, to) => handleChipFiltersChange({ lastUpdatedDateFrom: from, lastUpdatedDateTo: to }),
+      onClear: () => handleChipFiltersChange({ lastUpdatedDateFrom: '', lastUpdatedDateTo: '' }),
     },
     {
       key: 'miniatureSize',
@@ -1348,7 +1536,20 @@ export default function MiniatureMasterPage() {
   };
 
   const buildCsvContent = (rows: MiniatureRow[]) => {
-    const headers = ['Collection Name', 'Sub Category', 'Item', 'Miniature Name', 'Miniature Size', 'Miniature Rarity', 'Miniature Quantity', 'Location'];
+    const headers = [
+      'Collection Name',
+      'Sub Category',
+      'Item',
+      'Miniature Name',
+      'Miniature Size',
+      'Miniature Rarity',
+      'Miniature Quantity',
+      'Location',
+      'Created Date',
+      'Created By',
+      'Last Updated Date',
+      'Last Updated By',
+    ];
     const lines = rows.map((row) => [
       row.CollectionName,
       row.SubTypeName,
@@ -1358,6 +1559,10 @@ export default function MiniatureMasterPage() {
       row.MiniatureRarityName,
       String(row.MiniatureQuantity ?? ''),
       row.LocationName,
+      formatAuditDateForCsv(row.CreatedDate),
+      row.CreatedUser != null ? (userEmailById[Number(row.CreatedUser)] || String(row.CreatedUser)) : '',
+      formatAuditDateForCsv(row.LastUpdatedDate),
+      row.LastUpdatedUser != null ? (userEmailById[Number(row.LastUpdatedUser)] || String(row.LastUpdatedUser)) : '',
     ].map((value) => csvEscape(String(value))).join(','));
 
     return [headers.join(','), ...lines].join('\r\n');
@@ -1780,6 +1985,20 @@ export default function MiniatureMasterPage() {
             <span className="text-sm font-medium text-[var(--arcane-ink-900)]">Location</span>
             <ComboSelect options={locationOptions} value={editValues.LocationID} onChange={(value) => setEditValues((current) => ({ ...current, LocationID: value }))} placeholder="Select location" className="w-full" disablePortal />
           </label>
+          {isAdmin && editingMiniature ? (
+            <div className="w-full rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] px-4 py-3">
+              <div className="space-y-2 text-sm leading-6">
+                <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+                  <p className="text-[var(--arcane-ink-soft)]">Created On: <span className="font-medium text-[var(--arcane-ink-900)]">{formatAuditDateValue(editingMiniature.CreatedDate)}</span></p>
+                  <p className="text-[var(--arcane-ink-soft)]">Created By: <span className="font-medium text-[var(--arcane-ink-900)]">{(editingMiniature.CreatedUser != null ? userEmailById[Number(editingMiniature.CreatedUser)] : '') || '-'}</span></p>
+                </div>
+                <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+                  <p className="text-[var(--arcane-ink-soft)]">Last Updated On: <span className="font-medium text-[var(--arcane-ink-900)]">{formatAuditDateValue(editingMiniature.LastUpdatedDate)}</span></p>
+                  <p className="text-[var(--arcane-ink-soft)]">Last Updated By: <span className="font-medium text-[var(--arcane-ink-900)]">{(editingMiniature.LastUpdatedUser != null ? userEmailById[Number(editingMiniature.LastUpdatedUser)] : '') || '-'}</span></p>
+                </div>
+              </div>
+            </div>
+          ) : null}
           <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
             <Button type="button" className="bg-red-600 hover:bg-red-700 sm:mr-auto" onClick={handleDeleteMiniature} disabled={!canWrite || editMutation.isLoading || editDeleteMutation.isLoading} title={canWrite ? undefined : 'Switch to Update mode to delete miniatures'}>
               {editDeleteMutation.isLoading ? 'Deleting...' : 'Delete Miniature'}

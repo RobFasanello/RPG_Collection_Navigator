@@ -37,6 +37,16 @@ type TerrainRecord = {
   TerrainCode?: string | null;
   TerrainQuantity: number;
   LocationID?: number | null;
+  CreatedDate?: string | null;
+  CreatedUser?: number | null;
+  LastUpdatedDate?: string | null;
+  LastUpdatedUser?: number | null;
+};
+
+type AppUserLookupRow = {
+  UserID: number;
+  Email: string;
+  DisplayName?: string | null;
 };
 
 type ItemRecord = {
@@ -63,6 +73,12 @@ type FilterValues = {
   subTypeName: string[];
   itemId: string;
   terrainName: string;
+  createdBy: string;
+  createdDateFrom: string;
+  createdDateTo: string;
+  lastUpdatedBy: string;
+  lastUpdatedDateFrom: string;
+  lastUpdatedDateTo: string;
   locationName: string[];
   hasPurchaseOrder: boolean | undefined;
 };
@@ -72,6 +88,12 @@ const EMPTY_FILTERS: FilterValues = {
   subTypeName: [],
   itemId: '',
   terrainName: '',
+  createdBy: '',
+  createdDateFrom: '',
+  createdDateTo: '',
+  lastUpdatedBy: '',
+  lastUpdatedDateFrom: '',
+  lastUpdatedDateTo: '',
   locationName: [],
   hasPurchaseOrder: undefined,
 };
@@ -84,10 +106,67 @@ const csvEscape = (value: string) => {
   return value;
 };
 
+const formatAuditDateValue = (date?: string | null) => {
+  if (!date) {
+    return '-';
+  }
+
+  const parsedDate = new Date(date);
+  return Number.isNaN(parsedDate.getTime())
+    ? date
+    : parsedDate.toLocaleString(undefined, {
+        timeZone: 'UTC',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+};
+
+const formatAuditDateForCsv = (date?: string | null) => {
+  if (!date) {
+    return '';
+  }
+
+  const parsedDate = new Date(date);
+  return Number.isNaN(parsedDate.getTime())
+    ? date
+    : parsedDate.toLocaleString(undefined, {
+        timeZone: 'UTC',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+};
+
+const normalizeDateKey = (value?: string | null) => {
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+
+  return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, '0')}-${String(parsed.getUTCDate()).padStart(2, '0')}`;
+};
+
 export default function TerrainMasterPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { canWrite } = useAppMode();
+  const { canWrite, isAdmin } = useAppMode();
   const [urlSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [sortBy, setSortBy] = useState<SortColumn>('TerrainName');
@@ -179,6 +258,34 @@ export default function TerrainMasterPage() {
     queryKey: ['table', 'Location', 'all-for-terrain'],
     queryFn: async () => tablesAPI.getAllRecords('Location'),
   });
+
+  const { data: appUsers = [] } = useQuery<AppUserLookupRow[], Error>({
+    queryKey: ['table', 'User', 'all-for-terrain'],
+    queryFn: async () => tablesAPI.getAllRecords('User') as Promise<AppUserLookupRow[]>,
+    enabled: true,
+  });
+
+  const userEmailById = useMemo(() => {
+    return appUsers.reduce((map: Record<number, string>, user) => {
+      map[Number(user.UserID)] = String(user.Email ?? '').trim();
+      return map;
+    }, {});
+  }, [appUsers]);
+
+  const userSearchTextById = useMemo(() => {
+    return appUsers.reduce((map: Record<number, string>, user) => {
+      const userId = Number(user.UserID);
+      const tokens = [
+        String(user.UserID ?? '').trim(),
+        String(user.Email ?? '').trim(),
+        String(user.DisplayName ?? '').trim(),
+      ]
+        .filter(Boolean)
+        .map((token) => token.toLowerCase());
+      map[userId] = tokens.join(' ');
+      return map;
+    }, {});
+  }, [appUsers]);
 
   useQuery<Record<number, boolean>, Error>({
     queryKey: ['inventory', 'owned-map-for-terrain'],
@@ -446,6 +553,12 @@ export default function TerrainMasterPage() {
       subTypeName: [],
       itemId,
       terrainName,
+      createdBy: '',
+      createdDateFrom: '',
+      createdDateTo: '',
+      lastUpdatedBy: '',
+      lastUpdatedDateFrom: '',
+      lastUpdatedDateTo: '',
       locationName: location ? [location] : [],
       hasPurchaseOrder: undefined,
     };
@@ -478,6 +591,12 @@ export default function TerrainMasterPage() {
   const filteredRows = useMemo(() => {
     const itemFilterId = parseInt(filterValues.itemId, 10);
     const terrainFilter = filterValues.terrainName.trim().toLowerCase();
+    const createdByFilter = filterValues.createdBy.trim().toLowerCase();
+    const createdDateFrom = filterValues.createdDateFrom.trim();
+    const createdDateTo = filterValues.createdDateTo.trim();
+    const lastUpdatedByFilter = filterValues.lastUpdatedBy.trim().toLowerCase();
+    const lastUpdatedDateFrom = filterValues.lastUpdatedDateFrom.trim();
+    const lastUpdatedDateTo = filterValues.lastUpdatedDateTo.trim();
 
     const filtered = terrainRows.filter((row) => {
       const collectionMatches =
@@ -494,7 +613,34 @@ export default function TerrainMasterPage() {
         typeof filterValues.hasPurchaseOrder === 'undefined' ||
         (filterValues.hasPurchaseOrder === true ? isOwned : !isOwned);
 
-      return collectionMatches && subTypeMatches && itemMatches && nameMatches && locationMatches && ownedMatches;
+      const createdBySearch = row.CreatedUser != null
+        ? (userSearchTextById[Number(row.CreatedUser)] || String(row.CreatedUser)).toLowerCase()
+        : '';
+      const lastUpdatedBySearch = row.LastUpdatedUser != null
+        ? (userSearchTextById[Number(row.LastUpdatedUser)] || String(row.LastUpdatedUser)).toLowerCase()
+        : '';
+      const createdByMatches = !createdByFilter || createdBySearch.includes(createdByFilter);
+      const lastUpdatedByMatches = !lastUpdatedByFilter || lastUpdatedBySearch.includes(lastUpdatedByFilter);
+
+      const createdDateKey = normalizeDateKey(row.CreatedDate);
+      const lastUpdatedDateKey = normalizeDateKey(row.LastUpdatedDate);
+      const createdDateMatches =
+        (!createdDateFrom || (createdDateKey && createdDateKey >= createdDateFrom)) &&
+        (!createdDateTo || (createdDateKey && createdDateKey <= createdDateTo));
+      const lastUpdatedDateMatches =
+        (!lastUpdatedDateFrom || (lastUpdatedDateKey && lastUpdatedDateKey >= lastUpdatedDateFrom)) &&
+        (!lastUpdatedDateTo || (lastUpdatedDateKey && lastUpdatedDateKey <= lastUpdatedDateTo));
+
+      return collectionMatches
+        && subTypeMatches
+        && itemMatches
+        && nameMatches
+        && locationMatches
+        && ownedMatches
+        && createdByMatches
+        && createdDateMatches
+        && lastUpdatedByMatches
+        && lastUpdatedDateMatches;
     });
 
     return [...filtered].sort((a, b) => {
@@ -521,7 +667,7 @@ export default function TerrainMasterPage() {
         sensitivity: 'base',
       });
     });
-  }, [terrainRows, filterValues, sortBy, sortOrder, hasPurchaseOrderByItemId]);
+  }, [terrainRows, filterValues, sortBy, sortOrder, hasPurchaseOrderByItemId, userSearchTextById]);
 
   const pagination = useSetupPagination(filteredRows, [filterValues, sortBy, sortOrder], 10);
   const currentPageRows = pagination.paginatedRows;
@@ -674,6 +820,12 @@ export default function TerrainMasterPage() {
       collectionName: [],
       subTypeName: [],
       itemId: '',
+      createdBy: '',
+      createdDateFrom: '',
+      createdDateTo: '',
+      lastUpdatedBy: '',
+      lastUpdatedDateFrom: '',
+      lastUpdatedDateTo: '',
       locationName: [],
       hasPurchaseOrder: undefined,
     });
@@ -708,6 +860,40 @@ export default function TerrainMasterPage() {
       value: filterValues.itemId,
       onApply: (value) => handleChipFiltersChange({ itemId: value }),
       onClear: () => handleChipFiltersChange({ itemId: '' }),
+    },
+    {
+      key: 'createdBy',
+      label: 'Created By',
+      kind: 'text',
+      value: filterValues.createdBy,
+      onApply: (value) => handleChipFiltersChange({ createdBy: value }),
+      onClear: () => handleChipFiltersChange({ createdBy: '' }),
+    },
+    {
+      key: 'createdDate',
+      label: 'Created Date',
+      kind: 'dateRange',
+      from: filterValues.createdDateFrom,
+      to: filterValues.createdDateTo,
+      onApply: (from, to) => handleChipFiltersChange({ createdDateFrom: from, createdDateTo: to }),
+      onClear: () => handleChipFiltersChange({ createdDateFrom: '', createdDateTo: '' }),
+    },
+    {
+      key: 'lastUpdatedBy',
+      label: 'Last Updated By',
+      kind: 'text',
+      value: filterValues.lastUpdatedBy,
+      onApply: (value) => handleChipFiltersChange({ lastUpdatedBy: value }),
+      onClear: () => handleChipFiltersChange({ lastUpdatedBy: '' }),
+    },
+    {
+      key: 'lastUpdatedDate',
+      label: 'Last Updated Date',
+      kind: 'dateRange',
+      from: filterValues.lastUpdatedDateFrom,
+      to: filterValues.lastUpdatedDateTo,
+      onApply: (from, to) => handleChipFiltersChange({ lastUpdatedDateFrom: from, lastUpdatedDateTo: to }),
+      onClear: () => handleChipFiltersChange({ lastUpdatedDateFrom: '', lastUpdatedDateTo: '' }),
     },
     {
       key: 'location',
@@ -1268,7 +1454,19 @@ export default function TerrainMasterPage() {
   };
 
   const buildCsvContent = (rows: TerrainRow[]) => {
-    const headers = ['Collection Name', 'Sub Category', 'Item', 'Terrain Name', 'Terrain Code', 'Terrain Quantity', 'Location'];
+    const headers = [
+      'Collection Name',
+      'Sub Category',
+      'Item',
+      'Terrain Name',
+      'Terrain Code',
+      'Terrain Quantity',
+      'Location',
+      'Created Date',
+      'Created By',
+      'Last Updated Date',
+      'Last Updated By',
+    ];
     const lines = rows.map((row) =>
       [
         row.CollectionName,
@@ -1278,6 +1476,10 @@ export default function TerrainMasterPage() {
         String(row.TerrainCode ?? ''),
         String(row.TerrainQuantity ?? ''),
         row.LocationName,
+        formatAuditDateForCsv(row.CreatedDate),
+        row.CreatedUser != null ? (userEmailById[Number(row.CreatedUser)] || String(row.CreatedUser)) : '',
+        formatAuditDateForCsv(row.LastUpdatedDate),
+        row.LastUpdatedUser != null ? (userEmailById[Number(row.LastUpdatedUser)] || String(row.LastUpdatedUser)) : '',
       ]
         .map((value) => csvEscape(String(value)))
         .join(',')
@@ -1730,6 +1932,20 @@ export default function TerrainMasterPage() {
               disablePortal
             />
           </label>
+          {isAdmin && editingTerrain ? (
+            <div className="w-full rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] px-4 py-3">
+              <div className="space-y-2 text-sm leading-6">
+                <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+                  <p className="text-[var(--arcane-ink-soft)]">Created On: <span className="font-medium text-[var(--arcane-ink-900)]">{formatAuditDateValue(editingTerrain.CreatedDate)}</span></p>
+                  <p className="text-[var(--arcane-ink-soft)]">Created By: <span className="font-medium text-[var(--arcane-ink-900)]">{(editingTerrain.CreatedUser != null ? userEmailById[Number(editingTerrain.CreatedUser)] : '') || '-'}</span></p>
+                </div>
+                <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+                  <p className="text-[var(--arcane-ink-soft)]">Last Updated On: <span className="font-medium text-[var(--arcane-ink-900)]">{formatAuditDateValue(editingTerrain.LastUpdatedDate)}</span></p>
+                  <p className="text-[var(--arcane-ink-soft)]">Last Updated By: <span className="font-medium text-[var(--arcane-ink-900)]">{(editingTerrain.LastUpdatedUser != null ? userEmailById[Number(editingTerrain.LastUpdatedUser)] : '') || '-'}</span></p>
+                </div>
+              </div>
+            </div>
+          ) : null}
           <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
             <Button
               type="button"
