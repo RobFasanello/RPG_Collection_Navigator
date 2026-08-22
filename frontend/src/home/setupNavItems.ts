@@ -7,6 +7,11 @@ export type SetupNavItem = {
 // Note: Menu label "Administrator" is in HomeShell.tsx
 export const SETUP_NAV_ITEMS: SetupNavItem[] = [
   {
+    label: 'Audit Log',
+    path: '/home/setup/audit-log',
+    description: 'Select to view and delete Audit Log information within the application.',
+  },
+  {
     label: 'Categories',
     path: '/home/setup/categories',
     description: 'Select to view, add, delete and update Category reference data and associated reference data.',
@@ -35,10 +40,5 @@ export const SETUP_NAV_ITEMS: SetupNavItem[] = [
     label: 'Users',
     path: '/home/setup/users',
     description: 'Select to view and update User Access information within the application.',
-  },
-  {
-    label: 'Audit Log',
-    path: '/home/setup/audit-log',
-    description: 'Select to view and delete Audit Log information within the application.',
   },
 ];
