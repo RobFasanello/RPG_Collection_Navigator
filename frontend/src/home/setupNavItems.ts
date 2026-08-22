@@ -9,36 +9,36 @@ export const SETUP_NAV_ITEMS: SetupNavItem[] = [
   {
     label: 'Categories',
     path: '/home/setup/categories',
-    description: 'Select to view, add, delete or update Category reference data and associated reference data.',
+    description: 'Select to view, add, delete and update Category reference data and associated reference data.',
   },
   {
     label: 'Collections',
     path: '/home/setup/collections',
-    description: 'Select to view, add, delete or update Collection reference data and associated reference data.',
+    description: 'Select to view, add, delete and update Collection reference data and associated reference data.',
   },
   {
     label: 'Locations',
     path: '/home/setup/locations',
-    description: 'Select to view, add, delete or update Location reference data and associated reference data.',
+    description: 'Select to view, add, delete and update Location reference data and associated reference data.',
   },
   {
     label: 'Publishers',
     path: '/home/setup/publishers',
-    description: 'Select to view, add, delete or update Publisher reference data and associated reference data.',
+    description: 'Select to view, add, delete and update Publisher reference data and associated reference data.',
   },
   {
     label: 'Reference Lists',
     path: '/home/setup/reference-lists',
-    description: 'Select to view, add, delete or update Reference List data and associated reference data.',
+    description: 'Select to view, add, delete and update Reference List data and associated reference data.',
   },
   {
     label: 'Users',
     path: '/home/setup/users',
-    description: 'Manage who can sign in and their access mode.',
+    description: 'Select to view and update User Access information within the application.',
   },
   {
     label: 'Audit Log',
     path: '/home/setup/audit-log',
-    description: 'View a log of all changes made to records in your collection.',
+    description: 'Select to view and delete Audit Log information within the application.',
   },
 ];

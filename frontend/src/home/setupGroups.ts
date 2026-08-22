@@ -84,7 +84,7 @@ export const SETUP_GROUPS: SetupGroup[] = [
       {
         label: 'Audit Log',
         path: '/home/setup/audit-log',
-        description: 'View a log of all changes made to records in your collection.',
+        description: 'Use this screen to view and remove audit log entries in the application database.',
       },
     ],
   },

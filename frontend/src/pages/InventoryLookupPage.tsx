@@ -3089,11 +3089,11 @@ export default function InventoryLookupPage() {
                 <div className="w-full rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] px-4 py-3">
                   <div className="space-y-2 text-sm leading-6">
                     <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
-                      <p className="text-[var(--arcane-ink-soft)]">Created On: <span className="font-medium text-[var(--arcane-ink-900)]">{formatAuditDateValue(editingItem.CreatedDate)}</span></p>
+                      <p className="text-[var(--arcane-ink-soft)]">Created On (UTC): <span className="font-medium text-[var(--arcane-ink-900)]">{formatAuditDateValue(editingItem.CreatedDate)}</span></p>
                       <p className="text-[var(--arcane-ink-soft)]">Created By: <span className="font-medium text-[var(--arcane-ink-900)]">{(editingItem.CreatedUser != null ? userEmailById.get(Number(editingItem.CreatedUser)) : '') || '-'}</span></p>
                     </div>
                     <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
-                      <p className="text-[var(--arcane-ink-soft)]">Last Updated On: <span className="font-medium text-[var(--arcane-ink-900)]">{formatAuditDateValue(editingItem.LastUpdatedDate)}</span></p>
+                      <p className="text-[var(--arcane-ink-soft)]">Last Updated On (UTC): <span className="font-medium text-[var(--arcane-ink-900)]">{formatAuditDateValue(editingItem.LastUpdatedDate)}</span></p>
                       <p className="text-[var(--arcane-ink-soft)]">Last Updated By: <span className="font-medium text-[var(--arcane-ink-900)]">{(editingItem.LastUpdatedUser != null ? userEmailById.get(Number(editingItem.LastUpdatedUser)) : '') || '-'}</span></p>
                     </div>
                   </div>

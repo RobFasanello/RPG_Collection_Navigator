@@ -31,6 +31,14 @@ function normalizeItemUploadData(data: Record<string, any>): void {
   }
 }
 
+const parseDateOnlyFilter = (value: unknown): string | null => {
+  const raw = String(value ?? '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
+};
+
+const toDayStartDateTime2 = (value: string): string => `${value}T00:00:00.0000000`;
+const toDayEndDateTime2 = (value: string): string => `${value}T23:59:59.9999999`;
+
 async function resolveAppUserId(
   connection: sql.Transaction | sql.ConnectionPool,
   email: string | undefined
@@ -70,6 +78,34 @@ function usesCreatedStampColumns(tableName: string): boolean {
 
 function usesLastUpdatedStampColumns(tableName: string): boolean {
   return tableName === 'Item' || tableName === 'Miniature' || tableName === 'Terrain';
+}
+
+function normalizeAuditTimestamp(value: unknown): unknown {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? value : value.toISOString();
+  }
+
+  if (typeof value === 'string') {
+    const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})[T\s](\d{2}:\d{2}:\d{2})(?:\.(\d+))?$/);
+    if (match) {
+      const milliseconds = String(match[3] ?? '0').padEnd(3, '0').slice(0, 3);
+      return `${match[1]}T${match[2]}.${milliseconds}Z`;
+    }
+  }
+
+  return value;
+}
+
+function normalizeAuditStampColumns(tableName: string, row: Record<string, any>): Record<string, any> {
+  if (!usesCreatedStampColumns(tableName) && !usesLastUpdatedStampColumns(tableName)) {
+    return row;
+  }
+
+  return {
+    ...row,
+    CreatedDate: normalizeAuditTimestamp(row.CreatedDate),
+    LastUpdatedDate: normalizeAuditTimestamp(row.LastUpdatedDate),
+  };
 }
 
 function parsePositiveInt(value: unknown): number | null {
@@ -915,12 +951,16 @@ export async function getTableData(req: Request, res: Response): Promise<void> {
         FETCH NEXT @pageSize ROWS ONLY
       `);
 
-    const normalizedRows = tableName === 'Location'
-      ? result.recordset.map((row) => ({
-          ...row,
-          LocationName: normalizeLocationName(row.LocationName),
-        }))
-      : result.recordset;
+    const normalizedRows = result.recordset.map((row) => {
+      const normalizedRow = tableName === 'Location'
+        ? {
+            ...row,
+            LocationName: normalizeLocationName(row.LocationName),
+          }
+        : row;
+
+      return normalizeAuditStampColumns(tableName, normalizedRow);
+    });
 
     res.json({
       data: normalizedRows,
@@ -955,12 +995,15 @@ export async function getRecord(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const normalizedRow = tableName === 'Location'
-      ? {
-          ...row,
-          LocationName: normalizeLocationName(row.LocationName),
-        }
-      : row;
+    const normalizedRow = normalizeAuditStampColumns(
+      tableName,
+      tableName === 'Location'
+        ? {
+            ...row,
+            LocationName: normalizeLocationName(row.LocationName),
+          }
+        : row
+    );
 
     res.json(normalizedRow);
   } catch (error) {
@@ -1071,13 +1114,15 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
       request.input('createdDateTo', sql.Date, req.query.createdDateTo);
       filters.push('[Item].[CreatedDate] <= @createdDateTo');
     }
-    if (req.query.lastUpdatedDateFrom) {
-      request.input('lastUpdatedDateFrom', sql.Date, req.query.lastUpdatedDateFrom);
-      filters.push('[Item].[LastUpdatedDate] >= @lastUpdatedDateFrom');
+    const lastUpdatedDateFrom = parseDateOnlyFilter(req.query.lastUpdatedDateFrom);
+    const lastUpdatedDateTo = parseDateOnlyFilter(req.query.lastUpdatedDateTo);
+    if (lastUpdatedDateFrom) {
+      request.input('lastUpdatedDateFrom', sql.NVarChar(27), toDayStartDateTime2(lastUpdatedDateFrom));
+      filters.push('[Item].[LastUpdatedDate] >= CONVERT(datetime2(7), @lastUpdatedDateFrom, 126)');
     }
-    if (req.query.lastUpdatedDateTo) {
-      request.input('lastUpdatedDateTo', sql.Date, req.query.lastUpdatedDateTo);
-      filters.push('[Item].[LastUpdatedDate] <= @lastUpdatedDateTo');
+    if (lastUpdatedDateTo) {
+      request.input('lastUpdatedDateTo', sql.NVarChar(27), toDayEndDateTime2(lastUpdatedDateTo));
+      filters.push('[Item].[LastUpdatedDate] <= CONVERT(datetime2(7), @lastUpdatedDateTo, 126)');
     }
     if (req.query.createdBy) {
       const createdByRaw = String(req.query.createdBy).trim();
@@ -1195,48 +1240,6 @@ export async function getInventoryItems(req: Request, res: Response): Promise<vo
     if (isDigital !== null) {
       request.input('isDigital', sql.Bit, isDigital);
       filters.push('[Item].[IsDigital] = @isDigital');
-    }
-
-    if (req.query.createdDateFrom) {
-      request.input('createdDateFrom', sql.Date, req.query.createdDateFrom);
-      filters.push('[Item].[CreatedDate] >= @createdDateFrom');
-    }
-
-    if (req.query.createdDateTo) {
-      request.input('createdDateTo', sql.Date, req.query.createdDateTo);
-      filters.push('[Item].[CreatedDate] <= @createdDateTo');
-    }
-
-    if (req.query.lastUpdatedDateFrom) {
-      request.input('lastUpdatedDateFrom', sql.Date, req.query.lastUpdatedDateFrom);
-      filters.push('[Item].[LastUpdatedDate] >= @lastUpdatedDateFrom');
-    }
-
-    if (req.query.lastUpdatedDateTo) {
-      request.input('lastUpdatedDateTo', sql.Date, req.query.lastUpdatedDateTo);
-      filters.push('[Item].[LastUpdatedDate] <= @lastUpdatedDateTo');
-    }
-
-    if (req.query.createdBy) {
-      const createdByRaw = String(req.query.createdBy).trim();
-      request.input('createdBy', sql.NVarChar(255), `%${createdByRaw}%`);
-      const createdByClauses = [
-        'CAST([Item].[CreatedUser] AS NVARCHAR(20)) LIKE @createdBy',
-        '[CreatedByUser].[Email] LIKE @createdBy',
-        '[CreatedByUser].[DisplayName] LIKE @createdBy',
-      ];
-      filters.push(`(${createdByClauses.join(' OR ')})`);
-    }
-
-    if (req.query.lastUpdatedBy) {
-      const lastUpdatedByRaw = String(req.query.lastUpdatedBy).trim();
-      request.input('lastUpdatedBy', sql.NVarChar(255), `%${lastUpdatedByRaw}%`);
-      const lastUpdatedByClauses = [
-        'CAST([Item].[LastUpdatedUser] AS NVARCHAR(20)) LIKE @lastUpdatedBy',
-        '[LastUpdatedByUser].[Email] LIKE @lastUpdatedBy',
-        '[LastUpdatedByUser].[DisplayName] LIKE @lastUpdatedBy',
-      ];
-      filters.push(`(${lastUpdatedByClauses.join(' OR ')})`);
     }
 
     const hasPurchaseOrder = parseOptionalBoolean(req.query.hasPurchaseOrder);
@@ -1401,6 +1404,17 @@ export async function getInventoryExportRows(req: Request, res: Response): Promi
     if (req.query.releaseDateTo) {
       request.input('releaseDateTo', sql.Date, req.query.releaseDateTo);
       filters.push('[Item].[ReleaseDate] <= @releaseDateTo');
+    }
+
+    const lastUpdatedDateFrom = parseDateOnlyFilter(req.query.lastUpdatedDateFrom);
+    const lastUpdatedDateTo = parseDateOnlyFilter(req.query.lastUpdatedDateTo);
+    if (lastUpdatedDateFrom) {
+      request.input('lastUpdatedDateFrom', sql.NVarChar(27), toDayStartDateTime2(lastUpdatedDateFrom));
+      filters.push('[Item].[LastUpdatedDate] >= CONVERT(datetime2(7), @lastUpdatedDateFrom, 126)');
+    }
+    if (lastUpdatedDateTo) {
+      request.input('lastUpdatedDateTo', sql.NVarChar(27), toDayEndDateTime2(lastUpdatedDateTo));
+      filters.push('[Item].[LastUpdatedDate] <= CONVERT(datetime2(7), @lastUpdatedDateTo, 126)');
     }
 
     if (req.query.publisherName) {
@@ -2946,7 +2960,6 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
 
       const shouldStampLastUpdated = tableName === 'Miniature' || tableName === 'Terrain';
       let appUserIdForUpdate: number | null = null;
-      const lastUpdatedDate = new Date();
       if (shouldStampLastUpdated) {
         appUserIdForUpdate = await resolveAppUserId(pool, req.appUser?.email);
         if (appUserIdForUpdate === null) {
@@ -2971,7 +2984,7 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
 
       if (shouldStampLastUpdated) {
         outputColumns.push('LastUpdatedDate', 'LastUpdatedUser');
-        updates.push('[LastUpdatedDate] = @LastUpdatedDate', '[LastUpdatedUser] = @LastUpdatedUser');
+        updates.push('[LastUpdatedDate] = SYSUTCDATETIME()', '[LastUpdatedUser] = @LastUpdatedUser');
       }
 
       const updateStatement = updates
@@ -2987,7 +3000,6 @@ export async function updateRecord(req: Request, res: Response): Promise<void> {
         });
 
         if (shouldStampLastUpdated) {
-          request.input('LastUpdatedDate', sql.DateTime, lastUpdatedDate);
           request.input('LastUpdatedUser', sql.Int, appUserIdForUpdate);
         }
 

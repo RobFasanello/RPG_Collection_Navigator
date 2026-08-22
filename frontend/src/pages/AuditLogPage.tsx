@@ -441,7 +441,7 @@ export default function AuditLogPage() {
           <span>Audit Log</span>
           <span
             className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[var(--arcane-ink-soft)] hover:text-[var(--arcane-ink-900)]"
-            title="View a log of all changes made to records in your collection."
+            title="Use this screen to view and remove audit log entries in the application database."
             aria-label="Audit Log page information"
           >
             <CircleHelp className="h-4 w-4" aria-hidden="true" />

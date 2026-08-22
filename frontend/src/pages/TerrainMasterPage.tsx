@@ -163,6 +163,30 @@ const normalizeDateKey = (value?: string | null) => {
   return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, '0')}-${String(parsed.getUTCDate()).padStart(2, '0')}`;
 };
 
+const normalizeDateTimeKey = (value?: string | null) => {
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,7}))?)?)?/);
+  if (isoMatch) {
+    const fraction = String(isoMatch[7] ?? '0').padEnd(7, '0');
+    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}T${isoMatch[4] ?? '00'}:${isoMatch[5] ?? '00'}:${isoMatch[6] ?? '00'}.${fraction}`;
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+
+  const milliseconds = String(parsed.getUTCMilliseconds()).padStart(3, '0').padEnd(7, '0');
+  return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, '0')}-${String(parsed.getUTCDate()).padStart(2, '0')}T${String(parsed.getUTCHours()).padStart(2, '0')}:${String(parsed.getUTCMinutes()).padStart(2, '0')}:${String(parsed.getUTCSeconds()).padStart(2, '0')}.${milliseconds}`;
+};
+
+const toDayStartDateTimeKey = (value: string) => `${value}T00:00:00.0000000`;
+const toDayEndDateTimeKey = (value: string) => `${value}T23:59:59.9999999`;
+
 export default function TerrainMasterPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -595,8 +619,12 @@ export default function TerrainMasterPage() {
     const createdDateFrom = filterValues.createdDateFrom.trim();
     const createdDateTo = filterValues.createdDateTo.trim();
     const lastUpdatedByFilter = filterValues.lastUpdatedBy.trim().toLowerCase();
-    const lastUpdatedDateFrom = filterValues.lastUpdatedDateFrom.trim();
-    const lastUpdatedDateTo = filterValues.lastUpdatedDateTo.trim();
+    const lastUpdatedDateFrom = filterValues.lastUpdatedDateFrom.trim()
+      ? toDayStartDateTimeKey(filterValues.lastUpdatedDateFrom.trim())
+      : '';
+    const lastUpdatedDateTo = filterValues.lastUpdatedDateTo.trim()
+      ? toDayEndDateTimeKey(filterValues.lastUpdatedDateTo.trim())
+      : '';
 
     const filtered = terrainRows.filter((row) => {
       const collectionMatches =
@@ -623,7 +651,7 @@ export default function TerrainMasterPage() {
       const lastUpdatedByMatches = !lastUpdatedByFilter || lastUpdatedBySearch.includes(lastUpdatedByFilter);
 
       const createdDateKey = normalizeDateKey(row.CreatedDate);
-      const lastUpdatedDateKey = normalizeDateKey(row.LastUpdatedDate);
+      const lastUpdatedDateKey = normalizeDateTimeKey(row.LastUpdatedDate);
       const createdDateMatches =
         (!createdDateFrom || (createdDateKey && createdDateKey >= createdDateFrom)) &&
         (!createdDateTo || (createdDateKey && createdDateKey <= createdDateTo));
@@ -1936,11 +1964,11 @@ export default function TerrainMasterPage() {
             <div className="w-full rounded-lg border border-[var(--arcane-border-light)] bg-[var(--arcane-paper)] px-4 py-3">
               <div className="space-y-2 text-sm leading-6">
                 <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
-                  <p className="text-[var(--arcane-ink-soft)]">Created On: <span className="font-medium text-[var(--arcane-ink-900)]">{formatAuditDateValue(editingTerrain.CreatedDate)}</span></p>
+                  <p className="text-[var(--arcane-ink-soft)]">Created On (UTC): <span className="font-medium text-[var(--arcane-ink-900)]">{formatAuditDateValue(editingTerrain.CreatedDate)}</span></p>
                   <p className="text-[var(--arcane-ink-soft)]">Created By: <span className="font-medium text-[var(--arcane-ink-900)]">{(editingTerrain.CreatedUser != null ? userEmailById[Number(editingTerrain.CreatedUser)] : '') || '-'}</span></p>
                 </div>
                 <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
-                  <p className="text-[var(--arcane-ink-soft)]">Last Updated On: <span className="font-medium text-[var(--arcane-ink-900)]">{formatAuditDateValue(editingTerrain.LastUpdatedDate)}</span></p>
+                  <p className="text-[var(--arcane-ink-soft)]">Last Updated On (UTC): <span className="font-medium text-[var(--arcane-ink-900)]">{formatAuditDateValue(editingTerrain.LastUpdatedDate)}</span></p>
                   <p className="text-[var(--arcane-ink-soft)]">Last Updated By: <span className="font-medium text-[var(--arcane-ink-900)]">{(editingTerrain.LastUpdatedUser != null ? userEmailById[Number(editingTerrain.LastUpdatedUser)] : '') || '-'}</span></p>
                 </div>
               </div>
